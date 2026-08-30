@@ -7,6 +7,30 @@ export const ACTION_PARAMETERS_REQUIRED = 'ACTION_PARAMETERS_REQUIRED';
 export const ATLEAST_ONE_CONDITION_REQUIRED = 'ATLEAST_ONE_CONDITION_REQUIRED';
 export const ATLEAST_ONE_ACTION_REQUIRED = 'ATLEAST_ONE_ACTION_REQUIRED';
 
+export const KEY_REQUIRED = 'KEY_REQUIRED';
+export const KEY_INVALID = 'KEY_INVALID';
+export const KEY_DUPLICATED = 'KEY_DUPLICATED';
+export const LABEL_REQUIRED = 'LABEL_REQUIRED';
+export const OPTIONS_REQUIRED = 'OPTIONS_REQUIRED';
+export const LOOKUP_URL_REQUIRED = 'LOOKUP_URL_REQUIRED';
+export const LOOKUP_URL_INVALID = 'LOOKUP_URL_INVALID';
+export const DEPENDS_ON_REQUIRED = 'DEPENDS_ON_REQUIRED';
+
+export const MACRO_INPUT_FIELD_TYPES = [
+  'text',
+  'textarea',
+  'number',
+  'email',
+  'date',
+  'phone',
+  'cpf',
+  'cnpj',
+  'select',
+  'lookup',
+];
+
+export const MACRO_INPUT_FIELD_KEY_REGEX = /^[a-z][a-z0-9_]*$/;
+
 const isEmptyValue = value => {
   if (!value) {
     return true;
@@ -187,4 +211,82 @@ export const validateAutomation = automation => {
     ...conditionErrors,
     ...actionErrors,
   };
+};
+
+// ------------------------------------------------------------------
+// ------------------ Macro Input Fields Validation -----------------
+// ------------------------------------------------------------------
+
+/**
+ * Espelha a validacao do backend (Macro#input_fields_format) para o agente ver
+ * o erro no campo em vez de descobrir no 422. O servidor continua sendo a
+ * autoridade -- aqui e so para nao perder o que ja foi digitado.
+ *
+ * Uma checagem existe la e nao aqui: se o host do lookup_url e publico
+ * (Macros::SafeUrl). Isso depende de resolucao de DNS e nao da para fazer no
+ * browser.
+ *
+ * @param {Object} field
+ * @param {Set<string>} keysSeen - chaves ja usadas pelos campos anteriores
+ * @returns {Object} erros por propriedade, ex.: { key: 'KEY_INVALID' }
+ */
+const validateSingleInputField = (field, keysSeen) => {
+  const errors = {};
+  const key = (field.key || '').trim();
+
+  if (!key) {
+    errors.key = KEY_REQUIRED;
+  } else if (!MACRO_INPUT_FIELD_KEY_REGEX.test(key)) {
+    errors.key = KEY_INVALID;
+  } else if (keysSeen.has(key)) {
+    errors.key = KEY_DUPLICATED;
+  }
+
+  if (!(field.label || '').trim()) {
+    errors.label = LABEL_REQUIRED;
+  }
+
+  if (field.type === 'select' && !field.options?.length) {
+    errors.options = OPTIONS_REQUIRED;
+  }
+
+  if (field.type === 'lookup') {
+    const url = (field.lookup_url || '').trim();
+
+    if (!url) {
+      errors.lookup_url = LOOKUP_URL_REQUIRED;
+    } else if (!/^https?:\/\/.+/i.test(url)) {
+      errors.lookup_url = LOOKUP_URL_INVALID;
+    }
+
+    if (!field.depends_on?.length) {
+      errors.depends_on = DEPENDS_ON_REQUIRED;
+    }
+  }
+
+  return errors;
+};
+
+/**
+ * @param {Array} fields
+ * @returns {Object} erros indexados, ex.: { input_field_0: { key: 'KEY_REQUIRED' } }
+ */
+export const validateMacroInputFields = fields => {
+  if (!fields?.length) return {};
+
+  const keysSeen = new Set();
+
+  return fields.reduce((errors, field, index) => {
+    const fieldErrors = validateSingleInputField(field, keysSeen);
+
+    // So registra a chave depois de validar, senao o proprio campo se acusaria
+    // de duplicado.
+    const key = (field.key || '').trim();
+    if (key) keysSeen.add(key);
+
+    if (Object.keys(fieldErrors).length) {
+      errors[`input_field_${index}`] = fieldErrors;
+    }
+    return errors;
+  }, {});
 };

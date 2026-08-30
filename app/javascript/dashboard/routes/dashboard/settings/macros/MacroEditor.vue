@@ -96,6 +96,7 @@ const initNewMacro = () => {
         action_params: [],
       },
     ],
+    input_fields: [],
     visibility: isAdmin.value ? 'global' : 'personal',
   };
 };
