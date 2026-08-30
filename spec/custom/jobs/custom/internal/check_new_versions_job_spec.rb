@@ -10,22 +10,23 @@ require 'rails_helper'
 # Nenhuma das tres da erro visivel quando quebra -- o override simplesmente para
 # de valer em silencio, e o job volta a deixar o hub ditar o plano. Por isso a
 # checagem e explicita aqui.
-RSpec.describe 'custom extension layer' do
+RSpec.describe Custom::Internal::CheckNewVersionsJob do
   it 'lista custom entre as extensoes ativas' do
     expect(ChatwootApp).to be_custom
     expect(ChatwootApp.extensions).to include('custom')
   end
 
   it 'autocarrega constantes sob o namespace Custom::' do
-    expect { Custom::Internal::CheckNewVersionsJob }.not_to raise_error
+    expect(described_class).to be_a(Module)
+    expect(described_class.name).to eq('Custom::Internal::CheckNewVersionsJob')
   end
 
   it 'coloca o modulo Custom:: na frente do Enterprise:: na cadeia de ancestrais' do
     ancestors = Internal::CheckNewVersionsJob.ancestors
 
-    expect(ancestors).to include(Custom::Internal::CheckNewVersionsJob)
+    expect(ancestors).to include(described_class)
     expect(ancestors).to include(Enterprise::Internal::CheckNewVersionsJob)
-    expect(ancestors.index(Custom::Internal::CheckNewVersionsJob))
+    expect(ancestors.index(described_class))
       .to be < ancestors.index(Enterprise::Internal::CheckNewVersionsJob)
   end
 end

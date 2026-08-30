@@ -64,7 +64,11 @@ module Chatwoot
     # A regra do fork: override de Ruby mora em custom/, nao editando o arquivo
     # original. Assim `git diff` contra o upstream fica limpo e o merge de versao
     # nova nao conflita. Ver docs-fork/plano-port-coraxy.md.
-    if ChatwootApp.custom?
+    # Nao usar ChatwootApp.custom? aqui: o lib/chatwoot_app.rb ainda nao foi carregado
+    # neste ponto do boot (as linhas de enterprise/ acima nao o referenciam, por isso
+    # o upstream nunca esbarrou nisso). A checagem abaixo e a mesma que o
+    # ChatwootApp.custom? faz -- a pasta existir --, so que sem depender da constante.
+    if Rails.root.join('custom').exist?
       custom_lib = Rails.root.join('custom/lib')
       config.eager_load_paths << custom_lib if custom_lib.exist?
       # rubocop:disable Rails/FilePath
