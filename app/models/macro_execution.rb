@@ -17,10 +17,8 @@
 #
 # Indexes
 #
-#  index_macro_executions_on_account_id                 (account_id)
 #  index_macro_executions_on_account_id_and_created_at  (account_id,created_at DESC)
 #  index_macro_executions_on_conversation_id            (conversation_id)
-#  index_macro_executions_on_macro_id                   (macro_id)
 #  index_macro_executions_on_macro_id_and_created_at    (macro_id,created_at DESC)
 #  index_macro_executions_on_user_id                    (user_id)
 #
