@@ -327,12 +327,17 @@
 # ------- End of Chatwoot Internal Config for Cloud ----#
 
 # ------- Chatwoot Internal Config for Self Hosted ----#
+# [FORK] Este fork opera como enterprise. O plano e uma configuracao local: o
+# Custom::Internal::CheckNewVersionsJob impede que a resposta do hub sobrescreva
+# estas duas chaves. Sao os defaults de instalacao nova -- o ConfigLoader roda
+# com reconcile_only_new e nao mexe em instalacao que ja existe (para essas, usar
+# `rake dev:variant_toggle` ou editar no super admin).
 - name: INSTALLATION_PRICING_PLAN
-  value: 'community'
-  description: 'The pricing plan for the installation, retrieved from the billing API'
+  value: 'enterprise'
+  description: 'The pricing plan for the installation'
 - name: INSTALLATION_PRICING_PLAN_QUANTITY
-  value: 0
-  description: 'The number of licenses purchased for the installation, retrieved from the billing API'
+  value: 100000
+  description: 'The number of licenses available for the installation'
 - name: CHATWOOT_SUPPORT_WEBSITE_TOKEN
   value:
   description: 'The Chatwoot website token, used to identify the Chatwoot inbox and display the "Contact Support" option on the billing page'
