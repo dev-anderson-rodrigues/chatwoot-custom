@@ -1,5 +1,6 @@
 <script>
 import Draggable from 'vuedraggable';
+import NextInput from 'dashboard/components-next/input/Input.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 // NextSelect e nao Select: "Select" e nome reservado de elemento HTML e o
@@ -11,6 +12,7 @@ import { MACRO_INPUT_FIELD_TYPES } from 'dashboard/helper/validations';
 export default {
   components: {
     Draggable,
+    NextInput,
     NextButton,
     Icon,
     NextSelect,
@@ -221,22 +223,22 @@ export default {
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <woot-input
+            <NextInput
               :model-value="fields[index].key"
               :label="$t('MACROS.INPUT_FIELDS.KEY')"
               :placeholder="$t('MACROS.INPUT_FIELDS.KEY_PLACEHOLDER')"
-              :error="errorMessage(index, 'key')"
-              :class="{ error: errorsFor(index).key }"
-              :readonly="readOnly"
+              :message="errorMessage(index, 'key')"
+              :message-type="errorsFor(index).key ? 'error' : 'info'"
+              :disabled="readOnly"
               @update:model-value="updateField(index, { key: $event })"
             />
-            <woot-input
+            <NextInput
               :model-value="fields[index].label"
               :label="$t('MACROS.INPUT_FIELDS.LABEL')"
               :placeholder="$t('MACROS.INPUT_FIELDS.LABEL_PLACEHOLDER')"
-              :error="errorMessage(index, 'label')"
-              :class="{ error: errorsFor(index).label }"
-              :readonly="readOnly"
+              :message="errorMessage(index, 'label')"
+              :message-type="errorsFor(index).label ? 'error' : 'info'"
+              :disabled="readOnly"
               @update:model-value="updateField(index, { label: $event })"
             />
           </div>
@@ -271,16 +273,16 @@ export default {
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <woot-input
+            <NextInput
               :model-value="fields[index].placeholder"
               :label="$t('MACROS.INPUT_FIELDS.PLACEHOLDER_LABEL')"
-              :readonly="readOnly"
+              :disabled="readOnly"
               @update:model-value="updateField(index, { placeholder: $event })"
             />
-            <woot-input
+            <NextInput
               :model-value="fields[index].default_value"
               :label="$t('MACROS.INPUT_FIELDS.DEFAULT_VALUE')"
-              :readonly="readOnly"
+              :disabled="readOnly"
               @update:model-value="
                 updateField(index, { default_value: $event })
               "
@@ -311,20 +313,20 @@ export default {
               :key="optionIndex"
               class="flex items-center gap-2"
             >
-              <woot-input
+              <NextInput
                 :model-value="option.value"
                 :placeholder="$t('MACROS.INPUT_FIELDS.OPTION_VALUE')"
                 class="flex-1 mb-0"
-                :readonly="readOnly"
+                :disabled="readOnly"
                 @update:model-value="
                   updateOption(index, optionIndex, { value: $event })
                 "
               />
-              <woot-input
+              <NextInput
                 :model-value="option.label"
                 :placeholder="$t('MACROS.INPUT_FIELDS.OPTION_LABEL')"
                 class="flex-1 mb-0"
-                :readonly="readOnly"
+                :disabled="readOnly"
                 @update:model-value="
                   updateOption(index, optionIndex, { label: $event })
                 "
@@ -352,26 +354,26 @@ export default {
             v-if="fields[index].type === 'lookup'"
             class="flex flex-col gap-3"
           >
-            <woot-input
+            <NextInput
               :model-value="fields[index].lookup_url"
               :label="$t('MACROS.INPUT_FIELDS.LOOKUP_URL')"
               placeholder="https://"
-              :error="errorMessage(index, 'lookup_url')"
-              :class="{ error: errorsFor(index).lookup_url }"
-              :readonly="readOnly"
+              :message="errorMessage(index, 'lookup_url')"
+              :message-type="errorsFor(index).lookup_url ? 'error' : 'info'"
+              :disabled="readOnly"
               @update:model-value="updateField(index, { lookup_url: $event })"
             />
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              <woot-input
+              <NextInput
                 :model-value="fields[index].value_key"
                 :label="$t('MACROS.INPUT_FIELDS.LOOKUP_VALUE_KEY')"
-                :readonly="readOnly"
+                :disabled="readOnly"
                 @update:model-value="updateField(index, { value_key: $event })"
               />
-              <woot-input
+              <NextInput
                 :model-value="fields[index].label_key"
                 :label="$t('MACROS.INPUT_FIELDS.LOOKUP_LABEL_KEY')"
-                :readonly="readOnly"
+                :disabled="readOnly"
                 @update:model-value="updateField(index, { label_key: $event })"
               />
             </div>
@@ -430,15 +432,3 @@ export default {
     </Draggable>
   </div>
 </template>
-
-<style scoped lang="scss">
-:deep(input[type='text']) {
-  @apply mb-0;
-}
-
-:deep(.error) {
-  .message {
-    @apply mb-0;
-  }
-}
-</style>

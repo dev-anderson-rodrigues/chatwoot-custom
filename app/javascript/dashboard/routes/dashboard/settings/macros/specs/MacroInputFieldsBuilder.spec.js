@@ -19,7 +19,7 @@ const mountComponent = props =>
     props: { modelValue: [], ...props },
     global: {
       stubs: {
-        WootInput: true,
+        NextInput: true,
         NextButton: true,
         Icon: true,
         NextSelect: true,
