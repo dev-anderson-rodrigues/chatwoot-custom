@@ -523,6 +523,87 @@ RSpec.describe 'Api::V1::Accounts::MacrosController', type: :request do
     end
   end
 
+  describe 'GET /api/v1/accounts/{account.id}/macros/stats' do
+    let!(:macro) { create(:macro, account: account, created_by: administrator, updated_by: administrator, visibility: :global) }
+
+    context 'when unauthenticated' do
+      it 'returns unauthorized' do
+        get "/api/v1/accounts/#{account.id}/macros/stats"
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when authenticated' do
+      it 'aggregates the executions per macro' do
+        create_list(:macro_execution, 3, account: account, macro: macro, status: :success)
+        create(:macro_execution, account: account, macro: macro, status: :failed)
+
+        get "/api/v1/accounts/#{account.id}/macros/stats", headers: administrator.create_new_auth_token
+
+        expect(response).to have_http_status(:success)
+        entry = response.parsed_body['payload'].find { |s| s['macro_id'] == macro.id }
+
+        expect(entry['total']).to eq(4)
+        expect(entry['counts']).to include('success' => 3, 'failed' => 1)
+        expect(entry['success_rate']).to eq(75.0)
+        expect(entry['last_executed_at']).to be_present
+      end
+
+      # Pendente ainda nao terminou: conta-lo como fracasso faria a taxa
+      # despencar no meio de um lote grande.
+      it 'leaves pending executions out of the success rate' do
+        create(:macro_execution, account: account, macro: macro, status: :success)
+        create(:macro_execution, account: account, macro: macro, status: :pending)
+
+        get "/api/v1/accounts/#{account.id}/macros/stats", headers: administrator.create_new_auth_token
+
+        entry = response.parsed_body['payload'].find { |s| s['macro_id'] == macro.id }
+        expect(entry['total']).to eq(2)
+        expect(entry['success_rate']).to eq(100.0)
+      end
+
+      it 'returns a null rate when nothing has finished' do
+        get "/api/v1/accounts/#{account.id}/macros/stats", headers: administrator.create_new_auth_token
+
+        entry = response.parsed_body['payload'].find { |s| s['macro_id'] == macro.id }
+        expect(entry['total']).to eq(0)
+        expect(entry['success_rate']).to be_nil
+      end
+
+      it 'honours the date range' do
+        create(:macro_execution, account: account, macro: macro, status: :success, created_at: 90.days.ago)
+        create(:macro_execution, account: account, macro: macro, status: :success, created_at: 1.day.ago)
+
+        get "/api/v1/accounts/#{account.id}/macros/stats",
+            params: { from: 7.days.ago.iso8601 }, headers: administrator.create_new_auth_token
+
+        entry = response.parsed_body['payload'].find { |s| s['macro_id'] == macro.id }
+        expect(entry['total']).to eq(1)
+      end
+
+      it 'does not count executions from another account' do
+        other_account = create(:account)
+        other_macro = create(:macro, account: other_account, visibility: :global)
+        create(:macro_execution, account: other_account, macro: other_macro, status: :success)
+
+        get "/api/v1/accounts/#{account.id}/macros/stats", headers: administrator.create_new_auth_token
+
+        macro_ids = response.parsed_body['payload'].map { |s| s['macro_id'] }
+        expect(macro_ids).not_to include(other_macro.id)
+      end
+
+      it 'only reports macros the agent can see' do
+        create(:macro, account: account, created_by: administrator, updated_by: administrator, visibility: :personal)
+
+        get "/api/v1/accounts/#{account.id}/macros/stats", headers: agent.create_new_auth_token
+
+        reported = response.parsed_body['payload'].map { |s| s['macro_id'] }
+        visible = Macro.where(account: account).global.pluck(:id) + Macro.where(created_by: agent).pluck(:id)
+        expect(reported).to match_array(visible.uniq)
+      end
+    end
+  end
+
   describe 'DELETE /api/v1/accounts/{account.id}/macros/{macro.id}' do
     let!(:macro) { create(:macro, account: account, created_by: administrator, updated_by: administrator) }
 

@@ -137,7 +137,11 @@ Rails.application.routes.draw do
             post :clone
           end
           resources :macros, only: [:index, :create, :show, :update, :destroy] do
+            collection do
+              get :stats
+            end
             post :execute, on: :member
+            resources :executions, only: [:index, :show], controller: 'macro_executions'
           end
           resources :sla_policies, only: [:index, :create, :show, :update, :destroy]
           resources :custom_roles, only: [:index, :create, :show, :update, :destroy]

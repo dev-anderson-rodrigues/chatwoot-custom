@@ -9,6 +9,10 @@ RSpec.describe Macros::ExecutionService, type: :service do
 
   before do
     create(:inbox_member, user: user, inbox: conversation.inbox)
+    # send_webhook_event agora passa pelo guarda de SSRF, que resolve DNS de
+    # verdade. Stubado aqui para o teste nao depender de rede -- a politica do
+    # guarda em si e coberta em spec/services/macros/safe_url_spec.rb.
+    allow(Macros::SafeUrl).to receive(:public_http?).and_return(true)
   end
 
   describe '#perform' do
@@ -173,6 +177,94 @@ RSpec.describe Macros::ExecutionService, type: :service do
     it 'sends a webhook event' do
       expect(WebhookJob).to receive(:perform_later)
       service.send(:send_webhook_event, ['https://example.com/webhook'])
+    end
+
+    it 'refuses a url that the SSRF guard rejects' do
+      allow(Macros::SafeUrl).to receive(:public_http?).and_return(false)
+      expect(WebhookJob).not_to receive(:perform_later)
+
+      expect { service.send(:send_webhook_event, ['http://169.254.169.254/latest/meta-data/']) }
+        .to raise_error(ArgumentError, /Unsafe webhook URL/)
+    end
+
+    it 'checks the url after the variable substitution, not before' do
+      service = described_class.new(macro, conversation, user, { 'host' => '169.254.169.254' })
+      allow(Macros::SafeUrl).to receive(:public_http?).and_return(true)
+
+      expect(WebhookJob).to receive(:perform_later).with('http://169.254.169.254/x', anything)
+      allow(macro).to receive(:actions).and_return(
+        [{ action_name: 'send_webhook_event', action_params: ['http://{{host}}/x'] }]
+      )
+
+      service.perform
+      expect(Macros::SafeUrl).to have_received(:public_http?).with('http://169.254.169.254/x')
+    end
+  end
+
+  describe 'execution audit record' do
+    let(:service) { described_class.new(macro, conversation, user, { 'nome' => 'Ana' }) }
+
+    it 'records a successful run' do
+      allow(macro).to receive(:actions).and_return(
+        [{ action_name: 'add_private_note', action_params: ['Ola {{nome}}'] }]
+      )
+
+      expect { service.perform }.to change(MacroExecution, :count).by(1)
+
+      execution = MacroExecution.last
+      expect(execution).to have_attributes(
+        macro_id: macro.id, conversation_id: conversation.id, user_id: user.id,
+        status: 'success', actions_run: 1, actions_total: 1, inputs: { 'nome' => 'Ana' }
+      )
+      expect(execution.error_message).to be_nil
+    end
+
+    it 'substitutes the input into the action params' do
+      allow(macro).to receive(:actions).and_return(
+        [{ action_name: 'add_private_note', action_params: ['Ola {{nome}}'] }]
+      )
+
+      service.perform
+
+      expect(conversation.messages.last.content).to eq('Ola Ana')
+    end
+
+    it 'records partial when one action fails and another succeeds' do
+      allow(macro).to receive(:actions).and_return([
+                                                     { action_name: 'add_private_note', action_params: ['ok'] },
+                                                     { action_name: 'send_webhook_event', action_params: ['http://blocked/x'] }
+                                                   ])
+      allow(Macros::SafeUrl).to receive(:public_http?).and_return(false)
+
+      service.perform
+
+      execution = MacroExecution.last
+      expect(execution.status).to eq('partial')
+      expect(execution.actions_run).to eq(1)
+      expect(execution.error_message).to include('send_webhook_event')
+    end
+
+    it 'records failed when no action runs' do
+      allow(macro).to receive(:actions).and_return(
+        [{ action_name: 'send_webhook_event', action_params: ['http://blocked/x'] }]
+      )
+      allow(Macros::SafeUrl).to receive(:public_http?).and_return(false)
+
+      service.perform
+
+      expect(MacroExecution.last).to have_attributes(status: 'failed', actions_run: 0)
+    end
+
+    # Regressao do "Blocker 1": macro sem input_fields estourava RecordInvalid
+    # dentro do job e nenhuma acao rodava, em silencio.
+    it 'runs a macro that has no inputs at all' do
+      service = described_class.new(macro, conversation, user)
+      allow(macro).to receive(:actions).and_return(
+        [{ action_name: 'add_private_note', action_params: ['sem inputs'] }]
+      )
+
+      expect { service.perform }.not_to raise_error
+      expect(MacroExecution.last).to have_attributes(status: 'success', inputs: {})
     end
   end
 end
