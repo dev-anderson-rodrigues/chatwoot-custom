@@ -255,6 +255,19 @@ RSpec.describe Macros::ExecutionService, type: :service do
       expect(MacroExecution.last).to have_attributes(status: 'failed', actions_run: 0)
     end
 
+    # Sem isso a linha fica pending para sempre e o card de stats a conta no
+    # total sem nunca virar sucesso nem falha.
+    it 'marks the execution as failed when something blows up outside the action loop' do
+      allow(macro).to receive(:actions).and_return([{ action_name: 'add_private_note', action_params: ['ok'] }])
+      allow(service).to receive(:finalize_execution).and_raise(ActiveRecord::ConnectionNotEstablished)
+
+      expect { service.perform }.to raise_error(ActiveRecord::ConnectionNotEstablished)
+
+      expect(MacroExecution.last).to have_attributes(
+        status: 'failed', error_message: 'Execution interrupted before completion'
+      )
+    end
+
     # Regressao do "Blocker 1": macro sem input_fields estourava RecordInvalid
     # dentro do job e nenhuma acao rodava, em silencio.
     it 'runs a macro that has no inputs at all' do

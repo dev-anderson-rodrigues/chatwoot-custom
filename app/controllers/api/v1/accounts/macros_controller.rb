@@ -76,8 +76,14 @@ class Api::V1::Accounts::MacrosController < Api::V1::Accounts::BaseController
                   .count
   end
 
+  # Mesma janela do execution_counts, de proposito. O Postgres nao tem skip
+  # index scan: um GROUP BY ... MAX(created_at) sem filtro de data percorre todo
+  # o historico de cada macro, e essa tabela de auditoria cresce sem teto. Com a
+  # janela, o card passa a dizer "ultima execucao no periodo consultado", que e
+  # coerente com os contadores exibidos ao lado.
   def last_execution_times(macro_ids)
     MacroExecution.where(account_id: Current.account.id, macro_id: macro_ids)
+                  .where(created_at: stats_range)
                   .group(:macro_id)
                   .maximum(:created_at)
   end

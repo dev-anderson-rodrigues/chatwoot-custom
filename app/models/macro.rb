@@ -25,13 +25,21 @@ class Macro < ApplicationRecord
              class_name: :User, optional: true, inverse_of: :macros
   belongs_to :updated_by,
              class_name: :User, optional: true
-  has_many :executions, class_name: 'MacroExecution', dependent: :destroy
+  # delete_all, nao destroy: o MacroExecution nao tem callback de destroy, e uma
+  # macro executada em lote acumula milhares de linhas. destroy faria o Rails
+  # carregar todas e emitir um DELETE por linha dentro de uma transacao longa,
+  # sendo que o ON DELETE CASCADE ja resolve num comando so.
+  has_many :executions, class_name: 'MacroExecution', dependent: :delete_all
   has_many_attached :files
 
   enum visibility: { personal: 0, global: 1 }
 
   validate :json_actions_format
-  validate :input_fields_format
+  # So quando o array muda: validar um input_field do tipo lookup resolve DNS de
+  # verdade (Macros::SafeUrl). Sem esta guarda, renomear a macro dispararia uma
+  # chamada de rede sincrona no request -- e a macro deixaria de poder ser salva
+  # sempre que o host do lookup_url estivesse fora do ar.
+  validate :input_fields_format, if: :input_fields_changed?
 
   ACTIONS_ATTRS = %w[send_message add_label assign_team assign_agent mute_conversation change_status remove_label remove_assigned_agent
                      remove_assigned_team resolve_conversation snooze_conversation change_priority send_email_transcript

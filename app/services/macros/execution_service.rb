@@ -27,10 +27,26 @@ class Macros::ExecutionService < ActionService
 
     finalize_execution(execution, failures)
   ensure
+    # Cada acao tem seu proprio rescue, mas nada cobre o metodo inteiro: se algo
+    # estourar fora do laco (ou nao for StandardError), a linha ficaria pending
+    # para sempre -- e o card de stats a contaria no total sem nunca virar
+    # sucesso nem falha. Isso nao cobre SIGKILL; para esse caso ainda falta uma
+    # varredura periodica de pendentes antigos.
+    abandon_execution(execution) if execution&.pending?
     Current.reset
   end
 
   private
+
+  def abandon_execution(execution)
+    execution.update_columns( # rubocop:disable Rails/SkipsModelValidations
+      status: MacroExecution.statuses[:failed],
+      error_message: 'Execution interrupted before completion',
+      updated_at: Time.current
+    )
+  rescue StandardError => e
+    ChatwootExceptionTracker.new(e, account: @account).capture_exception
+  end
 
   def build_execution
     MacroExecution.create!(

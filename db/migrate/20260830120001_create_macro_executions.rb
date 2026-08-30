@@ -1,8 +1,16 @@
 class CreateMacroExecutions < ActiveRecord::Migration[7.1]
   def change
     create_table :macro_executions do |t|
-      t.references :account, null: false, foreign_key: { on_delete: :cascade }
-      t.references :macro, null: false, foreign_key: { on_delete: :cascade }
+      # index: false em account e macro porque os indices compostos criados
+      # abaixo comecam por essas colunas -- um B-tree composto atende igualmente
+      # bem os filtros que usam so a coluna lider, inclusive a varredura que o
+      # ON DELETE CASCADE faz. Manter os indices soltos so somaria amplificacao
+      # de escrita: o job grava 1 INSERT + 1 UPDATE por conversa em lote.
+      t.references :account, null: false, index: false, foreign_key: { on_delete: :cascade }
+      t.references :macro, null: false, index: false, foreign_key: { on_delete: :cascade }
+      # user_id mantem o indice solto: nenhum composto comeca por ele, e o
+      # ON DELETE SET NULL precisa achar as linhas do usuario apagado sem
+      # varrer a tabela inteira.
       t.references :user, null: true, foreign_key: { on_delete: :nullify }
 
       # Sem foreign_key para conversations de proposito: nao existe nenhuma FK para

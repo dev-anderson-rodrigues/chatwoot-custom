@@ -118,6 +118,60 @@ RSpec.describe 'Api::V1::Accounts::MacroExecutionsController', type: :request do
     end
   end
 
+  # Macro global e visivel por qualquer agente, mas o historico dela carrega os
+  # inputs (CPF/CNPJ digitado por colegas) e o display_id da conversa. Isso nao
+  # pode furar a fronteira de inbox/time que a ConversationPolicy protege no
+  # resto do app.
+  describe 'escopo de visibilidade do historico' do
+    let(:my_inbox) { create(:inbox, account: account) }
+    let(:other_inbox) { create(:inbox, account: account) }
+    let(:mine) { create(:conversation, account: account, inbox: my_inbox) }
+    let(:not_mine) { create(:conversation, account: account, inbox: other_inbox) }
+
+    before do
+      create(:inbox_member, user: agent, inbox: my_inbox)
+      create(:macro_execution, account: account, macro: macro, conversation: mine, inputs: { 'cpf' => 'meu' })
+      create(:macro_execution, account: account, macro: macro, conversation: not_mine, inputs: { 'cpf' => 'alheio' })
+    end
+
+    def cpfs_for(user)
+      get "/api/v1/accounts/#{account.id}/macros/#{macro.id}/executions", headers: user.create_new_auth_token
+      response.parsed_body['payload'].map { |e| e['inputs']['cpf'] }
+    end
+
+    it 'hides the execution from an inbox the agent cannot access' do
+      expect(cpfs_for(agent)).to contain_exactly('meu')
+      expect(response.parsed_body['meta']['total']).to eq(1)
+    end
+
+    it 'returns 404 when fetching that execution directly' do
+      hidden = MacroExecution.find_by(conversation: not_mine)
+
+      get "/api/v1/accounts/#{account.id}/macros/#{macro.id}/executions/#{hidden.id}",
+          headers: agent.create_new_auth_token
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'keeps executions with no conversation visible' do
+      create(:macro_execution, account: account, macro: macro, conversation: nil, inputs: { 'cpf' => 'sem conversa' })
+
+      expect(cpfs_for(agent)).to contain_exactly('meu', 'sem conversa')
+    end
+
+    it 'reaches a conversation through the agent team' do
+      team = create(:team, account: account)
+      create(:team_member, team: team, user: agent)
+      not_mine.update!(team: team)
+
+      expect(cpfs_for(agent)).to contain_exactly('meu', 'alheio')
+    end
+
+    it 'shows everything to an administrator' do
+      expect(cpfs_for(administrator)).to contain_exactly('meu', 'alheio')
+    end
+  end
+
   describe 'GET /api/v1/accounts/{account.id}/macros/{macro.id}/executions/{id}' do
     let(:execution) { create(:macro_execution, account: account, macro: macro, user: agent, inputs: { 'cpf' => '123' }) }
 
