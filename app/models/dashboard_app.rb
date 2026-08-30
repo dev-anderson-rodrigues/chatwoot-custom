@@ -2,13 +2,15 @@
 #
 # Table name: dashboard_apps
 #
-#  id         :bigint           not null, primary key
-#  content    :jsonb
-#  title      :string           not null
-#  created_at :datetime         not null
-#  updated_at :datetime         not null
-#  account_id :bigint           not null
-#  user_id    :bigint
+#  id              :bigint           not null, primary key
+#  content         :jsonb
+#  pin_to_sidebar  :boolean          default(FALSE), not null
+#  show_in_sidebar :boolean          default(FALSE), not null
+#  title           :string           not null
+#  created_at      :datetime         not null
+#  updated_at      :datetime         not null
+#  account_id      :bigint           not null
+#  user_id         :bigint
 #
 # Indexes
 #

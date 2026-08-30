@@ -195,6 +195,63 @@ describe ConversationFinder do
       end
     end
 
+    context 'with my_teams_only' do
+      let!(:my_team) { create(:team, account: account) }
+      let!(:other_team) { create(:team, account: account) }
+      let(:params) { { my_teams_only: 'true', status: 'all' } }
+
+      before do
+        create(:team_member, team: my_team, user: user_1)
+        create(:conversation, account: account, inbox: inbox, team: my_team)
+        create(:conversation, account: account, inbox: inbox, team: other_team)
+      end
+
+      it 'keeps conversations from my teams and drops the other teams' do
+        teams = conversation_finder.perform[:conversations].map(&:team_id)
+
+        expect(teams).to include(my_team.id)
+        expect(teams).not_to include(other_team.id)
+      end
+
+      # Conversa sem time ainda nao foi triada: some-la aqui faria ninguem pegar.
+      it 'keeps conversations that have no team at all' do
+        teams = conversation_finder.perform[:conversations].map(&:team_id)
+
+        expect(teams).to include(nil)
+      end
+
+      it 'does nothing when the flag is absent' do
+        result = described_class.new(user_1, { status: 'all' }).perform
+        expect(result[:conversations].map(&:team_id)).to include(other_team.id)
+      end
+
+      # ActiveModel::Type::Boolean trata como falso apenas a lista conhecida
+      # ('false', '0', 'f', 'off', ''); qualquer outro valor liga o filtro.
+      # Isso erra para o lado restritivo, que e o seguro aqui.
+      ['false', '0', 'off', ''].each do |falsy|
+        it "does not filter when the flag is #{falsy.inspect}" do
+          result = described_class.new(user_1, { my_teams_only: falsy, status: 'all' }).perform
+          expect(result[:conversations].map(&:team_id)).to include(other_team.id)
+        end
+      end
+
+      it 'filters when the flag is 1' do
+        result = described_class.new(user_1, { my_teams_only: '1', status: 'all' }).perform
+        expect(result[:conversations].map(&:team_id)).not_to include(other_team.id)
+      end
+
+      context 'when the agent has no team' do
+        before { my_team.team_members.destroy_all }
+
+        it 'returns only the conversations without a team' do
+          teams = conversation_finder.perform[:conversations].map(&:team_id)
+
+          expect(teams).to all(be_nil)
+          expect(teams).not_to be_empty
+        end
+      end
+    end
+
     context 'with labels' do
       let(:params) { { labels: ['resolved'] } }
 

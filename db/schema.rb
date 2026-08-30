@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_08_30_120001) do
+ActiveRecord::Schema[7.2].define(version: 2026_08_30_130000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -993,6 +993,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_30_120001) do
     t.bigint "user_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "show_in_sidebar", default: false, null: false
+    t.boolean "pin_to_sidebar", default: false, null: false
     t.index ["account_id"], name: "index_dashboard_apps_on_account_id"
     t.index ["user_id"], name: "index_dashboard_apps_on_user_id"
   end
@@ -1221,10 +1223,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_30_120001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "created_at"], name: "index_macro_executions_on_account_id_and_created_at", order: { created_at: :desc }
-    t.index ["account_id"], name: "index_macro_executions_on_account_id"
     t.index ["conversation_id"], name: "index_macro_executions_on_conversation_id"
     t.index ["macro_id", "created_at"], name: "index_macro_executions_on_macro_id_and_created_at", order: { created_at: :desc }
-    t.index ["macro_id"], name: "index_macro_executions_on_macro_id"
     t.index ["user_id"], name: "index_macro_executions_on_user_id"
   end
 

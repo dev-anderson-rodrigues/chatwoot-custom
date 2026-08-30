@@ -225,4 +225,50 @@ RSpec.describe 'DashboardAppsController', type: :request do
       end
     end
   end
+
+  describe 'flags de exibicao na sidebar' do
+    let(:user) { create(:user, account: account, role: :administrator) }
+    let(:content) { [{ type: 'frame', url: 'https://link.com' }] }
+
+    it 'defaults both flags to false' do
+      post "/api/v1/accounts/#{account.id}/dashboard_apps",
+           headers: user.create_new_auth_token,
+           params: { dashboard_app: { title: 'CRM', content: content } },
+           as: :json
+
+      expect(response.parsed_body).to include('show_in_sidebar' => false, 'pin_to_sidebar' => false)
+    end
+
+    it 'accepts the flags on create' do
+      post "/api/v1/accounts/#{account.id}/dashboard_apps",
+           headers: user.create_new_auth_token,
+           params: { dashboard_app: { title: 'CRM', content: content, show_in_sidebar: true, pin_to_sidebar: true } },
+           as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(response.parsed_body).to include('show_in_sidebar' => true, 'pin_to_sidebar' => true)
+      expect(DashboardApp.last).to have_attributes(show_in_sidebar: true, pin_to_sidebar: true)
+    end
+
+    it 'updates the flags' do
+      dashboard_app = create(:dashboard_app, user: user, account: account)
+
+      patch "/api/v1/accounts/#{account.id}/dashboard_apps/#{dashboard_app.id}",
+            headers: user.create_new_auth_token,
+            params: { dashboard_app: { show_in_sidebar: true } },
+            as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(dashboard_app.reload.show_in_sidebar).to be(true)
+      expect(dashboard_app.pin_to_sidebar).to be(false)
+    end
+
+    it 'exposes the flags on index' do
+      create(:dashboard_app, user: user, account: account, show_in_sidebar: true)
+
+      get "/api/v1/accounts/#{account.id}/dashboard_apps", headers: user.create_new_auth_token
+
+      expect(response.parsed_body.first).to include('show_in_sidebar' => true, 'pin_to_sidebar' => false)
+    end
+  end
 end
