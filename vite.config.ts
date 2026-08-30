@@ -10,6 +10,16 @@ import yaml from '@rollup/plugin-yaml';
 // variavel de ambiente: so o Windows paga. Ver docs-fork/ambiente-local.md.
 const usePolling = process.env.FORCE_POLLING_FILE_WATCHER === 'true';
 
+// [FORK] O Vite 6 recusa request cujo header Host nao esteja na allowedHosts.
+// Em Docker isso quebra o caminho normal: a pagina pede /vite-dev/... na porta
+// do Rails, o vite_ruby faz proxy para o container `vite`, e o Vite devolve 403
+// -- a aplicacao carrega sem nenhum asset. Buscar direto na 3036 funciona,
+// porque ai o Host e localhost. Sem lista definida, nada muda.
+const allowedHosts = (process.env.VITE_ALLOWED_HOSTS ?? '')
+  .split(',')
+  .map(host => host.trim())
+  .filter(Boolean);
+
 export default defineConfig({
   plugins: [ruby(), vue(vueOptions), yaml()],
   css: {
@@ -20,7 +30,8 @@ export default defineConfig({
     },
   },
   resolve: { alias: aliases },
-  server: usePolling
-    ? { watch: { usePolling: true, interval: 300 } }
-    : {},
+  server: {
+    ...(usePolling ? { watch: { usePolling: true, interval: 300 } } : {}),
+    ...(allowedHosts.length ? { allowedHosts } : {}),
+  },
 });
