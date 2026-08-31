@@ -2,8 +2,30 @@ import { mount } from '@vue/test-utils';
 import { withFullI18n } from 'test-i18n';
 import WootUIKit from 'dashboard/components';
 import MacroInputFieldsBuilder from '../MacroInputFieldsBuilder.vue';
+import {
+  KEY_REQUIRED,
+  KEY_INVALID,
+  KEY_DUPLICATED,
+  LABEL_REQUIRED,
+  OPTIONS_REQUIRED,
+  LOOKUP_URL_REQUIRED,
+  LOOKUP_URL_INVALID,
+  DEPENDS_ON_REQUIRED,
+} from 'dashboard/helper/validations';
 
 withFullI18n();
+
+// Todos os codigos que validateMacroInputFields pode emitir.
+const MACRO_INPUT_FIELD_ERROR_CODES = [
+  KEY_REQUIRED,
+  KEY_INVALID,
+  KEY_DUPLICATED,
+  LABEL_REQUIRED,
+  OPTIONS_REQUIRED,
+  LOOKUP_URL_REQUIRED,
+  LOOKUP_URL_INVALID,
+  DEPENDS_ON_REQUIRED,
+];
 
 /**
  * Montagem REAL (mount, nao shallowMount): renderiza Input, Select, Checkbox e
@@ -121,6 +143,26 @@ describe('MacroInputFieldsBuilder.vue (render real)', () => {
       'Use lowercase letters, digits and underscore only.'
     );
   });
+
+  // Testar um codigo so nao bastava: KEY_REQUIRED, LABEL_REQUIRED e
+  // LOOKUP_URL_REQUIRED estavam sem traducao e a tela mostrava a chave crua
+  // ("MACROS.INPUT_FIELDS.KEY_REQUIRED") para o usuario. Sao justamente os
+  // erros de campo obrigatorio, os mais comuns. Este teste cobre todos os
+  // codigos que o validador pode emitir, entao um codigo novo sem traducao
+  // quebra aqui em vez de vazar para a tela.
+  it.each(MACRO_INPUT_FIELD_ERROR_CODES)(
+    'translates the %s validation error instead of showing the raw key',
+    code => {
+      const wrapper = mountComponent({
+        modelValue: [field({ type: 'lookup' })],
+        errors: { input_field_0: { key: code } },
+      });
+
+      // Se faltar a traducao, o vue-i18n devolve a propria chave.
+      expect(wrapper.text()).not.toContain(code);
+      expect(wrapper.text()).not.toContain('MACROS.');
+    }
+  );
 
   // Os tres testes abaixo cobrem o que costuma quebrar so na tela. Nao
   // substituem olhar renderizado, mas travam o contrato para nao regredir em
