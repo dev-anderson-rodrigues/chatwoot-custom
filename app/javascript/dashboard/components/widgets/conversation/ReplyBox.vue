@@ -52,7 +52,11 @@ import {
   getContactVariables,
 } from 'dashboard/helper/editorHelper';
 import { useCopilotReply } from 'dashboard/composables/useCopilotReply';
-import { useMacroExecution } from 'dashboard/composables/useMacroExecution';
+import {
+  useMacroExecution,
+  INPUT_FIELDS_GATE,
+} from 'dashboard/composables/useMacroExecution';
+import MacroExecuteModal from 'dashboard/components-next/Macros/MacroExecuteModal.vue';
 import ConversationResolveAttributesModal from 'dashboard/components-next/ConversationWorkflow/ConversationResolveAttributesModal.vue';
 import { useKbd } from 'dashboard/composables/utils/useKbd';
 import { isFileTypeAllowedForChannel } from 'shared/helpers/FileHelper';
@@ -85,6 +89,7 @@ export default {
     CopilotEditorSection,
     CopilotReplyBottomPanel,
     ConversationResolveAttributesModal,
+    MacroExecuteModal,
   },
   mixins: [inboxMixin, fileUploadMixin, keyboardEventListenerMixins],
   emits: ['toggleEditorSize'],
@@ -841,14 +846,30 @@ export default {
     toggleMacrosMenu(value) {
       this.showMacrosMenu = value;
     },
-    onExecuteMacro(macro) {
-      const pending = this.macroExecution.execute(macro, this.currentChat.id);
-      if (pending) {
-        this.$refs.resolveAttributesModal?.open(
-          pending.missing,
-          pending.customAttributes
-        );
+    // Mesmo roteamento do Macros/List.vue: o composable diz qual portao barrou
+    // -- campos de entrada ou atributos obrigatorios -- e aqui so abrimos o
+    // modal correspondente. Preencher os campos pode esbarrar no portao
+    // seguinte, por isso o retorno de submitInputs passa pelo mesmo caminho.
+    openPendingGate(pending) {
+      if (!pending) return;
+
+      if (pending.kind === INPUT_FIELDS_GATE) {
+        this.$refs.macroExecuteModal?.open(pending.macro, pending.fields);
+        return;
       }
+
+      this.$refs.resolveAttributesModal?.open(
+        pending.missing,
+        pending.customAttributes
+      );
+    },
+    onExecuteMacro(macro) {
+      this.openPendingGate(
+        this.macroExecution.execute(macro, this.currentChat.id)
+      );
+    },
+    onMacroInputsSubmitted(inputs) {
+      this.openPendingGate(this.macroExecution.submitInputs(inputs));
     },
     openWhatsappTemplateModal() {
       this.showWhatsAppTemplatesModal = true;
@@ -1547,6 +1568,12 @@ export default {
       @close="hideContentTemplatesModal"
       @on-send="onSendContentTemplateReply"
       @cancel="hideContentTemplatesModal"
+    />
+
+    <MacroExecuteModal
+      ref="macroExecuteModal"
+      @submit="onMacroInputsSubmitted"
+      @close="macroExecution.cancelInputs"
     />
 
     <ConversationResolveAttributesModal

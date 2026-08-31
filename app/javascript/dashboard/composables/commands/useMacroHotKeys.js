@@ -18,12 +18,20 @@ export function useMacroHotKeys() {
   const route = useRoute();
 
   const { orderedMacros } = useOrderedMacros();
-  const { execute, submitPendingAttributes, dismissPendingAttributes } =
-    useMacroExecution();
+  const {
+    execute,
+    submitInputs,
+    cancelInputs,
+    submitPendingAttributes,
+    dismissPendingAttributes,
+  } = useMacroExecution();
   const { isFeatureFlagEnabled } = usePolicy();
 
   const currentChat = useMapGetter('getSelectedChat');
-  const pendingAttributes = ref(null);
+  // [FORK] Guarda o portao que barrou a execucao -- campos de entrada ou
+  // atributos obrigatorios -- para o commandbar abrir o modal certo. Antes so
+  // existia o segundo caso, dai o nome anterior (`pendingAttributes`).
+  const pendingGate = ref(null);
 
   const isMacrosAvailable = computed(
     () =>
@@ -51,7 +59,7 @@ export function useMacroHotKeys() {
       section: t('COMMAND_BAR.SECTIONS.EXECUTE_MACRO'),
       icon: ICON_TOY_BRICK,
       handler: () => {
-        pendingAttributes.value = execute(macro, currentChat.value.id);
+        pendingGate.value = execute(macro, currentChat.value.id);
       },
     }));
 
@@ -67,9 +75,22 @@ export function useMacroHotKeys() {
     ];
   });
 
+  // Preencher os campos pode esbarrar no portao seguinte, entao o resultado
+  // volta para o mesmo ref e o commandbar reage abrindo o proximo modal.
+  const submitMacroInputs = inputs => {
+    pendingGate.value = submitInputs(inputs);
+  };
+
+  const cancelMacroInputs = () => {
+    pendingGate.value = null;
+    cancelInputs();
+  };
+
   return {
     macroHotKeys,
-    pendingAttributes,
+    pendingGate,
+    submitMacroInputs,
+    cancelMacroInputs,
     submitPendingAttributes,
     dismissPendingAttributes,
   };

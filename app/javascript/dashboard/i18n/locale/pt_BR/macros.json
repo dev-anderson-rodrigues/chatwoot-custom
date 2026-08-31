@@ -80,6 +80,18 @@
       }
     },
     "EXECUTE": {
+      "MODAL": {
+        "TITLE": "Executar macro",
+        "DESCRIPTION": "Preencha o que esta macro precisa antes de rodar.",
+        "ACTIONS": {
+          "RUN": "Executar macro",
+          "CANCEL": "Cancelar"
+        },
+        "VALIDATIONS": {
+          "REQUIRED": "Este campo é obrigatório.",
+          "EMAIL": "Informe um e-mail válido."
+        }
+      },
       "BUTTON_TOOLTIP": "Executar",
       "PREVIEW": "Pré-visualizar Macro",
       "EXECUTED_SUCCESSFULLY": "Macro executada com sucesso",

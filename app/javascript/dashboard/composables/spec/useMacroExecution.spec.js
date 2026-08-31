@@ -2,7 +2,11 @@ import { flushPromises } from '@vue/test-utils';
 import { useAlert, useTrack } from 'dashboard/composables';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useConversationRequiredAttributes } from 'dashboard/composables/useConversationRequiredAttributes';
-import { useMacroExecution } from '../useMacroExecution';
+import {
+  useMacroExecution,
+  INPUT_FIELDS_GATE,
+  ATTRIBUTES_GATE,
+} from '../useMacroExecution';
 
 vi.mock('dashboard/composables/store');
 vi.mock('dashboard/composables');
@@ -60,6 +64,7 @@ describe('useMacroExecution', () => {
     expect(dispatch).toHaveBeenCalledWith('macros/execute', {
       macroId: 7,
       conversationIds: [CONVERSATION_ID],
+      inputs: {},
     });
     expect(useAlert).toHaveBeenCalledWith(
       'MACROS.EXECUTE.EXECUTED_SUCCESSFULLY'
@@ -90,6 +95,7 @@ describe('useMacroExecution', () => {
     await flushPromises();
 
     expect(pending).toEqual({
+      kind: ATTRIBUTES_GATE,
       missing: ['priority'],
       customAttributes: { category: 'sales' },
     });
@@ -150,6 +156,7 @@ describe('useMacroExecution', () => {
     expect(dispatch).toHaveBeenNthCalledWith(2, 'macros/execute', {
       macroId: 7,
       conversationIds: [CONVERSATION_ID],
+      inputs: {},
     });
   });
 
@@ -206,5 +213,111 @@ describe('useMacroExecution', () => {
 
     expect(useAlert).toHaveBeenCalledWith('MACROS.ERROR');
     expect(executingMacroId.value).toBeNull();
+  });
+
+  // [FORK] Portao dos campos de entrada. O ponto delicado e a ordem: ele vem
+  // antes do de atributos, e preencher os campos pode esbarrar no seguinte.
+  describe('portao dos campos de entrada', () => {
+    const inputFields = [{ key: 'cpf', label: 'CPF', type: 'cpf' }];
+    const macroWithInputs = actions => ({
+      ...macroWith(actions),
+      input_fields: inputFields,
+    });
+
+    it('holds the macro back and reports the fields to ask for', async () => {
+      const { execute } = useMacroExecution();
+
+      const pending = execute(macroWithInputs([addLabel]), CONVERSATION_ID);
+      await flushPromises();
+
+      expect(pending.kind).toBe(INPUT_FIELDS_GATE);
+      expect(pending.fields).toEqual(inputFields);
+      expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('sends the collected inputs to the backend', async () => {
+      const { execute, submitInputs } = useMacroExecution();
+
+      execute(macroWithInputs([addLabel]), CONVERSATION_ID);
+      const next = submitInputs({ cpf: '11144477735' });
+      await flushPromises();
+
+      expect(next).toBeNull();
+      expect(dispatch).toHaveBeenCalledWith('macros/execute', {
+        macroId: 7,
+        conversationIds: [CONVERSATION_ID],
+        inputs: { cpf: '11144477735' },
+      });
+    });
+
+    // O caso que motivou juntar os dois portoes num fluxo so: preencher os
+    // campos nao executa a macro se ela ainda esbarrar nos atributos.
+    it('falls through to the attributes gate after the inputs are filled', async () => {
+      checkMissingAttributes.mockReturnValue({
+        hasMissing: true,
+        missing: ['priority'],
+      });
+      mockConversation({ category: 'sales' });
+
+      const { execute, submitInputs } = useMacroExecution();
+
+      execute(macroWithInputs([resolveConversation]), CONVERSATION_ID);
+      const next = submitInputs({ cpf: '11144477735' });
+      await flushPromises();
+
+      expect(next).toEqual({
+        kind: ATTRIBUTES_GATE,
+        missing: ['priority'],
+        customAttributes: { category: 'sales' },
+      });
+      expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('keeps the inputs through the attributes gate', async () => {
+      checkMissingAttributes.mockReturnValue({
+        hasMissing: true,
+        missing: ['priority'],
+      });
+
+      const { execute, submitInputs, submitPendingAttributes } =
+        useMacroExecution();
+
+      execute(macroWithInputs([resolveConversation]), CONVERSATION_ID);
+      submitInputs({ cpf: '11144477735' });
+      await submitPendingAttributes({ attributes: { priority: 'high' } });
+      await flushPromises();
+
+      expect(dispatch).toHaveBeenNthCalledWith(2, 'macros/execute', {
+        macroId: 7,
+        conversationIds: [CONVERSATION_ID],
+        inputs: { cpf: '11144477735' },
+      });
+    });
+
+    // Diferente do modal de atributos, que segue sem resolver: sem os valores a
+    // macro nao tem o que substituir.
+    it('aborts the execution when the agent dismisses the form', async () => {
+      const { execute, cancelInputs, submitInputs } = useMacroExecution();
+
+      execute(macroWithInputs([addLabel]), CONVERSATION_ID);
+      cancelInputs();
+      await flushPromises();
+
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(submitInputs({ cpf: '1' })).toBeNull();
+    });
+
+    it('skips the gate when the macro has no input fields', async () => {
+      const { execute } = useMacroExecution();
+
+      const pending = execute(
+        { ...macroWith([addLabel]), input_fields: [] },
+        CONVERSATION_ID
+      );
+      await flushPromises();
+
+      expect(pending).toBeNull();
+      expect(dispatch).toHaveBeenCalled();
+    });
   });
 });
