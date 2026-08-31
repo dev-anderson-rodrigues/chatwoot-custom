@@ -235,6 +235,42 @@ Duas correções:
 
 Depois de recriar o container do vite, o cache passa a sobreviver aos restarts.
 
+#### O culpado real da tela branca: `Flag.vue`
+
+As correções acima são legítimas, mas **nenhuma delas resolvia o problema** — só
+mascaravam o resto enquanto um módulo seguia travando tudo. O que isolou foi
+percorrer o grafo de imports a partir do entrypoint:
+
+> **3.582 módulos, 122 s, zero falhas — exceto um.**
+
+`dashboard/components-next/flag/Flag.vue?vue&type=style&index=0&lang.css` **nunca
+completava**: 765 s numa medição, 1062 s noutra, sem responder. O `<style>` do SFC
+fazia `@import 'flag-icons/css/flag-icons.min.css'`, e esse CSS tem **540 `url()`**
+para SVGs — cada uma vira uma resolução de asset individual no Vite, e sobre o 9p
+isso não termina.
+
+Como `Flag.vue` entra no grafo do entrypoint (via `ContactsCard` e
+`SearchResultContactItem`), ele derrubava a **aplicação inteira**, não só as telas
+de contatos e busca.
+
+Correção: o CSS saiu do pipeline do Vite. Os arquivos foram copiados de
+`node_modules/flag-icons` para `public/flag-icons/` e são carregados por
+`stylesheet_link_tag` no `app/views/layouts/vueapp.html.erb`. `Flag.vue` passou a
+responder em **1 s** sem pedir bloco de style, e o crawl completo não acusa mais
+falha. Vale em produção também, onde o build economiza as mesmas 540 resoluções.
+
+Dois cuidados que vieram junto:
+
+- `Flag.story.vue` renderiza fora do layout do Rails, então injeta o mesmo `<link>`
+  — sem isso as bandeiras apareceriam em branco no Histoire.
+- Os 540 SVGs (3,1 MB) ficaram versionados em `public/`. É ruído em merge com o
+  upstream; a alternativa é gerar a cópia num `postinstall`, ao custo de depender
+  de o deploy rodar o install.
+
+**Lição de método:** o diagnóstico só andou quando parei de inferir a partir de
+quem importa o quê e passei a medir o grafo de verdade. A afirmação de que
+"`Flag.vue` não afeta a tela de macros" era falsa e custou horas.
+
 #### Verificação da Onda 2 ✅
 
 Tudo executado no container (`chatwoot-dev`). O host tem Ruby 3.4.5 e Bundler, mas não
