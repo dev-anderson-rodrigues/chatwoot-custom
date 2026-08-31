@@ -86,6 +86,27 @@ export default {
         this.fields.filter((field, i) => i !== index)
       );
     },
+    // O vuedraggable (SortableJS) so responde a ponteiro. Sem isto, quem navega
+    // por teclado chegava no handle -- que e um <button> com aria-label, ou
+    // seja, se anuncia como acionavel -- e nao conseguia fazer nada com ele.
+    // Prometer uma acao que nao existe e pior do que nao ter o botao.
+    moveField(index, offset) {
+      if (this.readOnly) return;
+
+      const target = index + offset;
+      if (target < 0 || target >= this.fields.length) return;
+
+      const reordered = [...this.fields];
+      [reordered[index], reordered[target]] = [
+        reordered[target],
+        reordered[index],
+      ];
+      this.$emit('update:modelValue', reordered);
+
+      // O foco segue o campo movido, senao ele fica no handle de outro campo e
+      // a proxima seta move o item errado.
+      this.$nextTick(() => this.$refs.handles?.[target]?.focus());
+    },
     updateField(index, changes) {
       if (this.readOnly) return;
 
@@ -206,9 +227,17 @@ export default {
           <div class="flex items-center gap-2">
             <button
               v-if="!readOnly"
+              ref="handles"
               type="button"
               class="macro-input-field__handle cursor-grab text-n-slate-10 hover:text-n-slate-12"
-              :aria-label="$t('MACROS.ORDER_INFO')"
+              :aria-label="
+                $t('MACROS.INPUT_FIELDS.REORDER', {
+                  position: index + 1,
+                  total: fields.length,
+                })
+              "
+              @keydown.up.prevent="moveField(index, -1)"
+              @keydown.down.prevent="moveField(index, 1)"
             >
               <Icon icon="i-lucide-grip-vertical" class="size-4" />
             </button>

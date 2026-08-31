@@ -166,6 +166,47 @@ describe('MacroInputFieldsBuilder.vue (render real)', () => {
     expect(updated.options).toBeUndefined();
   });
 
+  // O vuedraggable so responde a ponteiro, entao a ordenacao por teclado e a
+  // unica forma de reordenar sem mouse. Sem estes testes, o handle voltaria a
+  // ser um botao que se anuncia como acionavel e nao faz nada.
+  it('reorders fields with the arrow keys on the drag handle', async () => {
+    const wrapper = mountComponent({
+      modelValue: [field({ key: 'primeiro' }), field({ key: 'segundo' })],
+    });
+
+    await wrapper
+      .findAll('.macro-input-field__handle')[0]
+      .trigger('keydown.down');
+
+    const [reordered] = wrapper.emitted('update:modelValue').at(-1);
+    expect(reordered.map(f => f.key)).toEqual(['segundo', 'primeiro']);
+  });
+
+  it('does not move past the edges of the list', async () => {
+    const wrapper = mountComponent({
+      modelValue: [field({ key: 'primeiro' }), field({ key: 'segundo' })],
+    });
+
+    // Subir a partir do primeiro nao pode gerar evento nem embaralhar a lista.
+    await wrapper
+      .findAll('.macro-input-field__handle')[0]
+      .trigger('keydown.up');
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+  });
+
+  it('announces the position so the handle is not a silent control', () => {
+    const wrapper = mountComponent({
+      modelValue: [field({ key: 'a' }), field({ key: 'b' })],
+    });
+    const label = wrapper
+      .findAll('.macro-input-field__handle')[0]
+      .attributes('aria-label');
+
+    expect(label).toContain('1');
+    expect(label).toContain('2');
+  });
+
   it('hides the destructive controls when read only', () => {
     const editable = mountComponent({ modelValue: [field()] });
     const readOnly = mountComponent({ modelValue: [field()], readOnly: true });

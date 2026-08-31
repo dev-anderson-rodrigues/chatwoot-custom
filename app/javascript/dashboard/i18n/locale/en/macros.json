@@ -115,6 +115,7 @@
       "KEY_DUPLICATED": "This key is already used by another field.",
       "LABEL": "Label shown to the agent",
       "LABEL_PLACEHOLDER": "e.g. Full name",
+      "REORDER": "Field {position} of {total}. Use the up and down arrows to reorder.",
       "TYPE": "Type",
       "REQUIREMENT": "Requirement",
       "REQUIRED": "Required",

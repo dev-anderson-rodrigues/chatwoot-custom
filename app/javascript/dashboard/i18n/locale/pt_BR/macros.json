@@ -115,6 +115,7 @@
       "KEY_DUPLICATED": "Esta chave já está em uso por outro campo.",
       "LABEL": "Rótulo mostrado ao agente",
       "LABEL_PLACEHOLDER": "ex: Nome completo",
+      "REORDER": "Campo {position} de {total}. Use as setas para cima e para baixo para reordenar.",
       "TYPE": "Tipo",
       "REQUIREMENT": "Preenchimento",
       "REQUIRED": "Obrigatório",
