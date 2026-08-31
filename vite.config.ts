@@ -10,30 +10,38 @@ import yaml from '@rollup/plugin-yaml';
 // variavel de ambiente: so o Windows paga. Ver docs-fork/ambiente-local.md.
 const usePolling = process.env.FORCE_POLLING_FILE_WATCHER === 'true';
 
-// [FORK] O intervalo importa muito mais do que parece. Cada ciclo do chokidar
-// refaz `stat` em todos os arquivos observados, e sobre o bind mount 9p do
-// Docker Desktop no Windows cada `stat` e uma ida e volta cara. Com os 300ms
-// que o Vite usa por padrao, o watcher varre a arvore tres vezes por segundo e
-// disputa I/O com a propria compilacao -- o dev server fica com CPU alta mesmo
-// parado e a primeira carga da pagina se arrasta.
+// [FORK] Em modo polling o chokidar cria UM fs.watchFile por arquivo, e todos
+// os stat() desses pollers disputam o threadpool do libuv, que por padrao tem
+// 4 threads. Em app/javascript sao 5.122 arquivos; a 1000ms isso exige 10,5s
+// de trabalho por ciclo de 1s. A fila satura e TODA operacao de filesystem do
+// Vite passa a esperar nela -- medido, um fs.stat dentro do processo saturado
+// custava 3.445ms contra 0,20ms num processo limpo no mesmo container.
 //
-// 1000ms mantem o HMR confortavel (o atraso extra e imperceptivel ao salvar) e
-// corta o trabalho do watcher para um terco.
-const pollInterval = Number(process.env.VITE_POLL_INTERVAL ?? 1000);
+// Era essa a causa da aplicacao nao abrir. Tres frentes atacam o mesmo
+// problema: o intervalo (aqui), o tamanho do pool (UV_THREADPOOL_SIZE no
+// docker-compose.dev.local.yaml) e o numero de arquivos observados (abaixo).
+const pollInterval = Number(process.env.VITE_POLL_INTERVAL ?? 3000);
 
-// [FORK] Reduz a superficie observada. Nada aqui e fonte do frontend, mas sao
-// pastas grandes e movimentadas -- log e tmp mudam a todo request do Rails, o
-// que faria o watcher trabalhar a toa.
-const watchIgnored = [
-  '**/.git/**',
-  '**/node_modules/**',
-  '**/tmp/**',
-  '**/log/**',
-  '**/storage/**',
-  '**/coverage/**',
-  '**/public/packs/**',
-  '**/.lh/**',
-];
+// [FORK] Metade dos arquivos observados sao traducoes: dashboard/i18n/locale
+// tem 2.704 dos 5.122 arquivos de app/javascript, um diretorio por idioma.
+// Ninguem edita 40 idiomas na mesma sessao, entao observar so os que estao em
+// uso corta quase 2.600 pollers. Para trabalhar noutro idioma:
+// VITE_WATCHED_LOCALES=en,es,fr
+const watchedLocales = (process.env.VITE_WATCHED_LOCALES ?? 'en,pt_BR')
+  .split(',')
+  .map(locale => locale.trim())
+  .filter(Boolean);
+
+const IGNORED_DIRS =
+  /[/\\](?:\.git|node_modules|tmp|log|storage|coverage|\.lh)[/\\]/;
+const LOCALE_DIR = /[/\\]i18n[/\\]locale[/\\]([^/\\]+)/;
+
+const watchIgnored = (candidate: string) => {
+  if (IGNORED_DIRS.test(candidate)) return true;
+
+  const locale = candidate.match(LOCALE_DIR);
+  return locale ? !watchedLocales.includes(locale[1]) : false;
+};
 
 // [FORK] O Vite 6 recusa request cujo header Host nao esteja na allowedHosts.
 // Em Docker isso quebra o caminho normal: a pagina pede /vite-dev/... na porta
