@@ -46,7 +46,13 @@ const populated = ref([
 const withErrors = ref([
   { key: 'CPF Cliente', label: '', type: 'text' },
   { key: 'cpf', label: 'Documento', type: 'select', options: [] },
-  { key: 'cpf', label: 'Contrato', type: 'lookup', lookup_url: '', depends_on: [] },
+  {
+    key: 'cpf',
+    label: 'Contrato',
+    type: 'lookup',
+    lookup_url: '',
+    depends_on: [],
+  },
 ]);
 
 const errors = {
