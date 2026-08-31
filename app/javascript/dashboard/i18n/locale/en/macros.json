@@ -116,6 +116,7 @@
       "LABEL": "Label shown to the agent",
       "LABEL_PLACEHOLDER": "e.g. Full name",
       "TYPE": "Type",
+      "REQUIREMENT": "Requirement",
       "REQUIRED": "Required",
       "PLACEHOLDER_LABEL": "Placeholder",
       "DEFAULT_VALUE": "Default value",

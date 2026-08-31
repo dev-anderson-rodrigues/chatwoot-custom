@@ -144,6 +144,17 @@ export default {
       class="flex-1 w-full h-full max-h-full ltr:pl-12 ltr:pr-6 rtl:pl-6 rtl:pr-12 py-4 overflow-y-auto lg:w-auto macro-gradient-radial dark:macro-dark-gradient-radial macro-gradient-radial-size"
     >
       <div :inert="readOnly" :class="{ 'opacity-75': readOnly }">
+        <!-- Os campos vem ANTES do fluxo porque e essa a ordem em que a coisa
+             acontece: o agente preenche os campos, e so entao as acoes rodam.
+             Ficando depois do "Fim do Fluxo" o bloco contradizia o proprio
+             titulo ("Campos pedidos antes de executar"). -->
+        <MacroInputFieldsBuilder
+          :model-value="macro.input_fields || []"
+          :errors="errors"
+          :read-only="readOnly"
+          class="mb-6 ltr:mr-6 rtl:ml-6"
+          @update:model-value="updateInputFields"
+        />
         <MacroNodes
           v-model="macro.actions"
           :files="files"
@@ -151,13 +162,6 @@ export default {
           @add-new-node="appendNode"
           @delete-node="deleteNode"
           @reset-action="resetNode"
-        />
-        <MacroInputFieldsBuilder
-          :model-value="macro.input_fields || []"
-          :errors="errors"
-          :read-only="readOnly"
-          class="mt-6 ltr:mr-6 rtl:ml-6"
-          @update:model-value="updateInputFields"
         />
       </div>
     </div>

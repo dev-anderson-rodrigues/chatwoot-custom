@@ -155,7 +155,12 @@ export default {
 </script>
 
 <template>
-  <div class="p-4 bg-n-solid-2 border border-n-weak rounded-lg shadow-sm">
+  <!-- dark:border-n-strong nao e enfeite: no tema escuro --border-weak e
+       rgb(31,31,37) contra --solid-2 rgb(29,30,36), praticamente a mesma cor,
+       e o card sumia no fundo. Mesmo padrao do MacroProperties.vue. -->
+  <div
+    class="p-4 bg-n-solid-2 border border-n-weak dark:border-n-strong rounded-lg shadow-sm"
+  >
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0">
         <h3 class="m-0 text-heading-3 text-n-slate-12">
@@ -196,7 +201,7 @@ export default {
     >
       <template #item="{ index }">
         <div
-          class="p-3 bg-n-solid-1 border border-n-weak rounded-md flex flex-col gap-3"
+          class="p-3 bg-n-solid-1 border border-n-weak dark:border-n-strong rounded-md flex flex-col gap-3"
         >
           <div class="flex items-center gap-2">
             <button
@@ -260,16 +265,26 @@ export default {
                 @update:model-value="updateType(index, $event)"
               />
             </div>
-            <label class="flex items-center gap-2 h-9">
-              <Checkbox
-                :model-value="fields[index].required || false"
-                :disabled="readOnly"
-                @update:model-value="updateField(index, { required: $event })"
-              />
-              <span class="text-n-slate-12 text-body-para">
-                {{ $t('MACROS.INPUT_FIELDS.REQUIRED') }}
+            <div>
+              <!-- Repete a estrutura rotulo + controle das outras celulas. Sem
+                   o rotulo, o checkbox era o unico controle da grade sem
+                   cabecalho de coluna e ficava boiando num vazio. -->
+              <span
+                class="block mb-1 text-sm font-medium leading-[1.8] text-n-slate-12"
+              >
+                {{ $t('MACROS.INPUT_FIELDS.REQUIREMENT') }}
               </span>
-            </label>
+              <label class="flex items-center gap-2 h-9">
+                <Checkbox
+                  :model-value="fields[index].required || false"
+                  :disabled="readOnly"
+                  @update:model-value="updateField(index, { required: $event })"
+                />
+                <span class="text-n-slate-12 text-body-para">
+                  {{ $t('MACROS.INPUT_FIELDS.REQUIRED') }}
+                </span>
+              </label>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">

@@ -141,7 +141,10 @@ describe('MacroInputFieldsBuilder.vue (render real)', () => {
       modelValue: [field({ type: 'select', options: [] })],
       errors: { input_field_0: { options: 'OPTIONS_REQUIRED' } },
     });
-    const html = wrapper.html();
+    // Os comentarios saem antes: o Vue os preserva na renderizacao, e um deles
+    // cita valores rgb() justamente para explicar por que o token e necessario.
+    // A checagem e sobre estilo aplicado, nao sobre prosa.
+    const html = wrapper.html().replace(/<!--[\s\S]*?-->/g, '');
 
     // Cor fixa nao inverte no tema escuro; os tokens n-* invertem.
     expect(html).not.toMatch(/(?:#[0-9a-f]{3,8}\b|rgba?\(|\bhsla?\()/i);
