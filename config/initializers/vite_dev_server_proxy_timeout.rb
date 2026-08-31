@@ -19,10 +19,15 @@
 #     `@import './assets/scss/app'`.
 #
 # Em Docker Desktop no Windows o codigo fica num bind mount 9p, ordens de
-# grandeza mais lento que o filesystem do container, e essa resolucao passa dos
-# 60s. O proxy desiste, devolve `Net::ReadTimeout` como 500, e a aplicacao abre
-# em tela branca -- sem nenhum erro no log do Vite, porque o Vite ainda estava
+# grandeza mais lento que o filesystem do container. Medido nesta maquina: o
+# CSS do App.vue leva **213s** para compilar a frio e devolve 1,7 MB. O proxy
+# desiste aos 60s, devolve `Net::ReadTimeout` como 500, e a aplicacao abre em
+# tela branca -- sem nenhum erro no log do Vite, porque o Vite ainda estava
 # compilando quando o Rails cortou a conexao.
+#
+# O default de 600s da folga sobre esses 213s. Complementarmente, o
+# `server.warmup` em vite.config.ts manda o Vite compilar os modulos pesados
+# assim que sobe, para que o navegador em geral nem chegue a esperar.
 #
 # NAO da para usar `config.middleware.swap` aqui: o vite_rails registra o
 # insert_before numa engine initializer que so e mesclada na pilha depois deste
@@ -34,7 +39,7 @@
 if Rails.env.development? && defined?(ViteRuby::DevServerProxy)
   module ViteDevServerProxyTimeout
     def initialize(app = nil, opts = {})
-      super(app, { read_timeout: ENV.fetch('VITE_PROXY_READ_TIMEOUT', 300).to_i }.merge(opts))
+      super(app, { read_timeout: ENV.fetch('VITE_PROXY_READ_TIMEOUT', 600).to_i }.merge(opts))
     end
   end
 
