@@ -68,19 +68,16 @@ export default defineConfig({
       : {}),
     ...(allowedHosts.length ? { allowedHosts } : {}),
     // Compila os modulos mais pesados assim que o dev server sobe, em vez de
-    // esperar o navegador pedir. Sao os que estouram o read_timeout do proxy
-    // do vite_ruby na primeira carga (ver
-    // config/initializers/vite_dev_server_proxy_timeout.rb): a arvore SCSS
-    // inteira via App.vue e as 540 url() do flag-icons via Flag.vue.
+    // esperar o navegador pedir. O bloco <style> do App.vue puxa a arvore SCSS
+    // inteira e leva ~213s a frio nesta maquina -- tempo suficiente para
+    // estourar o read_timeout padrao do proxy do vite_ruby (ver
+    // config/initializers/vite_dev_server_proxy_timeout.rb).
+    //
     // Os caminhos sao relativos ao root do Vite, que o vite-plugin-ruby aponta
     // para app/javascript (sourceCodeDir em config/vite.json) -- nao a raiz do
     // repositorio.
     warmup: {
-      clientFiles: [
-        './entrypoints/dashboard.js',
-        './dashboard/App.vue',
-        './dashboard/components-next/flag/Flag.vue',
-      ],
+      clientFiles: ['./entrypoints/dashboard.js', './dashboard/App.vue'],
     },
   },
 });

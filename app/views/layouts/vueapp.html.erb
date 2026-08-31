@@ -71,6 +71,13 @@
       }
     </script>
     <% end %>
+    <%# [FORK] O CSS do flag-icons vem daqui, e nao de um @import dentro do
+        <style> do Flag.vue. Ele tem 540 url() para SVGs, e cada uma vira uma
+        resolucao de asset no Vite -- em dev, sobre o bind mount 9p do Docker
+        Desktop no Windows, esse modulo nunca terminava de compilar e travava o
+        dashboard inteiro em tela branca. Os arquivos vivem em
+        public/flag-icons/, copiados de node_modules/flag-icons. %>
+    <%= stylesheet_link_tag '/flag-icons/css/flag-icons.min.css', skip_pipeline: true %>
     <%= vite_client_tag %>
     <%= vite_javascript_tag @application_pack %>
   </head>
