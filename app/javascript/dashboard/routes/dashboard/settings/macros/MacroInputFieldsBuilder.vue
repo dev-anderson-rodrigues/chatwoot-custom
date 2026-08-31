@@ -263,7 +263,7 @@ export default {
               :placeholder="$t('MACROS.INPUT_FIELDS.KEY_PLACEHOLDER')"
               :message="errorMessage(index, 'key')"
               :message-type="errorsFor(index).key ? 'error' : 'info'"
-              :disabled="readOnly"
+              :readonly="readOnly"
               @update:model-value="updateField(index, { key: $event })"
             />
             <NextInput
@@ -272,7 +272,7 @@ export default {
               :placeholder="$t('MACROS.INPUT_FIELDS.LABEL_PLACEHOLDER')"
               :message="errorMessage(index, 'label')"
               :message-type="errorsFor(index).label ? 'error' : 'info'"
-              :disabled="readOnly"
+              :readonly="readOnly"
               @update:model-value="updateField(index, { label: $event })"
             />
           </div>
@@ -320,13 +320,13 @@ export default {
             <NextInput
               :model-value="fields[index].placeholder"
               :label="$t('MACROS.INPUT_FIELDS.PLACEHOLDER_LABEL')"
-              :disabled="readOnly"
+              :readonly="readOnly"
               @update:model-value="updateField(index, { placeholder: $event })"
             />
             <NextInput
               :model-value="fields[index].default_value"
               :label="$t('MACROS.INPUT_FIELDS.DEFAULT_VALUE')"
-              :disabled="readOnly"
+              :readonly="readOnly"
               @update:model-value="
                 updateField(index, { default_value: $event })
               "
@@ -361,7 +361,7 @@ export default {
                 :model-value="option.value"
                 :placeholder="$t('MACROS.INPUT_FIELDS.OPTION_VALUE')"
                 class="flex-1 mb-0"
-                :disabled="readOnly"
+                :readonly="readOnly"
                 @update:model-value="
                   updateOption(index, optionIndex, { value: $event })
                 "
@@ -370,7 +370,7 @@ export default {
                 :model-value="option.label"
                 :placeholder="$t('MACROS.INPUT_FIELDS.OPTION_LABEL')"
                 class="flex-1 mb-0"
-                :disabled="readOnly"
+                :readonly="readOnly"
                 @update:model-value="
                   updateOption(index, optionIndex, { label: $event })
                 "
@@ -404,20 +404,20 @@ export default {
               placeholder="https://"
               :message="errorMessage(index, 'lookup_url')"
               :message-type="errorsFor(index).lookup_url ? 'error' : 'info'"
-              :disabled="readOnly"
+              :readonly="readOnly"
               @update:model-value="updateField(index, { lookup_url: $event })"
             />
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <NextInput
                 :model-value="fields[index].value_key"
                 :label="$t('MACROS.INPUT_FIELDS.LOOKUP_VALUE_KEY')"
-                :disabled="readOnly"
+                :readonly="readOnly"
                 @update:model-value="updateField(index, { value_key: $event })"
               />
               <NextInput
                 :model-value="fields[index].label_key"
                 :label="$t('MACROS.INPUT_FIELDS.LOOKUP_LABEL_KEY')"
-                :disabled="readOnly"
+                :readonly="readOnly"
                 @update:model-value="updateField(index, { label_key: $event })"
               />
             </div>
