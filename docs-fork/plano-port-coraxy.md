@@ -271,6 +271,77 @@ Dois cuidados que vieram junto:
 quem importa o quê e passei a medir o grafo de verdade. A afirmação de que
 "`Flag.vue` não afeta a tela de macros" era falsa e custou horas.
 
+#### A causa raiz de tudo: saturação do threadpool do libuv
+
+Corrigir o `Flag.vue` tirou o pior sintoma, mas o ambiente seguia lento. A causa
+real só apareceu no **CPU profile** do processo do Vite travado:
+
+> main thread **97,1% ociosa**, maior self-time de JS: **2ms**.
+
+Nenhum plugin era o gargalo — o processo estava *esperando*. As 4 threads do
+pool do libuv estavam em estado `D` com ~37s de tempo de kernel cada.
+
+A origem: `FORCE_POLLING_FILE_WATCHER=true` faz o chokidar criar **um
+`fs.watchFile` por arquivo** — 5.921 pollers para os 5.122 arquivos de
+`app/javascript`. Cada ciclo dispara um `stat()` no mesmo pool de 4 threads.
+A conta não fecha: 5.122 × 2,05ms (custo real de um `stat` no 9p) = **10,5s de
+trabalho exigido por ciclo de 1s**, ou 2,6x mais demanda que capacidade. A fila
+cresce sem limite e **toda** operação de filesystem do Vite passa a esperar nela.
+
+| `fs.promises.stat` | dentro do Vite saturado | processo node limpo, mesmo container |
+| --- | --- | --- |
+| volume nomeado (rápido) | 3.445 ms/op | **0,20 ms/op** |
+| bind mount 9p | 3.633 ms/op | 2,05 ms/op |
+
+Repare que até o volume *rápido* levava 3,4s: não era o 9p no caminho crítico,
+era a **fila**. Isso fecha a aritmética dos sintomas — 540 `url()` × ~1,4s
+efetivos = 765s, e `App.vue` a 213s ≈ 60 operações de fs.
+
+A/B controlado, mesmo CSS de 540 `url()`: com polling **4ms**; sem correção,
+nem terminava.
+
+Três frentes, todas necessárias:
+
+1. `UV_THREADPOOL_SIZE=64` (compose) — aumenta a capacidade;
+2. `VITE_POLL_INTERVAL=3000` (era 300ms) — reduz a demanda;
+3. watcher ignora locales fora de uso — `dashboard/i18n/locale` sozinho tem
+   **2.704 dos 5.122 arquivos**, um diretório por idioma (`VITE_WATCHED_LOCALES`).
+
+Também: `RAILS_MAX_THREADS=32`. Uma carga da tela de macros faz **3.606
+requisições** de módulo, todas pelo proxy do `vite_ruby`, cada uma ocupando uma
+thread do Puma bloqueada num `Net::HTTP`. Com as 5 padrão, o TTFB do próprio
+documento chegava a 21s.
+
+Resultado no grafo completo do dashboard (3.581 módulos):
+
+| momento | tempo | falhas |
+| --- | --- | --- |
+| antes | não completava | 1 (travava para sempre) |
+| flag-icons fora do Vite | 122s | 0 |
+| threadpool corrigido | 7s | 0 |
+| quente | **3s** | 0 |
+
+**Beco sem saída, testado e revertido:** `server.origin` no Vite, para o navegador
+buscar módulos direto na 3036 sem passar pelo Puma. Melhorou o `domReady` de 28s
+para 24s e estabilizou, mas não mexeu no tempo até a tela renderizar, e
+introduziu `net::ERR_FAILED`. Não vale a superfície cross-origin.
+
+#### Procedimento: como verificar depois de recriar o container do vite
+
+O cache em memória do Vite **não** sobrevive ao `--force-recreate`, só o de disco.
+A primeira passada depois de recriar mede aquecimento, não regressão — já
+aconteceu de um crawl acusar 76s e 2 falhas e a segunda rodada dar 3s e zero.
+
+Então: **rode duas vezes e confie na segunda.** Se a falha se repetir na segunda,
+aí sim é bug. Classifique pelo tipo — erro de conexão em poucos segundos é
+rajada com cache frio; abort no teto do timeout é outra coisa.
+
+O que continua custando: a **primeira visita a cada rota** leva de 110s a 140s no
+cliente. Não é o servidor (o grafo serve em 3s e as APIs respondem entre 21ms e
+407ms) — é o navegador processando o waterfall de módulos, que em dev não são
+empacotados. Some nas visitas seguintes. A saída definitiva seria o repositório
+no filesystem do WSL2, onde o polling deixa de ser necessário e nada disso existe.
+
 #### Verificação da Onda 2 ✅
 
 Tudo executado no container (`chatwoot-dev`). O host tem Ruby 3.4.5 e Bundler, mas não
