@@ -122,6 +122,47 @@ describe('MacroInputFieldsBuilder.vue (render real)', () => {
     );
   });
 
+  // Os tres testes abaixo cobrem o que costuma quebrar so na tela. Nao
+  // substituem olhar renderizado, mas travam o contrato para nao regredir em
+  // silencio numa refatoracao de classes.
+
+  it('collapses to a single column before the lg breakpoint', () => {
+    const wrapper = mountComponent({ modelValue: [field()] });
+    const grid = wrapper.find('[class*="grid-cols-1"]');
+
+    expect(grid.exists()).toBe(true);
+    // Duas colunas so a partir do lg: em telas estreitas o par label/chave
+    // empilha em vez de espremer.
+    expect(grid.classes()).toContain('lg:grid-cols-2');
+  });
+
+  it('paints only with design system tokens, so dark mode follows', () => {
+    const wrapper = mountComponent({
+      modelValue: [field({ type: 'select', options: [] })],
+      errors: { input_field_0: { options: 'OPTIONS_REQUIRED' } },
+    });
+    const html = wrapper.html();
+
+    // Cor fixa nao inverte no tema escuro; os tokens n-* invertem.
+    expect(html).not.toMatch(/(?:#[0-9a-f]{3,8}\b|rgba?\(|\bhsla?\()/i);
+    expect(html).toMatch(/\b(?:text|bg|border)-n-/);
+  });
+
+  it('drops the options when the field stops being a select', async () => {
+    const wrapper = mountComponent({
+      modelValue: [
+        field({ type: 'select', options: [{ value: '1', label: 'Um' }] }),
+      ],
+    });
+
+    await wrapper.find('select').setValue('text');
+
+    const [updated] = wrapper.emitted('update:modelValue').at(-1)[0];
+    expect(updated.type).toBe('text');
+    // Deixar options para tras faria o backend recusar o macro na validacao.
+    expect(updated.options).toBeUndefined();
+  });
+
   it('hides the destructive controls when read only', () => {
     const editable = mountComponent({ modelValue: [field()] });
     const readOnly = mountComponent({ modelValue: [field()], readOnly: true });
