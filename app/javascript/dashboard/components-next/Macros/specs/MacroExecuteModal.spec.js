@@ -70,6 +70,31 @@ describe('MacroExecuteModal', () => {
     expect(wrapper.find('textarea#macro-input-obs').exists()).toBe(true);
   });
 
+  // O asterisco e um <span aria-hidden>, nao um pseudo-elemento CSS -- uma
+  // classe arbitraria do Tailwind (content-['*']) escrita com aspas
+  // escapadas dentro de :class="{...}" nunca era detectada pelo scanner
+  // estatico do JIT, e o asterisco ficava invisivel em runtime mesmo com a
+  // classe presente no DOM (confirmado com getComputedStyle(label,
+  // '::after').content saindo vazio). Um pseudo-elemento nao e testavel em
+  // jsdom (nao ha CSS de verdade aplicado); o <span> e, e e o que este teste
+  // trava.
+  it('shows a visible asterisk only on required fields', async () => {
+    const wrapper = mountModal();
+    wrapper.vm.open(macro, [
+      field({ required: true }),
+      field({ key: 'obs', label: 'Observacao', required: false }),
+    ]);
+    await wrapper.vm.$nextTick();
+
+    const requiredLabel = wrapper.find('label[for="macro-input-cpf"]');
+    const requiredAsterisk = requiredLabel.find('span[aria-hidden="true"]');
+    expect(requiredAsterisk.exists()).toBe(true);
+    expect(requiredAsterisk.text()).toBe('*');
+
+    const optionalLabel = wrapper.find('label[for="macro-input-obs"]');
+    expect(optionalLabel.find('span[aria-hidden="true"]').exists()).toBe(false);
+  });
+
   it('falls back to the key when the field has no label', async () => {
     const wrapper = mountModal();
     wrapper.vm.open(macro, [field({ label: '' })]);

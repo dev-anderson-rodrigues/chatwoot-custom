@@ -207,9 +207,19 @@ defineExpose({ open, close });
   >
     <div class="flex flex-col gap-4">
       <div v-for="field in fields" :key="field.key" class="flex flex-col gap-2">
-        <!-- O asterisco vem de CSS, nao de texto: assim o leitor de tela nao o
-             soletra (o `required` do proprio input ja anuncia a obrigacao) e o
-             lint de i18n nao o trata como string a traduzir. -->
+        <!-- O asterisco e um <span aria-hidden>, nao um pseudo-elemento CSS:
+             uma classe arbitraria do Tailwind (`content-['*']`) escrita com
+             aspas escapadas dentro de `:class="{...}"` nunca era detectada
+             pelo scanner estatico do JIT (ele le o arquivo cru, nao executa
+             o template), entao a regra CSS nunca era gerada e o asterisco
+             ficava invisivel -- confirmado em runtime, getComputedStyle(label,
+             '::after').content saia vazio mesmo com a classe presente no
+             DOM. O <span> nao depende do extrator e e trivial de testar (o
+             pseudo-elemento nao e, jsdom nao aplica CSS de verdade).
+             aria-hidden mantem o motivo original: o leitor de tela nao deve
+             soletrar o asterisco (o `required` do proprio input ja anuncia a
+             obrigacao), e por nao ser um literal no template o lint de i18n
+             tambem nao o trata como string a traduzir. -->
         <!-- Telefone e um composto (botao de pais + input) sem um unico campo
              focavel com o id do label -- por isso ganha `id` em vez de `for`,
              e o grupo abaixo se liga a ele via aria-labelledby. -->
@@ -219,12 +229,14 @@ defineExpose({ open, close });
           "
           :for="isPhoneField(field) ? undefined : `macro-input-${field.key}`"
           class="mb-0.5 text-sm font-medium text-n-slate-12"
-          :class="{
-            'after:content-[\'*\'] after:ml-0.5 after:text-n-ruby-11':
-              field.required,
-          }"
         >
           {{ field.label || field.key }}
+          <span
+            v-if="field.required"
+            aria-hidden="true"
+            class="ml-0.5 text-n-ruby-11"
+            >*</span
+          >
         </label>
 
         <TextArea
