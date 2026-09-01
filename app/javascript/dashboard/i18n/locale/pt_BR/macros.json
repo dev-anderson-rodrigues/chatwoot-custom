@@ -89,8 +89,15 @@
         },
         "VALIDATIONS": {
           "REQUIRED": "Este campo é obrigatório.",
-          "EMAIL": "Informe um e-mail válido."
-        }
+          "EMAIL": "Informe um e-mail válido.",
+          "CPF": "Informe um CPF válido.",
+          "CNPJ": "Informe um CNPJ válido."
+        },
+        "LOOKUP_WAITING": "Preencha antes: {deps}",
+        "LOOKUP_LOADING": "Buscando…",
+        "LOOKUP_EMPTY": "Nenhum resultado encontrado",
+        "LOOKUP_ERROR": "Não foi possível carregar as opções. Tente de novo.",
+        "LOOKUP_SELECTED_COUNT": "{count} de {total} selecionados"
       },
       "BUTTON_TOOLTIP": "Executar",
       "PREVIEW": "Pré-visualizar Macro",
@@ -100,20 +107,6 @@
     "TABS": {
       "EDITOR": "Editor",
       "HISTORY": "Histórico"
-    },
-    "EXECUTE_MODAL": {
-      "TITLE": "Executar {name}",
-      "DESCRIPTION": "Preencha os campos abaixo para executar esta macro.",
-      "FIELD_REQUIRED": "Este campo é obrigatório.",
-      "CPF_INVALID": "Informe um CPF válido.",
-      "CNPJ_INVALID": "Informe um CNPJ válido.",
-      "LOOKUP_WAITING": "Preencha antes: {deps}",
-      "LOOKUP_LOADING": "Buscando…",
-      "LOOKUP_EMPTY": "Nenhum resultado encontrado",
-      "LOOKUP_ERROR": "Não foi possível carregar as opções. Tente de novo.",
-      "LOOKUP_SELECTED_COUNT": "{count} de {total} selecionados",
-      "CANCEL": "Cancelar",
-      "RUN": "Executar macro"
     },
     "INPUT_FIELDS": {
       "TITLE": "Campos pedidos antes de executar",

@@ -122,19 +122,30 @@ as peças novas entram *dentro* dessa estrutura.
 |---|---|---|
 | 0 | `api/macros.js` — inputs, executions, stats | ✅ |
 | 1 | i18n (en + pt_BR) | ✅ |
-| 2 | `MacroInputFieldsBuilder` dentro do `MacroForm` | |
-| 3 | `MacroExecuteModal` + fusão dos dois portões em `useMacroExecution` | |
-| 4 | Máscara e validação de CPF/CNPJ/telefone | |
+| 2 | `MacroInputFieldsBuilder` dentro do `MacroForm` | ✅ |
+| 3 | `MacroExecuteModal` + fusão dos dois portões em `useMacroExecution` | ✅ |
+| 4 | Máscara e validação de CPF/CNPJ/telefone | ✅ |
 | 5 | Lookup dinâmico com `depends_on` | |
 | 6 | `MacroHistory` como aba do editor | |
 | 7 | `MacrosStatsPanel` no topo da lista | |
 | 8 | Dashboard apps (checkboxes + interpolação de URL) — independente | |
 
-**Colisão a resolver na fatia 3:** o `useMacroExecution.js` do 4.17 já tem um portão de
-pré-execução (modal de atributos obrigatórios quando a macro resolve a conversa). O portão
-de `input_fields` é um segundo, no mesmo ponto de entrada. Têm que virar um fluxo só dentro
-do composable — `input_fields` primeiro, atributos depois — e não dois `if` soltos no
-`MacroItem.vue` como na fonte.
+**Colisão da fatia 3 — resolvida.** O `useMacroExecution.js` do 4.17 já tinha um portão de
+pré-execução (atributos obrigatórios quando a macro resolve a conversa). O de `input_fields`
+é um segundo, no mesmo ponto de entrada. Viraram um fluxo só dentro do composable:
+
+- `execute` devolve `null` (já despachou) ou `{ kind, ... }` dizendo qual modal abrir;
+- `submitInputs` continua o fluxo e devolve no **mesmo formato**, porque preencher os campos
+  pode esbarrar no portão seguinte;
+- os três chamadores — lista de macros, `ReplyBox` e command bar — só roteiam pelo `kind`.
+
+Sem isso, cada uma das três telas reimplementaria a ordem dos portões.
+
+> **Armadilha que virou bug:** o `Dialog` emite `close` também ao fechar *depois* do
+> confirm. Sem distinguir os dois casos, o `close` chegava depois do `submit` e limpava a
+> execução pendente que o portão de atributos acabara de guardar — o segundo modal abria
+> sem nada para submeter. O `MacroExecuteModal` marca o confirm e só emite `close` quando
+> é desistência de verdade.
 
 **Componentes a reusar** em vez de recriar: `Dialog`, `Input`, `TextArea`, `Select`,
 `ComboBox` (tem `useApiResults` + `@search`, que é o caso do lookup), `PhoneNumberInput`
@@ -145,6 +156,52 @@ do composable — `input_fields` primeiro, atributos depois — e não dois `if`
 **Lacuna real:** não há biblioteca de máscara nem validador de CPF/CNPJ no projeto. Vai
 virar helper próprio plugado no Vuelidate — e com dígito verificador, não só contagem de
 dígitos como na fonte.
+
+**Fatia 4 — resolvida.** `brazilianDocuments.js` (helper próprio, dígito verificador +
+máscara progressiva) plugado no `MacroExecuteModal` via Vuelidate; telefone usa o
+`PhoneNumberInput` puro, sem máscara manual.
+
+- **Valor submetido de CPF/CNPJ vai mascarado** (`529.982.247-25`), igual à fonte: é
+  interpolado via `{{chave}}` em mensagem e em payload de webhook, e mascarado é legível e
+  trivial de limpar no servidor.
+- **`Input` é controlado por `:model-value`, não por `v-model`**, para o campo de
+  documento: o handler de `@input` recalcula o valor mascarado e, quando o valor bruto
+  digitado diverge do formatado (o agente digitou uma letra, que a máscara descarta),
+  escreve `event.target.value` direto no elemento antes de gravar no modelo — senão o
+  caractere descartado sobrevive na tela porque o valor formatado não mudou e o Vue não
+  repinta. Caret ainda pula pro fim ao editar no meio do número — mesma limitação da fonte,
+  não vale o custo de resolver nesta fatia.
+- **Telefone: `role="group"` em vez de `<label for>`.** O `PhoneNumberInput` é um composto
+  (botão de país + input) sem um único campo focável para o `id` do label apontar, e não
+  aceita `id`/`required`/`message` como prop (a raiz dele é uma `div`, atributo solto não
+  desce pro `<input>` interno). O label ganha `id` e o container do controle vira
+  `role="group"` com `aria-labelledby` apontando pra ele.
+- **Bug de `default_value` do telefone fechado na normalização, não no componente:** o
+  watcher `immediate` do `PhoneNumberInput` faz `parsePhoneNumber(modelValue)` sem DDI; um
+  default como `"11999999999"` (sem `+`) não parseia, o campo aparece vazio na tela, mas
+  sem tratar isso `values[key]` continuaria com o default e o agente submeteria o valor
+  antigo por baixo de um campo que parecia em branco. `open()` agora só aceita o default de
+  telefone quando ele de fato parseia como número válido (`parsed?.isValid()`), senão
+  começa vazio.
+- **Achado que importa para a fatia 5 (lookup — também usa componente com validação
+  própria): `useVuelidate()` aninhado vaza para o `$invalid` da raiz.** O `PhoneNumberInput`
+  chama `useVuelidate(rules, state)` por conta própria, e o Vuelidate registra esse
+  resultado no coletor do ancestral mais próximo que também use `useVuelidate` — nesse caso,
+  o próprio `MacroExecuteModal`. O estado interno do filho (o DDI que o componente deriva do
+  fuso horário do navegador, sem relação nenhuma com o campo declarado pela macro) entra
+  *flat* no `$invalid` agregado, mesmo para um telefone opcional e nunca tocado pelo agente.
+  Isso reprovava o formulário inteiro **em silêncio** — botão vivo, clique sem efeito,
+  nenhuma mensagem nossa — exatamente o modo de falha do bug de `close`/`submit` da fatia 3.
+  Em produção passa despercebido porque o DDI quase sempre resolve a partir do fuso do
+  navegador, mas em qualquer cenário onde não resolver (inclusive a suíte de teste, que roda
+  com `TZ=UTC`) o formulário trava. **Regra fixada:** `handleConfirm` nunca usa
+  `v$.value.$invalid` da raiz — o portão itera `fields.value` e olha só
+  `v$.value[field.key]?.$invalid`, campo a campo. `$touch()` continua na raiz (propagar pro
+  filho é desejável, é o que faz o erro interno do telefone aparecer). Quem for fazer a
+  fatia 5 precisa do mesmo cuidado se o controle do lookup também tiver validação própria.
+  Não mexemos no `PhoneNumberInput.vue` — o raio de impacto pega o `ContactsForm.vue`, que
+  tem exatamente o mesmo padrão (`useVuelidate` pai + `PhoneNumberInput` filho) e continua
+  exposto ao mesmo risco. Não é para consertar agora, é para não se perder quando aparecer.
 
 > ⚠️ **`{user_token}` na URL do iframe** (fatia 8): o `Frame.vue` interpola o token de
 > acesso do agente na URL do dashboard app. Ele aparece no histórico do navegador, nos logs

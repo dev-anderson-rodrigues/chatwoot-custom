@@ -89,8 +89,15 @@
         },
         "VALIDATIONS": {
           "REQUIRED": "This field is required.",
-          "EMAIL": "Enter a valid email address."
-        }
+          "EMAIL": "Enter a valid email address.",
+          "CPF": "Enter a valid CPF.",
+          "CNPJ": "Enter a valid CNPJ."
+        },
+        "LOOKUP_WAITING": "Fill in first: {deps}",
+        "LOOKUP_LOADING": "Searching…",
+        "LOOKUP_EMPTY": "No results found",
+        "LOOKUP_ERROR": "Could not load the options. Try again.",
+        "LOOKUP_SELECTED_COUNT": "{count} of {total} selected"
       },
       "BUTTON_TOOLTIP": "Execute",
       "PREVIEW": "Preview Macro",
@@ -100,20 +107,6 @@
     "TABS": {
       "EDITOR": "Editor",
       "HISTORY": "History"
-    },
-    "EXECUTE_MODAL": {
-      "TITLE": "Run {name}",
-      "DESCRIPTION": "Fill in the fields below to run this macro.",
-      "FIELD_REQUIRED": "This field is required.",
-      "CPF_INVALID": "Enter a valid CPF.",
-      "CNPJ_INVALID": "Enter a valid CNPJ.",
-      "LOOKUP_WAITING": "Fill in first: {deps}",
-      "LOOKUP_LOADING": "Searching…",
-      "LOOKUP_EMPTY": "No results found",
-      "LOOKUP_ERROR": "Could not load the options. Try again.",
-      "LOOKUP_SELECTED_COUNT": "{count} of {total} selected",
-      "CANCEL": "Cancel",
-      "RUN": "Run macro"
     },
     "INPUT_FIELDS": {
       "TITLE": "Fields requested before running",

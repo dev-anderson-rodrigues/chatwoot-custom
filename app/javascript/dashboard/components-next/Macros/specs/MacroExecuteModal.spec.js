@@ -1,8 +1,23 @@
 import { mount } from '@vue/test-utils';
 import { withFullI18n } from 'test-i18n';
+import {
+  getActiveCountryCode,
+  getActiveDialCode,
+} from 'shared/components/PhoneInput/helper';
 import MacroExecuteModal from '../MacroExecuteModal.vue';
 
 withFullI18n();
+
+// PhoneNumberInput deriva o DDI padrao do fuso horario do navegador. Por
+// padrao fixamos um DDI valido para isolar o que e desta fatia (normalizacao
+// do default) do comportamento de fuso do ambiente -- mas pelo menos um teste
+// abaixo roda sem este mock, reproduzindo o cenario real do `TZ=UTC` (sem
+// mapeamento pra nenhum pais), que e o que expos o achado do useVuelidate
+// aninhado do PhoneNumberInput (ver handleConfirm no componente).
+vi.mock('shared/components/PhoneInput/helper', () => ({
+  getActiveCountryCode: vi.fn(() => 'BR'),
+  getActiveDialCode: vi.fn(() => '+55'),
+}));
 
 /**
  * Montagem real do modal de pre-execucao. O foco e o contrato com o
@@ -144,5 +159,160 @@ describe('MacroExecuteModal', () => {
 
     expect(wrapper.find('#macro-input-cpf').exists()).toBe(false);
     expect(wrapper.find('#macro-input-outro').exists()).toBe(true);
+  });
+
+  // Fatia 4: mascara e validacao de CPF/CNPJ/telefone. O Input e controlado,
+  // entao o que importa e o valor que fica no DOM, nao so o que o helper
+  // devolveria isoladamente (isso ja tem spec proprio em brazilianDocuments).
+  describe('CPF/CNPJ', () => {
+    it('masks a CPF progressively as the agent types', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [field({ type: 'cpf' })]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+
+      expect(wrapper.find('#macro-input-cpf').element.value).toBe(
+        '529.982.247-25'
+      );
+    });
+
+    it('masks a CNPJ progressively as the agent types', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [field({ key: 'cnpj', type: 'cnpj' })]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.find('#macro-input-cnpj').setValue('11222333000181');
+
+      expect(wrapper.find('#macro-input-cnpj').element.value).toBe(
+        '11.222.333/0001-81'
+      );
+    });
+
+    // O Input e controlado por :model-value. Uma letra digitada no meio do
+    // numero e descartada pela mascara, mas se o valor formatado nao mudar o
+    // Vue nao repinta o DOM e a letra fica visivel mesmo fora do modelo.
+    it('does not leave a mask-discarded character in the DOM', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [field({ type: 'cpf' })]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.find('#macro-input-cpf').setValue('529a982');
+
+      expect(wrapper.find('#macro-input-cpf').element.value).toBe('529.982');
+    });
+
+    it('rejects a CPF with the right length but a wrong check digit', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [field({ type: 'cpf', required: true })]);
+      await wrapper.vm.$nextTick();
+
+      // 52998224724 tem 11 digitos mas o digito verificador esta errado
+      // (o valido e 52998224725).
+      await wrapper.find('#macro-input-cpf').setValue('52998224724');
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')).toBeUndefined();
+      expect(wrapper.text()).toContain('Enter a valid CPF.');
+    });
+
+    it('rejects a CNPJ with the right length but a wrong check digit', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cnpj', type: 'cnpj', required: true }),
+      ]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.find('#macro-input-cnpj').setValue('11222333000182');
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')).toBeUndefined();
+      expect(wrapper.text()).toContain('Enter a valid CNPJ.');
+    });
+
+    it('submits the CPF masked, matching the source-parity decision', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [field({ type: 'cpf' })]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')[0][0]).toEqual({
+        cpf: '529.982.247-25',
+      });
+    });
+  });
+
+  // Telefone reusa o PhoneNumberInput em vez de uma mascara manual; aqui so
+  // interessa a integracao (fiacao de acessibilidade e o bug de default
+  // invalido), o componente em si nao e desta fatia.
+  describe('phone', () => {
+    it('wires the composite control to its label via aria, not a native for', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'phone', type: 'phone', label: 'Telefone' }),
+      ]);
+      await wrapper.vm.$nextTick();
+
+      const label = wrapper.find('label#macro-input-phone-label');
+      expect(label.exists()).toBe(true);
+      expect(label.attributes('for')).toBeUndefined();
+      expect(wrapper.find('[role="group"]').attributes('aria-labelledby')).toBe(
+        'macro-input-phone-label'
+      );
+    });
+
+    // Bug real do PhoneNumberInput: parsePhoneNumber("11999999999") sem "+"
+    // nao parseia, o campo aparece vazio, mas sem normalizar o default o
+    // agente submeteria o valor antigo por baixo do campo em branco.
+    it('does not leak an unparseable default phone value into the submit', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'phone', type: 'phone', default_value: '11999999999' }),
+      ]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')[0][0]).toEqual({ phone: '' });
+    });
+
+    it('keeps a default value that already parses as a valid E.164 number', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({
+          key: 'phone',
+          type: 'phone',
+          default_value: '+5511999999999',
+        }),
+      ]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')[0][0]).toEqual({
+        phone: '+5511999999999',
+      });
+    });
+
+    // Reproduz o cenario real do `TZ=UTC` (sem mock do DDI): o
+    // PhoneNumberInput registra o proprio useVuelidate no coletor deste
+    // modal, e o DDI que ele deriva do fuso do navegador nao resolve nada
+    // aqui. Antes do fix, handleConfirm usava v$.value.$invalid agregado e
+    // isso reprovava o formulario inteiro em silencio -- mesmo com o campo de
+    // telefone opcional e intocado. O portao correto olha campo a campo.
+    it('submits when an optional, untouched phone field has no resolvable dial code (real TZ=UTC behavior)', async () => {
+      getActiveDialCode.mockReturnValueOnce('');
+      getActiveCountryCode.mockReturnValueOnce('');
+
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [field({ key: 'phone', type: 'phone' })]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')[0][0]).toEqual({ phone: '' });
+    });
   });
 });
