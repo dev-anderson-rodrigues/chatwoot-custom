@@ -203,6 +203,91 @@ máscara progressiva) plugado no `MacroExecuteModal` via Vuelidate; telefone usa
   tem exatamente o mesmo padrão (`useVuelidate` pai + `PhoneNumberInput` filho) e continua
   exposto ao mesmo risco. Não é para consertar agora, é para não se perder quando aparecer.
 
+#### Verificação visual da fatia 4 — o asterisco que os 113 testes não pegaram
+
+A suíte inteira passava, mas nenhum campo obrigatório do `MacroExecuteModal` mostrava o
+asterisco vermelho no rótulo. Só apareceu olhando a tela renderizada.
+
+**A causa, e a regra que ela ensina — vale além deste componente.** O asterisco vinha de
+`:class="{ 'after:content-[\'*\'] ...': field.required }"`: uma arbitrary value do Tailwind
+(`content-['*']`) escrita com aspas escapadas porque o objeto do `:class` mora dentro de um
+atributo de template com aspas duplas. O escape é válido em JS/Vue — em runtime o Vue monta a
+string certa e a classe aparece no `classList` do elemento — mas **o scanner estático do
+Tailwind não executa o template, ele varre o arquivo cru** procurando o padrão da arbitrary
+value, e não casa `\'*\'` com `'*'`. A regra nunca é gerada; a classe fica no DOM sem CSS
+correspondente. Confirmado em runtime: `getComputedStyle(label, '::after').content` saía
+`""` (vazio) com a classe presente no elemento. Vale para **qualquer arbitrary value com
+aspas** (`content-[...]`, `before:content-[...]`, etc.), não só este caso — e todo o resto do
+projeto escreve isso sem escapar porque usa atributo de classe estático
+(`content-['✓']` em `NotificationCheckBox.vue` e `InboxDisplayMenu.vue`, por exemplo); este
+era o único caso escapado do repositório.
+
+**O corolário que dói: nenhum teste unitário pega isso.** jsdom não carrega CSS de verdade,
+então `getComputedStyle` de um `::after` nunca reflete uma regra do Tailwind — o teste
+poderia passar com a classe certa ou com uma completamente inventada, sem diferença. Só a
+verificação visual pega este tipo de defeito. Correção: trocado o pseudo-elemento por um
+`<span v-if="field.required" aria-hidden="true">*</span>` real — sai da dependência do
+extrator do JIT e passa a ser testável de verdade (`MacroExecuteModal.spec.js` agora trava a
+presença do `<span>` em campo obrigatório e a ausência em opcional).
+
+**Achado de design system, não desta fatia:** o botão "Executar macro" desabilitado usa
+`disabled:opacity-50` sobre um azul saturado (`bg-n-brand`) — funciona certo
+(`disabled: true`, clique não dispara), mas em fundo escuro os 50% de opacidade não leem
+como "desabilitado" a olho nu; visualmente quase se confunde com o estado ativo. Não é bug,
+não vira tarefa aqui — só fica registrado para quem for mexer no design system.
+
+##### Verificação visual neste projeto — caminho provado
+
+**Histoire está fora de cogitação neste repo, não tente de novo sem migrar a versão.**
+`histoire@0.17.15` contra `vue@3.5.12`: toda story trava na coleta com
+`TypeError: resolveComponent is not a function` dentro do `_stubComponent` que o próprio
+Histoire gera para o SSR de metadados — incompatibilidade de versão do Histoire com o Vue
+instalado, não falta de configuração. Antes de chegar nesse erro real havia dois problemas
+mascarando-o (resolvidos, mas irrelevantes sem o upgrade):
+`histoire.config.ts` referenciava `setupFile: './histoire.setup.ts'` desde o commit que
+introduziu o Histoire, e esse arquivo nunca existiu no histórico do repo — toda coleta
+falhava silenciosamente (`e.stack` vazio ao atravessar o `Tinypool`/`worker_threads`) até
+para stories triviais como `Button.story.vue`; e `postcss.config.js` fazia
+`require('postcss-import')` sem a dependência declarada no `package.json` (transitiva via
+`tailwindcss`, nunca linkada no topo do `node_modules` — o pnpm só expõe ali o que está
+declarado). O `postcss-import` **é pré-requisito real do upstream, não só do Histoire**, e
+virou commit próprio (`0e669957e5`). Já o `histoire.setup.ts` que destrava o *setup file*
+ficou em disco, **não commitado**: escrito para testar a hipótese, nunca validado de fato,
+porque a incompatibilidade de versão trava a coleta antes de chegar lá. Só faz sentido
+revisitar se alguém for atualizar o Histoire.
+
+**O caminho que funcionou: aplicação real em Docker + Chrome do host por CDP**
+(`--headless=new --remote-debugging-port=9333`, sem puppeteer, WebSocket nativo do Node).
+Detalhes que custaram rodadas inteiras:
+
+- **`sso_auth_token` tem TTL de 5 minutos** (`SsoAuthenticatable#generate_sso_auth_token`,
+  Redis com `setex`). Gerar o token numa rodada e usar noutra estoura o prazo — o sintoma é
+  `POST /auth/sign_in` voltando **401** e a tela de login girando para sempre. Gere o token
+  **no mesmo script que navega**, o mais perto possível da navegação.
+- **`ui_settings` do usuário abre o painel e o acordeão sem clique frágil.** O
+  `ContactPanel` fica fechado por padrão (`is_contact_sidebar_open`) e o acordeão de Macros
+  também (`is_macro_open`) — sem setar os dois via `rails runner`
+  (`User#ui_settings = (ui_settings || {}).merge(...)`), a automação precisa clicar num botão
+  sem `aria-label` (só tooltip) para abrir o painel.
+- **Clicar no texto "Macros" pode levar para Configurações por engano.** O mesmo texto
+  existe no acordeão da conversa *e* no item do menu lateral de Configurações; um seletor por
+  texto solto (`querySelectorAll('*').find(el => el.textContent === 'Macros')`) casa com
+  qualquer um dos dois e pode navegar para longe da conversa sem erro nenhum. Prefira mirar
+  pelo `id`/`for` dos campos do modal ou por um container mais específico.
+- **Puma roda com 5 threads neste ambiente** (`config/puma.rb`, sem workers). Abas de Chrome
+  acumuladas ao longo de várias rodadas de investigação — cada uma com WebSocket do
+  ActionCable aberto — saturam o pool: `GET /api/v1/accounts/1/macros` que roda em 120ms
+  quando a fila está livre passou a levar **~12s** com o pool ocupado, e a rota raiz chegou a
+  **17s**. Sintoma na tela: acordeão preso em "Obtendo macros" sem nunca resolver. Não é bug
+  do backend nem do frontend — é fila. Feche o Chrome de rodadas anteriores antes de cada
+  nova tentativa, não só no final.
+- **`curl http://127.0.0.1:9333` sozinho não confirma nada** se o Chrome estiver bindado só
+  em `[::1]` (IPv6 loopback) — `netstat -ano` mostra o `LISTENING` real; aponte o driver para
+  `http://[::1]:PORTA/` ou `http://localhost:PORTA/`.
+- Digitação em campo mascarado (CPF/CNPJ) **precisa disparar o evento `input` nativo** — a
+  máscara do `MacroExecuteModal` lê `event.target.value` no handler; setar `.value` via script
+  sem `el.dispatchEvent(new Event('input', { bubbles: true }))` não testa nada.
+
 > ⚠️ **`{user_token}` na URL do iframe** (fatia 8): o `Frame.vue` interpola o token de
 > acesso do agente na URL do dashboard app. Ele aparece no histórico do navegador, nos logs
 > do app de terceiro e possivelmente no `Referer`, e permite chamar a API do Chatwoot como
