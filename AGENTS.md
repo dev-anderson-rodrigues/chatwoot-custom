@@ -128,3 +128,9 @@ Practical checklist for any change impacting core logic or public APIs
 ## Branding / White-labeling note
 
 - For user-facing strings that currently contain "Chatwoot" but should adapt to branded/self-hosted installs, prefer applying `replaceInstallationName` from `shared/composables/useBranding` in the UI layer (for example tooltip and suggestion labels) instead of adding hardcoded brand-specific copy.
+
+## Mandatory architecture rules (fork)
+
+- Before touching backend code, read `backend.mdc` (repo root) in full. Before touching frontend code, read `frontend.mdc` (repo root) in full. Both apply to every agent working in this repo.
+- Their final "Instrução padrão para o Claude" checklist is the completion criteria for any change in that layer — treat it as binding, not advisory.
+- These are project-local additions layered on top of this file; consult them for anything not already covered above.

@@ -234,7 +234,7 @@ defineExpose({ open, close });
           <span
             v-if="field.required"
             aria-hidden="true"
-            class="ml-0.5 text-n-ruby-11"
+            class="ms-0.5 text-n-ruby-11"
             >*</span
           >
         </label>

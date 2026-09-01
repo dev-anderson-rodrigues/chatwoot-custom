@@ -1,0 +1,151 @@
+# Backend Architecture & Clean Architecture Rules
+
+## 1) Arquitetura de domínio
+
+Este projeto é um monólito Rails com camadas bem definidas. O objetivo é manter o domínio explícito, a camada HTTP fina e toda regra de negócio fora de controllers, views e callbacks improvisados.
+
+### Camadas principais
+
+#### 1.1 Camada de entrada/infraestrutura
+- `app/controllers/`: apenas entrada HTTP, parse de params, autorização, delegação para serviços e resposta.
+- `app/jobs/`: execução assíncrona e orchestration de jobs; não deve conter regra de negócio relevante.
+- `app/mailers/`: composição de e-mails.
+- `app/channels/`: canais Action Cable e transporte de eventos em tempo real.
+- `config/routes.rb`: rotas apenas.
+
+#### 1.2 Camada de domínio / aplicação
+- `app/models/`: invariantes, validações, associações, scopes e regras de persistência de nível model.
+- `app/services/`: workflows de negócio, transações, orchestration de múltiplos modelos e side effects.
+- `app/policies/`: autorização e regras de acesso.
+- `app/finders/`: leitura e consulta de dados complexos.
+- `app/builders/`: montagem de objetos a partir de parâmetros, payloads e estruturas externas.
+- `app/actions/`: padrões de ação para fluxos mais explícitos quando ajudam a clareza.
+- `lib/custom_exceptions/`: exceptions de domínio e erros explícitos.
+
+#### 1.3 Camada de suporte e apresentação
+- `app/serializers/`, `app/presenters/`, `app/validators/`, `app/helpers/`: formatar, serializar e apresentar dados; não devem decidir regra de negócio.
+- `lib/`: utilitários e adaptadores compartilhados.
+- `enterprise/`: extensão e compatibilidade com Enterprise. Quando mexer em código compartilhado, verificar ambas as árvores.
+
+### Direção das dependências
+- O fluxo deve ir do exterior para o centro do domínio.
+- Controller depende de service, não o contrário.
+- Service não deve depender de controller, session, request, view ou HTTP.
+- Regra de negócio não deve ficar embutida em callback, concern de controller, helper, serializer ou template.
+
+### Responsabilidade por camada
+- Controllers: validar entrada, autorização, delegar e responder.
+- Models: invariantes e persistência.
+- Services: casos de uso, transações e workflows.
+- Jobs: disparo assíncrono e retrys.
+- Policies: resposta sobre permissão.
+- Finders: consultas complexas e leitura orientada a domínio.
+
+## 2) Padrões de agentes / serviços
+
+### Regra base
+Sempre que um fluxo cruzar múltiplos modelos, validações, permissões, integrações ou efeitos colaterais, usar um service ou command object explícito.
+
+### Padrão recomendado
+- `Service` para workflow completo.
+- `Finder` para query e leitura complexa.
+- `Policy` para autorização.
+- `Job` para invocação assíncrona, não para lógica de negócio.
+- `Builder` para montagem de payloads/objetos a partir de dados de entrada.
+- `Error/exception` para estados impossíveis ou inválidos.
+
+### Regras de agente/serviço
+- Um service deve ter uma responsabilidade bem definida e um nome explícito.
+- Métodos públicos devem refletir intent do caso de uso, não detalhes técnicos.
+- Evitar service genérico que faz “tudo”.
+- Se houver mais de um efeito colateral, a transação precisa ficar no service.
+- Se a ação é assíncrona, o job deve chamar o service, não replicar a lógica.
+- Se o fluxo tem regras de autorização, a policy deve estar na borda, e o service não deve revalidar acesso de forma duplicada.
+
+### Casos de uso ideais para services
+- criação/atualização com múltiplos writes
+- envio de e-mail + gravação + notificação
+- criação de conta + onboarding + criação de recursos
+- integração com API externa + persistência local
+- regras de exclusividade e elegibilidade em um único ponto
+
+## 3) Regras para PRs e revisão de código
+
+### Critérios de qualidade do PR
+- O PR deve resolver um problema específico, com escopo pequeno e claro.
+- Preferir correção mínima e legível ao “refactor grande” sem necessidade.
+- Não adicionar abstrações antecipadas sem necessidade clara.
+- Não duplicar validações ou guardas em camadas diferentes, a menos que exista um caminho real e independente.
+- Quando um estado impossível indica configuração ou ambiente quebrado, falhar loudly, não silenciar.
+
+### Checklist de revisão
+Antes de aprovar ou enviar um PR, verificar:
+- A camada correta foi usada: controller, service, model, policy, job, finder, builder.
+- Não houve regra de negócio escondida em callback, helper, view ou concern.
+- A lógica de autorização está em policy e não espalhada.
+- Há transação quando o processo exige atomicidade.
+- Há índice/constraint quando a mudança demanda consulta ou unicidade.
+- A mudança preserva compatibilidade com `enterprise/` quando afeta código compartilhado.
+- O nome do método, classe e commit refletem o comportamento real.
+- Há testes para o comportamento essencial e não apenas para implementação.
+
+### Regras de revisão de código
+- Revisar impacto arquitetural antes de estilo superficial.
+- Priorizar clareza, legibilidade e comportamento sobre “elegância” técnica.
+- Comentar sobre risco de regressão, acoplamento e efeitos colaterais.
+- Exigir que o código siga padrões do projeto e não invente novas estruturas sem necessidade.
+- Evitar aprovação de PRs com lógica duplicada, callbacks ocultos ou patches sem causa raiz clara.
+
+### Regras de commit e PR
+- Preferir mensagem em estilo Conventional Commits: `type(scope): subject`.
+- PR deve ter descrição curta e orientada ao produto.
+- Para feature: incluir “How to test”.
+- Para bugfix: incluir “How to reproduce” quando útil.
+- Não incluir seção de “How this was tested” com lista de comandos se o projeto não pedir.
+
+## 4) Regras de dados e persistência
+- Validação e integridade de modelo ficam no model.
+- Query complexa deve ficar em finder/query object.
+- Regras de unicidade e lookup devem ser cobridas por index/constraint.
+- Se múltiplos writes precisam ser atômicos, use transaction.
+- Não esconder writes em callbacks sem que o efeito seja óbvio no call site.
+
+## 5) Autorizações e erros
+- Autorização em policy.
+- Elegibilidade e exclusividade no ponto de entrada compartilhado.
+- Não repetir validação no job ou callback sem necessidade real.
+- Exceções devem ser significativas, explícitas e rastreáveis.
+- Não silenciar estados inconsistentes ou configuração inválida.
+
+## 6) Anti-patterns a evitar
+- Lógica de negócio dentro de controller ou view.
+- `before_action` fazendo trabalho de domínio.
+- Service que faz tudo, sem propósito claro.
+- Duplicação de regras entre model, service, job e controller.
+- Callback oculto com efeitos colaterais não óbvios.
+- Helpers “utilitários” escondendo lógica real sem abstração legítima.
+- PRs grandes que misturam refactor, correção e feature.
+
+## 7) Chatwoot-specific guidance
+- Verificar `enterprise/` sempre que a mudança impacta lógica compartilhada ou APIs públicas.
+- Não introduzir branches hardcoded entre OSS e Enterprise sem extensão clara.
+- Preservar contratos de request/response e compatibilidade entre versões.
+- Quando a mudança mexe em comportamento central, considerar extensibilidade e hooks do Enterprise.
+
+## 8) Testes e validação
+- Escrever specs focadas em comportamento, não em implementação.
+- Preferir comportamento real em vez de mocks pesados.
+- Usar `let` e setup direto; evitar helpers artificiais.
+- Preferir `with_modified_env` a stub de `ENV`.
+- Comparar `error.class.name` quando necessário em ambientes de parallel/reload.
+
+## 9) Instrução padrão para o Claude
+Ao implementar backend:
+1. Localizar o padrão arquitetural mais próximo já usado no repo.
+2. Manter a camada HTTP fina.
+3. Colocar regra de negócio em service, finder, policy, model ou builder conforme contexto.
+4. Não ocultar regra de negócio em callback, job ou helper.
+5. Garantir compatibilidade com Enterprise quando a mudança afeta core/shared behavior.
+6. Preferir correção mínima, explícita e testável.
+7. Validar com specs Rails relevantes antes de concluir.
+8. Revisar o PR como se fosse uma revisão de arquitetura, não só de sintaxe.
