@@ -108,7 +108,7 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 0 — Preparação | ✅ concluída |
 | 2 — Liberar enterprise | ✅ concluída e verificada |
 | 1 — Backend (macros, dashboard apps, my_teams_only) | ✅ concluída e revisada |
-| 1 — Frontend | 🔄 fatias 0 e 1 feitas (API + i18n) · 6 restantes |
+| 1 — Frontend | 🔄 fatias 0–7 feitas · 1 restante (8) |
 | 4 · 5 · 6 · 3 | pendentes |
 
 #### Fatias do frontend da Onda 1
@@ -125,9 +125,9 @@ as peças novas entram *dentro* dessa estrutura.
 | 2 | `MacroInputFieldsBuilder` dentro do `MacroForm` | ✅ |
 | 3 | `MacroExecuteModal` + fusão dos dois portões em `useMacroExecution` | ✅ |
 | 4 | Máscara e validação de CPF/CNPJ/telefone | ✅ |
-| 5 | Lookup dinâmico com `depends_on` | |
-| 6 | `MacroHistory` como aba do editor | |
-| 7 | `MacrosStatsPanel` no topo da lista | |
+| 5 | Lookup dinâmico com `depends_on` | ✅ |
+| 6 | `MacroHistory` como aba do editor | ✅ |
+| 7 | `MacrosStatsPanel` no topo da lista | ✅ |
 | 8 | Dashboard apps (checkboxes + interpolação de URL) — independente | |
 
 **Colisão da fatia 3 — resolvida.** O `useMacroExecution.js` do 4.17 já tinha um portão de
@@ -202,6 +202,251 @@ máscara progressiva) plugado no `MacroExecuteModal` via Vuelidate; telefone usa
   Não mexemos no `PhoneNumberInput.vue` — o raio de impacto pega o `ContactsForm.vue`, que
   tem exatamente o mesmo padrão (`useVuelidate` pai + `PhoneNumberInput` filho) e continua
   exposto ao mesmo risco. Não é para consertar agora, é para não se perder quando aparecer.
+
+#### Fatia 5 — resolvida. Lookup dinâmico com `depends_on`
+
+Fonte (`origin/ajuste-powerbi`, `MacroExecuteModal.vue`) reexaminada antes de implementar:
+não é busca por texto livre. É um `POST` para `lookup_url` com os valores atuais dos
+campos em `depends_on`, disparado com debounce de 500ms sempre que qualquer valor do
+formulário muda; a resposta (lista crua, ou envelopada em `options`/`registros`/`data`/
+`results`, ou um objeto único quando há 1 resultado) vira as opções, mapeadas via
+`value_key`/`label_key` com fallback para `value`/`id` e `label`/`name`. Isso muda o que
+"reusar `ComboBox`" significava: a nota da fatia 3 sobre `useApiResults` + `@search`
+pressupunha busca por texto — não existe no comportamento real. `ComboBox` (único) e
+`TagMultiSelectComboBox` (`multi: true`) entram só pela filtragem local que já têm,
+alimentadas pelas opções já buscadas; nenhuma das duas precisou de mudança.
+
+**Decisão tomada, resolvendo o aviso da seção 1** (guarda de SSRF no `lookup_url`):
+**opção (a)** — a checagem de DNS (`Macros::SafeUrl.public_http?`) saiu da validação do
+model. Quem busca é o navegador do agente (fetch direto em `MacroExecuteModal.vue`), nunca
+o servidor — a guarda nunca protegia nada e só derrubava host interno válido (ERP na VPN
+do cliente) e host público momentaneamente fora do ar. A forma da URL (esquema http(s) +
+host) continua validada. A guarda de verdade continua em `Macros::ExecutionService`, para
+o `send_webhook_event`, que é a única URL de macro que o servidor de fato aciona.
+
+Decisões de porte, divergindo ou completando a fonte:
+
+- **Mensagem de erro fixa e traduzida, não o texto cru do `fetch`.** A fonte concatenava
+  `error.message` (status HTTP, falha de CORS) direto no template. Nossas chaves de i18n
+  (`LOOKUP_ERROR`, já portadas na fatia 1) não têm esse parâmetro, e expor detalhe de
+  infra ao agente é ruído — trocado por uma mensagem fixa.
+- **"Selecionar tudo" / "desmarcar tudo" do lookup múltiplo não entrou.** Já não estava
+  nas chaves de i18n portadas na fatia 1 (só `LOOKUP_SELECTED_COUNT` veio, sem
+  `LOOKUP_SELECT_ALL`/`LOOKUP_DESELECT_ALL`) — decisão de escopo já tomada antes desta
+  fatia, só confirmada aqui.
+- **Seleção antiga cai quando os deps mudam e ela não existe mais na resposta nova**
+  (CPF trocado ⇒ contrato escolhido para o CPF anterior sai do campo). Mesmo
+  comportamento da fonte, preservado.
+- **Rótulos, não chaves cruas, na mensagem "preencha antes: X".** A fonte usava
+  `depends_on.join(', ')` (as chaves internas); aqui resolve para `field.label`.
+- **Timers de uma macro anterior são descartados no próximo `open()`.** Sem isso, fechar o
+  modal com uma busca pendente e abrir outra macro deixaria o timer antigo escrever, mais
+  tarde, no estado da macro nova — bug latente que existe na fonte e não foi portado.
+
+`spec/models/macro_spec.rb` ganhou um teste que documenta a decisão (URL privada agora é
+aceita, ao contrário da guarda do webhook). `MacroExecuteModal.spec.js` cobre: gate de
+`depends_on`, POST com o payload certo após o debounce, os três formatos de resposta,
+fallback de `value_key`/`label_key`, erro traduzido (sem vazar o erro cru), seleção única
+e múltipla, bloqueio de obrigatório vazio, e a queda da seleção obsoleta após reconsulta.
+
+#### Revisão da fatia 5 — três especialistas em paralelo, dois bugs reais
+
+`backend-security`, `backend-engineering` e `frontend-design` revisaram a implementação
+antes de fechar a onda. Achados:
+
+- **`frontend-design`** (revisão de código, sem verificar renderização nesta rodada):
+  achou violação de regra obrigatória — `frontend.mdc` proíbe "fetch direto em
+  componentes" e "componente que coloca fetch, regra de negócio e manipulação de DOM no
+  mesmo bloco". `fetchLookup`/`scheduleLookup`/`extractLookupRecords`/`mapLookupOptions`
+  moravam dentro do `.vue`. **Corrigido**: extraídos para
+  `app/javascript/dashboard/composables/useMacroLookup.js` (mesmo padrão de
+  `useMacroExecution.js`) — o componente ficou só com a tradução de estado em texto
+  (`lookupPlaceholder`/`lookupMessage`), que não é fetch nem regra de negócio.
+- **`backend-security`**: decisão da opção (a) é sã como está — sem furo novo, um risco
+  residual documentado (ver nota logo abaixo da decisão, seção 1).
+- **`backend-engineering`** achou dois bugs reais na lógica de fetch, ambos **corrigidos e
+  cobertos por teste de regressão** (confirmados batendo o teste contra o código sem a
+  correção antes de fechar):
+  1. **Loop infinito de refetch em lookup múltiplo.** `values[field.key] = array.filter(...)`
+     sempre cria uma referência nova, mesmo quando nada é removido. `values` é `reactive()`
+     e o `watch(..., {deep:true})` dispara comparando *referência*, não conteúdo — um
+     array novo com o mesmo conteúdo ainda conta como mudança. Resultado: todo fetch
+     bem-sucedido reatribuía o array, o watch reagendava o mesmo fetch, que reatribuía de
+     novo — POST para `lookup_url` a cada ~500ms, para sempre, enquanto o modal ficasse
+     aberto. Corrigido comparando o tamanho antes de reatribuir (filter só remove, nunca
+     adiciona — tamanho igual implica conteúdo igual).
+  2. **Fetch em voo sobrevive ao `open()`.** O `open()` já descartava os `setTimeout`
+     pendentes, mas não invalidava um `fetch()` já em andamento de uma macro anterior. Duas
+     macros com um campo de mesma chave (`contrato`, `cliente_id`) permitiam a resposta
+     atrasada da primeira escrever no estado da segunda. Corrigido com um contador de
+     geração (`epoch`) incrementado em `reset()` e checado antes de cada escrita em
+     `lookupState`/`values` dentro de `fetchLookup`.
+
+`MacroExecuteModal.spec.js` ganhou dois testes que travam exatamente esses dois bugs.
+
+**Validação:** `bundle exec rspec spec/models/macro_spec.rb` (149 exemplos, 0 falhas,
+suíte de macros completa) + `rubocop app/models/macro.rb spec/models/macro_spec.rb` (sem
+ofensas) + `MacroExecuteModal.spec.js` (32 testes, incluindo os dois de regressão) via
+`TZ=UTC npx vitest --no-watch --no-cache --no-coverage`. Verificação visual renderizada no
+navegador ainda não feita — ver nota abaixo.
+
+> **Tentativa de verificação visual (2026-09-05): incompleta, decisão consciente de não
+> bloquear nela.** Um agente rodou o caminho de Docker + CDP da fatia 4 (login via
+> `sso_auth_token`, abrir conversa, expandir o painel Macros) e chegou a capturar screenshots
+> até o painel "Macros" no sidebar da conversa — mas ficou preso em "Obtendo macros"
+> (carregando a lista) antes de conseguir abrir o `MacroExecuteModal` e exercitar o campo
+> `lookup` de verdade. Sem indício de bug — a suspeita é só lentidão do ambiente (Puma com 5
+> threads, primeira renderização de rota ~110s, já documentado). Interrompido depois de ~19
+> minutos sem chegar ao estado que importa.
+>
+> **Decisão:** não vale a pena insistir agora — o modelo de dados e os 32 testes automatizados
+> de `MacroExecuteModal.spec.js` (incluindo os dois de regressão dos bugs achados por
+> `backend-engineering`) garantem a lógica; a fatia 4 mostrou que só a tela pega defeito de
+> classe Tailwind/CSS que teste unitário não vê, mas isso fica como risco residual aceito,
+> não como bloqueio. Verificação visual renderizada com um `lookup_url` real continua pendente
+> — fazer manualmente no navegador quando for conveniente, antes de considerar a fatia 5
+> definitivamente fechada para produção.
+
+#### Fatia 6 — resolvida. `MacroHistory` como aba do editor
+
+Fatia de frontend puro: o backend (`MacroExecution`, `MacroExecutionsController`, jbuilder,
+rotas) e as chaves de i18n já tinham vindo nas ondas anteriores; faltava a tela.
+
+**A fonte não foi copiada — foi reescrita sobre o design system.** O `MacroHistory.vue` de
+`origin/ajuste-powerbi` é um componente monolítico: `fetch` dentro do `.vue`, `<select>`
+cru, tabela montada à mão e data formatada com `toLocaleString('pt-BR')` fixo. Isso colide
+de frente com o `frontend.mdc` (mesma violação que ele pegou na fatia 5) e com o i18n. O
+porte seguiu o padrão de `routes/dashboard/settings/auditlogs/Index.vue`, que é a tela
+análoga que o fork já tem:
+
+- `composables/useMacroExecutions.js` — filtros, paginação, fetch e **normalização** do
+  payload. O componente recebe registros já em formato de domínio e não conhece a API.
+- `MacroHistory.vue` — só apresentação, reusando `BaseTable`/`BaseTableRow`/`BaseTableCell`,
+  `Select`, `Label` (pílula de status, cores slate/teal/amber/ruby por status), `Spinner`,
+  `PaginationFooter`, `Button`.
+- `MacroEditor.vue` — aba via `TabBar` do design system, só no modo `EDIT`.
+- Data pelo helper `messageTimestamp`, não por locale fixo.
+
+Decisões que divergem da fonte:
+
+- **Paginação entrou.** A fonte buscava 20 registros e mostrava a contagem total do backend
+  ao lado — uma macro com 300 execuções exibia "300 execuções" sobre uma lista de 20, sem
+  como chegar nas outras 280. O backend já expunha `limit`/`offset` + `meta.total`.
+- **Bug do filtro "até", corrigido.** A fonte mandava a data crua; o backend compara
+  `created_at <= to` e `Time.zone.parse('2026-09-05')` é meia-noite — filtrar "até 05/09"
+  escondia tudo o que rodou no dia 05. Agora o composable manda `T23:59:59`. Tem teste.
+- **Botão "re-executar" não entrou.** A chave `RE_EXECUTE` não foi portada na fatia 1
+  (decisão de escopo anterior), e o mecanismo da fonte era pôr os `inputs` codificados na
+  URL — os mesmos `inputs` que o controller trata como dado sensível (o recorte de
+  `visible_executions` existe justamente porque eles podem conter CPF/CNPJ). Colocá-los no
+  histórico do navegador contraria a razão daquele recorte.
+- **Guarda de resposta obsoleta (`epoch`)**, o mesmo padrão que a fatia 5 adotou no
+  `useMacroLookup.js`: trocar filtro e página dispara requisições em sequência rápida, e a
+  resposta de uma consulta abandonada não pode sobrescrever a atual ao chegar atrasada.
+- **Filtrar volta para a página 1.** Sem isso, estreitar o resultado estando na página 4
+  mostraria uma lista vazia sem explicação.
+
+Dois defeitos que só apareceram porque o teste os exigiu, ambos corrigidos:
+
+- **`<label for>` apontando para `div`.** O `Select.vue` do design system não declara
+  `inheritAttrs: false`, então o `id` passado a ele pousa na `div` raiz — o `for` não
+  nomeava controle nenhum. Trocado por `<label>` envolvendo o controle (associação
+  implícita).
+- **Tela em branco ao sair de uma macro salva para a de criar.** O `MacroForm` fica em
+  `v-show`; se `activeTab` continuasse em `'history'`, a aba sumia junto com o modo `EDIT` e
+  o formulário não reaparecia. O watch de rota reseta a aba.
+
+**Validação:** `MacroHistory.spec.js` (12 testes) + suíte de macros completa
+(87 testes, 6 arquivos, 0 falhas) via `TZ=UTC npx vitest --no-watch --no-cache --no-coverage`
++ `eslint` (só warnings pré-existentes de chave de i18n dinâmica, mesmo padrão do
+`MacroEditor` que já existia). Revisão de código por `frontend-design`.
+
+> Mesma pendência da fatia 5: **verificação visual renderizada não foi feita** — decisão
+> consciente de não bloquear nela nesta rodada (ver nota da fatia 5). Vale olhar na tela
+> antes de produção: contraste das pílulas de status no modo escuro e a tabela em telas
+> estreitas são o tipo de coisa que teste unitário não pega.
+
+#### Fatia 7 — resolvida. `MacrosStatsPanel` no topo da lista
+
+Fonte (`origin/ajuste-powerbi`, `MacrosStatsPanel.vue`) relida antes de implementar: um
+painel acima da tabela de macros com quatro números do período (execuções, taxa de
+sucesso, falhas, macros usadas), um seletor de 7/30/90 dias e o ranking das cinco macros
+mais executadas. O backend já estava pronto e revisado desde a Onda 1 (`macros#stats`) e as
+chaves `MACROS.STATS.*` vieram na fatia 1 — esta fatia é só a camada de tela.
+
+Onde o painel entra: slot `#preBody` do `SettingsLayout`, que existe justamente para
+renderizar algo antes do corpo. Por ficar fora do `#body`, ele não é engolido pelo estado de
+carregamento nem pela mensagem "nenhuma macro" do layout — e leva um `v-if="records.length"`,
+porque sem macro cadastrada não há métrica nenhuma para mostrar.
+
+Decisões de porte, divergindo ou completando a fonte:
+
+- **O fetch mora no composable, não no componente** (`useMacroStats.js`), como manda o
+  `frontend.mdc` e como a fatia 5 acabou fazendo depois da revisão. O `.vue` fica só com a
+  tradução de estado em texto e cor.
+- **Guarda de resposta obsoleta (`epoch`)**, o mesmo padrão das fatias 5 e 6: trocar de
+  período em sequência rápida deixava a resposta de um período abandonado sobrescrever a do
+  período atual quando chegava atrasada. Tem teste de regressão, confirmado batendo contra o
+  código sem a guarda antes de fechar.
+- **Mensagem de erro fixa e traduzida** em vez do `error.message` cru que a fonte
+  concatenava na tela: status HTTP e falha de CORS não dizem nada ao agente. Mesma decisão
+  das fatias 5 e 6.
+- **"Falhas" só fica vermelho quando é maior que zero.** Na fonte o número era sempre
+  vermelho; zero falhas em vermelho é alarme falso.
+- **Estado vazio de verdade** (`NO_DATA`): a fonte mostrava quatro zeros quando ninguém
+  tinha executado nada no período.
+- **`LAST_RUN` ganhou consumidor.** O backend já devolvia `last_executed_at` e a chave
+  existia desde a fatia 1 sem uso; virou a linha secundária de cada macro do ranking.
+- **`NEVER_RUN` saiu dos dois locales.** Ficou sem consumidor possível: o ranking só lista
+  macro com execução no período, então nunca existe um "nunca executada" para exibir. Mesmo
+  tratamento que o bloco `EXECUTE_MODAL` recebeu na fatia 4 — chave morta não fica.
+- **Acessibilidade acima da fonte:** os botões de período viraram um `role="group"` com
+  `aria-pressed` (a fonte só pintava o botão ativo, sem dizer nada ao leitor de tela), os
+  quatro números viraram um `<dl>` em vez de `div`s soltas, e a cor da taxa reforça um
+  número que também está escrito ao lado — nunca é o único portador da informação.
+- **RTL:** `text-end` no lugar do `text-right` da fonte.
+- **`Button` e `Spinner` do design system** em vez do `<button>` com classes próprias e do
+  texto "carregando" da fonte.
+- **Os quatro tiles saem de um `v-for`** sobre um `computed`, não de quatro blocos de markup
+  repetidos como na fonte.
+
+Detalhe da fonte que não foi portado como estava: o `totals` dela chamava
+`sum('counts', 'success')` numa função cuja assinatura era `sum(key, status)` e que ignorava
+o primeiro argumento — funcionava por acidente. Aqui o cálculo recebe a função de extração
+direto. Pendente continua fora da taxa de sucesso, igual ao backend: contar execução que
+ainda não terminou como fracasso derrubaria o número no meio de um lote grande.
+
+**Validação:** `MacrosStatsPanel.spec.js` (11 testes) + suíte de macros completa (98 testes,
+7 arquivos, 0 falhas) via `TZ=UTC npx vitest --no-watch --no-cache --no-coverage` +
+`eslint` nos arquivos novos e no `Index.vue` (sobra só o warning pré-existente de chave de
+i18n dinâmica, o mesmo que `MacroEditor` e `MacroHistory` já tinham).
+
+#### Revisão da fatia 7 — um bloqueante de acessibilidade
+
+`frontend-design` revisou a implementação final. O achado bloqueante, corrigido: o grupo de
+botões de período tinha `aria-label` igual ao título da seção (`MACROS.STATS.TITLE`, "Visão
+geral"). Um leitor de tela anunciava um grupo "Visão geral" dentro de uma seção "Visão
+geral" — o atributo existia e comunicava a coisa errada, sem dizer que ali se escolhe o
+período. Ganhou chave própria (`MACROS.STATS.PERIOD_GROUP_LABEL`) nos dois locales e um
+teste que trava o rótulo.
+
+Não bloqueante acatado: o painel agora esmaece enquanto refaz a consulta ao trocar de
+período. Manter os números do período anterior na tela em vez de piscar um spinner continua
+sendo o comportamento certo, mas antes só o `aria-busy` sinalizava a requisição em voo —
+quem enxerga não tinha pista nenhuma. Tem teste.
+
+Não acatados, com motivo: os `Button` do seletor ficam com props explícitas
+(`:variant`/`:color`) em vez da forma abreviada por atributos que o `MacroHistory` usa,
+porque aqui as duas dependem do período selecionado e a forma abreviada não expressa
+condicional; e o tile "Falhas" continua somando `partial` e `failed` sob o rótulo que a
+fatia 1 portou — separar os dois números pediria chave nova de i18n para um detalhe que o
+histórico da macro já mostra caso a caso. O apontamento sobre a chave `NEVER_RUN` órfã já
+estava resolvido antes da revisão: o revisor leu o arquivo antes da remoção.
+
+> **Não verificado.** O revisor não subiu o ambiente nesta rodada, então contraste no modo
+> escuro, comportamento em tela estreita (o container de Settings é mais estreito que o
+> viewport, e o `sm:grid-cols-4` dos tiles quebra por ele) e foco visível dos botões de
+> período seguem sem confirmação na tela renderizada — mesma pendência das fatias 5 e 6.
 
 #### Verificação visual da fatia 4 — o asterisco que os 113 testes não pegaram
 
@@ -523,7 +768,10 @@ Falta só olhar a aba `custom_branding` renderizada no browser.
 - [x] Commitar as correções de hot reload que estavam soltas no working tree
 - [x] Corrigir o hook de pre-commit, que abortava todo commit feito do host
 - [x] Resolver as decisões da seção 5 (marca, licença enterprise, teams)
-- [ ] Congelar um snapshot do clone de referência fora do repo
+- [x] Congelar um snapshot do clone de referência fora do repo — `.coraxy-ref/`,
+      irmão de `chatwoot/` (fora do working tree, `git clone --filter=blob:none`),
+      branch `ajuste-powerbi` já em checkout. Recriar com o comando de referência
+      da seção 2 se for limpo.
 
 > Ficou fora de propósito: o ruído do `annotate` nos models e a regeneração do
 > `db/schema.rb` (Rails 7.2 local vs 7.1 do upstream) seguem sem commit no working tree.
@@ -609,6 +857,23 @@ conscientemente não resolvida nesta onda:
 >
 > Nota de UX independente da decisão: a validação do cliente não replica essa regra (depende
 > de DNS), então o agente só descobre no 422 do save.
+
+> ✅ **Decidido na fatia 5: opção (a).** A checagem de `Macros::SafeUrl.public_http?` saiu
+> de `Macro#validate_lookup_url` — só a forma da URL (esquema http(s) + host) continua
+> validada. A guarda real ficou só no `send_webhook_event`, em `Macros::ExecutionService`,
+> que é a única URL de macro que o servidor de fato aciona. Detalhe e teste que documenta a
+> decisão em "Fatia 5 — resolvida" (seção 3, Onda 1 frontend).
+>
+> **Risco residual, revisado por `backend-security` e aceito conscientemente.** Como quem
+> busca é o navegador do agente, não o servidor, "privado" passa a ser relativo à rede do
+> agente, não à da instalação. Um admin malicioso ou comprometido (só admin publica macro
+> `global`, ver `Macro#set_visibility`) poderia apontar um `lookup_url` para a rede local do
+> agente (roteador, serviço em localhost) e o navegador do agente faria um POST cego para lá
+> ao preencher os campos de que o lookup depende. Impacto limitado — é cego (só o agente vê
+> a resposta), exige interação deliberada do agente, e exige um admin já malicioso, que já
+> teria caminhos mais diretos de dano via `send_webhook_event` ou as demais `actions` de
+> macro. É o reverso direto e inevitável da capacidade que a fatia pediu (alcançar um ERP
+> interno) — não uma falha da implementação, mas aceito de olhos abertos.
 
 **Validação:** `bundle exec rspec spec/models/macro* spec/services/macros spec/controllers/api/v1/accounts/macro*` + `rubocop` + revisão por `backend-engineering`, `database-review` e `backend-security` (o `SafeUrl` é guarda anti-SSRF — tem que ser revisado a sério).
 
