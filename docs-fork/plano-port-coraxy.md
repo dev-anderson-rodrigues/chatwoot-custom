@@ -108,7 +108,7 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 0 — Preparação | ✅ concluída |
 | 2 — Liberar enterprise | ✅ concluída e verificada |
 | 1 — Backend (macros, dashboard apps, my_teams_only) | ✅ concluída e revisada |
-| 1 — Frontend | 🔄 fatias 0–7 feitas · 1 restante (8) |
+| 1 — Frontend | ✅ as 8 fatias feitas e revisadas |
 | 4 · 5 · 6 · 3 | pendentes |
 
 #### Fatias do frontend da Onda 1
@@ -128,7 +128,7 @@ as peças novas entram *dentro* dessa estrutura.
 | 5 | Lookup dinâmico com `depends_on` | ✅ |
 | 6 | `MacroHistory` como aba do editor | ✅ |
 | 7 | `MacrosStatsPanel` no topo da lista | ✅ |
-| 8 | Dashboard apps (checkboxes + interpolação de URL) — independente | |
+| 8 | Dashboard apps (checkboxes + interpolação de URL) — independente | ✅ |
 
 **Colisão da fatia 3 — resolvida.** O `useMacroExecution.js` do 4.17 já tinha um portão de
 pré-execução (atributos obrigatórios quando a macro resolve a conversa). O de `input_fields`
@@ -448,6 +448,144 @@ estava resolvido antes da revisão: o revisor leu o arquivo antes da remoção.
 > viewport, e o `sm:grid-cols-4` dos tiles quebra por ele) e foco visível dos botões de
 > período seguem sem confirmação na tela renderizada — mesma pendência das fatias 5 e 6.
 
+#### Fatia 8 — resolvida. Dashboard apps: variáveis na URL, barra lateral e página própria
+
+A linha da tabela ("checkboxes + interpolação de URL") subestimava a fatia. O que a fonte
+tem, e que o backend do fork já aceitava desde a Onda 1 (`show_in_sidebar` e
+`pin_to_sidebar` no model, no controller e no jbuilder), são **quatro** peças de tela:
+
+1. **Interpolação de variáveis na URL** — `{account_id}`, `{user_id}`, `{user_email}`,
+   `{user_name}`, `{user_token}` — em `helper/dashboardAppHelper.js`, consumida pelo
+   `Frame.vue` (app dentro da conversa) e pela página nova.
+2. **Dois checkboxes no `DashboardAppModal`**, com o "fixar" desabilitado enquanto o
+   "exibir na barra lateral" estiver desmarcado.
+3. **`DashboardAppPage` + rota `dashboard_app_page`** (`accounts/:accountId/apps/:appId`),
+   num módulo próprio (`routes/dashboard/dashboardApps/`), no padrão que o 4.17 usa para
+   `calls/` e `contacts/`.
+4. **Entradas na `Sidebar.vue`**: app marcado entra num grupo "Apps"; marcado *e* fixado,
+   sobe para item de primeiro nível, ao lado de Relatórios e Campanhas. O 4.17 não tem o
+   conceito de "seção" que a fonte usava (GERAL/FERRAMENTAS), então as entradas entram na
+   lista plana de grupos, logo antes de "Portals".
+
+Decisões de porte, divergindo ou completando a fonte:
+
+- **Substituição em uma passada só, não `replace` encadeado.** A fonte trocava uma variável
+  por vez, e cada troca varria o resultado da anterior: um agente com o nome
+  `{user_token}` faria o próprio token entrar numa URL que só pedia o nome. Tem teste.
+- **Todo valor sai por `encodeURIComponent`.** A fonte só codificava e-mail e nome; um nome
+  com `&` ou `#` reescrevia a query string do destino. Tem teste.
+- **Variável sem valor vira vazio**, não a string `"undefined"` que a fonte mandava quando
+  o campo não existia.
+- **Não portei o `access_token` no `postMessage`.** A fonte também colocava o token no
+  objeto de contexto enviado para dentro do iframe — com destino `'*'`, que qualquer origem
+  que o iframe assumir recebe. É estritamente pior que a URL, que ao menos vai só para o
+  host que o admin cadastrou. A interpolação já atende quem precisa do token. **O `account:
+  { id }`, que a fonte manda no mesmo objeto, foi portado** a pedido: é o id da conta, não
+  credencial, e é o que o app precisa para saber em qual conta está rodando.
+- **Não portei o `allow="clipboard-read; clipboard-write"`** do iframe da página. Ler a área
+  de transferência do agente é permissão forte para conceder por padrão, e o `Frame.vue` da
+  conversa nunca teve. Fácil de reativar se algum app precisar.
+- **A página ganhou estado de carregando.** Na fonte, abrir o app por link direto (ou só
+  recarregar a aba) chegava com a lista vazia no store e mostrava "app não encontrado" —
+  a página agora busca a lista quando ela está vazia e mostra spinner enquanto isso.
+- **Mensagem em i18n.** A fonte tinha `App não encontrado` hardcoded no template.
+- **Dica das variáveis no formulário.** Sem ela o admin não tem como descobrir que a URL
+  aceita variável nenhuma; o texto é gerado a partir da constante do helper, para não
+  divergir dele. Confirmado em teste que o validador de URL do Vuelidate aceita
+  `https://host/?c={account_id}` — se não aceitasse, a fatia inteira seria inútil na tela.
+- **`Checkbox` do design system** em vez do `<input type="checkbox">` com `accent-woot-500`
+  da fonte, e `ps-6` no lugar de `ltr:pl-6 rtl:pr-6`, como manda o `frontend.mdc`.
+
+Um bug de upstream, corrigido de passagem porque a fatia mexia na mesma linha: o modal em
+modo edição fazia `this.app.content = this.selectedAppData.content[0]`, guardando a
+**referência** do objeto que vive no store. Editar a URL e fechar sem salvar deixava a lista
+mostrando um valor que nunca foi gravado. Agora é cópia. Tem teste de regressão, confirmado
+batendo contra o código sem a correção.
+
+Armadilha de teste que vale registrar: `wrapper.vm.app.title = 'x'` **não chega** ao estado
+que o componente valida — o proxy do `@vue/test-utils` devolve uma cópia destacada dos dados
+para componentes com `setup()` + Options API. A escrita passou a ser pelo `$model` do
+Vuelidate. Quem for testar outro modal do repo com esse formato vai tropeçar no mesmo lugar:
+o sintoma é o submit não disparar e a validação parecer teimosamente inválida.
+
+**Validação:** 22 testes (`dashboardAppHelper.spec.js` 9, `DashboardAppPage.spec.js` 7,
+`DashboardAppModal.spec.js` 6) via `TZ=UTC npx vitest --no-watch --no-cache --no-coverage`
++ `eslint` limpo nos arquivos tocados. **Sem cobertura de teste: a montagem do menu no
+`Sidebar.vue`** — o repo não tem spec desse componente (só dos componentes-folha), e montá-lo
+exigiria um arreio de store grande demais para o valor.
+
+#### Revisão de segurança da fatia 8 — `{user_token}` fica, com o risco escrito
+
+`backend-security` revisou a variável e a classificou como **bloqueante**. O fato que
+faltava na análise anterior estava na policy: `DashboardAppPolicy` exige `administrator?`
+em `create?`/`update?`, mas `index?`/`show?` liberam **qualquer** `account_user`. Ou seja,
+quem escolhe a URL é o admin e quem abre o app é cada agente — o token que vai para o log do
+host de destino, para o `Referer` e para o histórico do navegador é o `access_token` de cada
+agente, um por um, sem sinal nenhum para ele.
+
+O peso não é o vazamento em si, é a fronteira que ele cruza: hoje um admin **não tem** como
+obter o token de outro usuário (o jbuilder só expõe o do próprio `resource`). A interpolação
+cria, por uma via lateral de UI, um jeito de personificar agente individual via API.
+
+**Decisão do dono do produto, tomada com o parecer na mão: manter `{user_token}`.** O motivo
+é migração — os apps do sistema antigo autenticam por essa variável e quebrariam sem ela.
+É o mesmo tipo de decisão registrada na fatia 5 para o `lookup_url`: risco conhecido, aceito
+de olhos abertos, escrito onde quem mexer no código vai ler (o comentário fica junto da
+constante em `dashboardAppHelper.js`, não só aqui).
+
+**O caminho para fechar, quando os apps puderem mudar:** um token curto, assinado e de
+escopo restrito, emitido por endpoint próprio só para o app externo identificar o agente —
+nunca o `access_token` cru, e nunca em querystring.
+
+Confirmações do revisor, sem ação pendente:
+
+- **Não portar o `access_token` no `postMessage(..., '*')` foi correto**, e pelo motivo
+  suposto: o destino `'*'` entrega para qualquer origem que o iframe assumir *depois*,
+  inclusive após um redirect para fora do host cadastrado. A URL, ao menos, só chega ao host
+  que o admin escolheu. (O `account: { id }` que a fonte manda nesse mesmo objeto **foi**
+  portado, a pedido: é o id da conta, não credencial.)
+- **A substituição em passada única + `encodeURIComponent` não deixou buraco.** Como só
+  admin escreve o template da URL, o único dado de menor privilégio é o valor de
+  `user_name`/`user_email`, e o encoding cobre. O teste do agente chamado `{user_token}`
+  trava exatamente a re-entrância que a fonte tinha.
+- **Autorização e `permitted_payload` estão sãos.** `create`/`update`/`destroy` são de
+  admin; `index`/`show` escopam por `Current.account.dashboard_apps`, sem IDOR entre contas;
+  `show_in_sidebar`/`pin_to_sidebar` são flags de exibição, sem peso de autorização.
+
+> **Débito registrado, anterior ao port:** mesmo sem token, o `dashboardAppContext` manda
+> `currentAgent` (id, nome, e-mail), conversa e contato por `postMessage` com destino `'*'`.
+> Mesmo padrão de risco em escala menor — PII, não credencial. Fechar exige mandar para a
+> origem do iframe, o que mexe em código que todo dashboard app existente consome.
+>
+> **Não verificado:** se existe CSP restringindo `frame-src` (sem ela, qualquer domínio serve
+> de destino), e se o `JSONSchemer` do model rejeita URL com unicode ou IDN homográfico que
+> mascare o host de destino. Os dois pesam mais agora que a decisão foi manter o token.
+
+#### Revisão de frontend da fatia 8 — sem bloqueantes
+
+`frontend-design` não achou bloqueante. Três apontamentos foram acatados:
+
+- **O composable saiu do componente.** A página decidia sozinha quando buscar a lista e fazia
+  o casamento do `appId` e a filtragem dos frames — regra que o `frontend.mdc` manda tirar do
+  `.vue`. Virou `composables/useDashboardApp.js`, o mesmo caminho que a fatia 5 seguiu depois
+  da revisão dela.
+- **O checkbox desabilitado agora explica o motivo.** Ele ficava só apagado e indentado: quem
+  usa leitor de tela ouvia "desabilitado" e nada mais. O texto do porquê entrou *dentro* do
+  `<label>` — `aria-describedby` no `Checkbox` pousaria na div raiz dele, longe do input, e
+  não seria anunciado.
+- **Os apps dentro do grupo "Apps" ganharam ícone**, que só os fixados tinham.
+
+Não acatados, com motivo: o `focus-visible` ausente e o `cursor-pointer` fixo do
+`Checkbox.vue` são do design system compartilhado, anteriores a esta fatia — mexer ali muda
+todo formulário do produto e é decisão de design system, não de port. **Ficam registrados
+como débito real de acessibilidade: hoje não há indicador visível de foco em nenhum checkbox
+do dashboard.**
+
+Riscos de UI que o revisor levantou e que só a tela resolve: fixar muitos apps faz a barra
+lateral de primeiro nível crescer sem controle (não há limite nem agrupamento), e a lista de
+configuração não mostra quais apps estão na barra lateral — o admin precisa abrir cada um
+para saber. Nenhum dos dois bloqueia; os dois viram ticket se aparecerem na prática.
+
 #### Verificação visual da fatia 4 — o asterisco que os 113 testes não pegaram
 
 A suíte inteira passava, mas nenhum campo obrigatório do `MacroExecuteModal` mostrava o
@@ -538,7 +676,9 @@ Detalhes que custaram rodadas inteiras:
 > do app de terceiro e possivelmente no `Referer`, e permite chamar a API do Chatwoot como
 > aquele agente. **Decisão tomada: portar como está**, porque os apps em produção dependem
 > dele para autenticar. Fica registrado como risco conhecido, não como descuido — se um dia
-> valer fechar, o caminho é um token de escopo restrito emitido para o app.
+> valer fechar, o caminho é um token de escopo restrito emitido para o app. **Confirmado na
+> fatia 8** com o parecer do `backend-security` na mão — ver "Revisão de segurança da fatia 8",
+> que detalha por que a policy torna o risco maior do que esta nota supunha.
 
 Branch: `feature/port-coraxy`
 
