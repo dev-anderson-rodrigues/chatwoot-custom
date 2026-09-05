@@ -191,6 +191,7 @@
     "STATS": {
       "TITLE": "Overview",
       "ERROR": "Could not load the metrics.",
+      "PERIOD_GROUP_LABEL": "Period",
       "PERIOD_7D": "7 days",
       "PERIOD_30D": "30 days",
       "PERIOD_90D": "90 days",
@@ -201,8 +202,7 @@
       "TOP_MACROS": "Most used macros",
       "RUNS": "runs",
       "NO_DATA": "No runs in this period.",
-      "LAST_RUN": "Last run {time}",
-      "NEVER_RUN": "Never run in this period"
+      "LAST_RUN": "Last run {time}"
     },
     "ERRORS": {
       "ATTRIBUTE_KEY_REQUIRED": "Attribute key is required",

@@ -191,6 +191,7 @@
     "STATS": {
       "TITLE": "Visão geral",
       "ERROR": "Não foi possível carregar as métricas.",
+      "PERIOD_GROUP_LABEL": "Período",
       "PERIOD_7D": "7 dias",
       "PERIOD_30D": "30 dias",
       "PERIOD_90D": "90 dias",
@@ -201,8 +202,7 @@
       "TOP_MACROS": "Macros mais usadas",
       "RUNS": "execuções",
       "NO_DATA": "Nenhuma execução no período.",
-      "LAST_RUN": "Última execução {time}",
-      "NEVER_RUN": "Nenhuma execução no período"
+      "LAST_RUN": "Última execução {time}"
     },
     "ERRORS": {
       "ATTRIBUTE_KEY_REQUIRED": "A chave do atributo é necessária",
