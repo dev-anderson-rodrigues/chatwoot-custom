@@ -229,7 +229,8 @@
     }
   },
   "DASHBOARD_APPS": {
-    "LOADING_MESSAGE": "Loading Dashboard App..."
+    "LOADING_MESSAGE": "Loading Dashboard App...",
+    "NOT_FOUND": "This app is not available anymore."
   },
   "COMMON": {
     "OR": "Or",
