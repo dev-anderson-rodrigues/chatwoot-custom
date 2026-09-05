@@ -340,4 +340,321 @@ describe('MacroExecuteModal', () => {
       expect(wrapper.emitted('submit')[0][0]).toEqual({ phone: '' });
     });
   });
+
+  // Fatia 5: lookup dinamico. As opcoes nao vem de busca por texto -- vem de
+  // um POST para lookup_url com os valores atuais de depends_on, disparado
+  // (debounced) quando esses valores mudam. A lista renderizada pelo
+  // ComboBoxDropdown fica no DOM mesmo fechada (v-show), entao clicar direto
+  // num <li role="option"> seleciona sem precisar abrir o dropdown.
+  describe('lookup', () => {
+    const lookupField = (overrides = {}) =>
+      field({
+        key: 'contrato',
+        label: 'Contrato',
+        type: 'lookup',
+        lookup_url: 'https://api.example.com/lookup',
+        depends_on: ['cpf'],
+        ...overrides,
+      });
+
+    const selectOption = (wrapper, scopeSelector, label) =>
+      wrapper
+        .find(scopeSelector)
+        .findAll('li[role="option"]')
+        .find(li => li.text() === label)
+        .trigger('click');
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.stubGlobal('fetch', vi.fn());
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    });
+
+    it('does not fetch before its dependencies are filled in', async () => {
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField(),
+      ]);
+      await wrapper.vm.$nextTick();
+
+      expect(wrapper.text()).toContain('Fill in first: CPF');
+      await vi.advanceTimersByTimeAsync(500);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('fetches once the dependency is filled in, debounced', async () => {
+      fetch.mockResolvedValue({
+        ok: true,
+        json: async () => [{ value: '1', label: 'Contrato 001' }],
+      });
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField(),
+      ]);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      expect(fetch).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(fetch).toHaveBeenCalledWith('https://api.example.com/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf: '52998224725' }),
+      });
+      expect(wrapper.text()).toContain('Contrato 001');
+    });
+
+    // registros: convencao dos webhooks n8n que a Coraxy ja tem em producao --
+    // manter para nao quebrar integracao existente no port.
+    it('accepts records wrapped in a registros envelope', async () => {
+      fetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          registros: [{ value: '1', label: 'Contrato 001' }],
+        }),
+      });
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField(),
+      ]);
+      await wrapper.vm.$nextTick();
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(wrapper.text()).toContain('Contrato 001');
+    });
+
+    it('maps value_key/label_key, falling back to value/label when unset', async () => {
+      fetch.mockResolvedValue({
+        ok: true,
+        json: async () => [{ codigo: 'X1', nome: 'Nome X1' }],
+      });
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField({ value_key: 'codigo', label_key: 'nome' }),
+      ]);
+      await wrapper.vm.$nextTick();
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(wrapper.text()).toContain('Nome X1');
+    });
+
+    it('shows a translated error, not the raw fetch failure, when the lookup fails', async () => {
+      fetch.mockResolvedValue({ ok: false, status: 500 });
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField(),
+      ]);
+      await wrapper.vm.$nextTick();
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(wrapper.text()).toContain(
+        'Could not load the options. Try again.'
+      );
+      expect(wrapper.text()).not.toContain('HTTP 500');
+    });
+
+    // Achado do backend-engineering: `values[key] = array.filter(...)`
+    // sempre cria uma referencia nova, mesmo quando nada e removido. Como
+    // `values` e reactive e o watch compara referencia (nao conteudo), isso
+    // reagendava o mesmo fetch pra sempre -- um POST pra lookup_url a cada
+    // ~500ms, indefinidamente, enquanto o modal ficasse aberto. Sem o guard
+    // de tamanho em useMacroLookup.js este teste falha (fetch chamado mais
+    // de uma vez apos varios ciclos de debounce sem nenhuma mudanca real).
+    it('does not loop forever refetching a multi lookup once nothing changes', async () => {
+      fetch.mockResolvedValue({
+        ok: true,
+        json: async () => [{ value: '1', label: 'Contrato 001' }],
+      });
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField({ multi: true }),
+      ]);
+      await wrapper.vm.$nextTick();
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+
+      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    // Achado do backend-engineering: open() limpava os timers agendados, mas
+    // nao invalidava um fetch ja em voo. Duas macros que reusem a mesma
+    // chave de campo (plausivel -- "contrato", "cliente_id") deixariam a
+    // resposta atrasada da macro antiga escrever no estado da macro nova.
+    it('discards a stale lookup response after the modal reopens for a different macro', async () => {
+      let resolveFirstFetch;
+      fetch.mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirstFetch = resolve;
+          })
+      );
+
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField(),
+      ]);
+      await wrapper.vm.$nextTick();
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      await vi.advanceTimersByTimeAsync(500);
+
+      // Reabre para uma macro diferente com um campo de mesma chave
+      // ("contrato") antes da resposta original chegar.
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField({ label: 'Contrato (outra macro)' }),
+      ]);
+      await wrapper.vm.$nextTick();
+
+      resolveFirstFetch({
+        ok: true,
+        json: async () => [{ value: 'stale', label: 'Nao deveria aparecer' }],
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await wrapper.vm.$nextTick();
+
+      expect(wrapper.text()).not.toContain('Nao deveria aparecer');
+      expect(wrapper.text()).toContain('Contrato (outra macro)');
+    });
+
+    it('submits the option the agent picked from the fetched list', async () => {
+      fetch.mockResolvedValue({
+        ok: true,
+        json: async () => [{ value: '1', label: 'Contrato 001' }],
+      });
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField(),
+      ]);
+      await wrapper.vm.$nextTick();
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      await vi.advanceTimersByTimeAsync(500);
+      await wrapper.vm.$nextTick();
+
+      await selectOption(wrapper, '#macro-input-contrato', 'Contrato 001');
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')[0][0]).toMatchObject({ contrato: '1' });
+    });
+
+    it('does not submit a required lookup left unselected', async () => {
+      fetch.mockResolvedValue({
+        ok: true,
+        json: async () => [{ value: '1', label: 'Contrato 001' }],
+      });
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField({ required: true }),
+      ]);
+      await wrapper.vm.$nextTick();
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      await vi.advanceTimersByTimeAsync(500);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')).toBeUndefined();
+    });
+
+    // Trocar o CPF refaz a busca; o contrato escolhido para o CPF anterior
+    // pode nao existir mais na lista nova -- mante-lo selecionado mandaria um
+    // valor que o agente nunca escolheu para este cliente.
+    it('clears a stale selection once its dependency changes and the refetch drops it', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ value: '1', label: 'Contrato 001' }],
+      });
+      const wrapper = mountModal();
+      wrapper.vm.open(macro, [
+        field({ key: 'cpf', label: 'CPF' }),
+        lookupField(),
+      ]);
+      await wrapper.vm.$nextTick();
+      await wrapper.find('#macro-input-cpf').setValue('52998224725');
+      await vi.advanceTimersByTimeAsync(500);
+      await wrapper.vm.$nextTick();
+      await selectOption(wrapper, '#macro-input-contrato', 'Contrato 001');
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ value: '2', label: 'Contrato 002' }],
+      });
+      await wrapper.find('#macro-input-cpf').setValue('11144477735');
+      await vi.advanceTimersByTimeAsync(500);
+      await wrapper.vm.$nextTick();
+
+      await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+      expect(wrapper.emitted('submit')[0][0]).toMatchObject({ contrato: '' });
+    });
+
+    describe('multi', () => {
+      it('wires the control to its label via aria, not a native for', async () => {
+        const wrapper = mountModal();
+        wrapper.vm.open(macro, [
+          field({ key: 'cpf', label: 'CPF' }),
+          lookupField({ multi: true }),
+        ]);
+        await wrapper.vm.$nextTick();
+
+        const label = wrapper.find('label#macro-input-contrato-label');
+        expect(label.exists()).toBe(true);
+        expect(label.attributes('for')).toBeUndefined();
+        expect(
+          wrapper
+            .find('[aria-labelledby="macro-input-contrato-label"]')
+            .exists()
+        ).toBe(true);
+      });
+
+      it('accumulates every option the agent picks into an array', async () => {
+        fetch.mockResolvedValue({
+          ok: true,
+          json: async () => [
+            { value: '1', label: 'Contrato 001' },
+            { value: '2', label: 'Contrato 002' },
+          ],
+        });
+        const wrapper = mountModal();
+        wrapper.vm.open(macro, [
+          field({ key: 'cpf', label: 'CPF' }),
+          lookupField({ multi: true }),
+        ]);
+        await wrapper.vm.$nextTick();
+        await wrapper.find('#macro-input-cpf').setValue('52998224725');
+        await vi.advanceTimersByTimeAsync(500);
+        await wrapper.vm.$nextTick();
+
+        const scope = '[aria-labelledby="macro-input-contrato-label"]';
+        await selectOption(wrapper, scope, 'Contrato 001');
+        await selectOption(wrapper, scope, 'Contrato 002');
+        await wrapper.findComponent({ name: 'Dialog' }).vm.$emit('confirm');
+
+        expect(wrapper.emitted('submit')[0][0]).toMatchObject({
+          contrato: ['1', '2'],
+        });
+      });
+    });
+  });
 });

@@ -96,7 +96,6 @@ RSpec.describe Macro do
       end
 
       it 'requires depends_on to list at least one key' do
-        allow(Macros::SafeUrl).to receive(:public_http?).and_return(true)
         fields = [base.merge('lookup_url' => 'https://api.example.com/x').except('depends_on')]
         expect(errors_for(fields)).to include('input_fields[0].depends_on must list at least one key')
       end
@@ -106,18 +105,17 @@ RSpec.describe Macro do
         expect(errors_for(fields)).to include('input_fields[0].lookup_url must be a valid http(s) URL')
       end
 
-      # A URL e acionada pelo servidor: sem esta guarda, uma macro global poderia
-      # apontar para a rede interna da instalacao.
-      it 'rejects a url that resolves to a private host' do
-        allow(Macros::SafeUrl).to receive(:public_http?).and_return(false)
-        fields = [base.merge('lookup_url' => 'http://169.254.169.254/latest/meta-data/')]
-        expect(errors_for(fields))
-          .to include('input_fields[0].lookup_url must point to a public host (no private/loopback IPs)')
+      it 'accepts a public url' do
+        expect(build_macro([base.merge('lookup_url' => 'https://api.example.com/x')])).to be_valid
       end
 
-      it 'accepts a public url' do
-        allow(Macros::SafeUrl).to receive(:public_http?).and_return(true)
-        expect(build_macro([base.merge('lookup_url' => 'https://api.example.com/x')])).to be_valid
+      # Decisao da fatia 5: quem busca e o navegador do agente (MacroExecuteModal),
+      # nao o servidor -- por isso um host interno, so alcancavel pela VPN do
+      # cliente, e um caso de uso valido e nao pode ser bloqueado aqui. A guarda
+      # de SSRF continua valendo para o send_webhook_event, que e quem o servidor
+      # de fato aciona (ver execution_service_spec.rb).
+      it 'accepts a url pointing at a private host, unlike the webhook action guard' do
+        expect(build_macro([base.merge('lookup_url' => 'http://192.168.1.10/contratos')])).to be_valid
       end
     end
   end

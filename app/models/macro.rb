@@ -35,10 +35,6 @@ class Macro < ApplicationRecord
   enum visibility: { personal: 0, global: 1 }
 
   validate :json_actions_format
-  # So quando o array muda: validar um input_field do tipo lookup resolve DNS de
-  # verdade (Macros::SafeUrl). Sem esta guarda, renomear a macro dispararia uma
-  # chamada de rede sincrona no request -- e a macro deixaria de poder ser salva
-  # sempre que o host do lookup_url estivesse fora do ar.
   validate :input_fields_format, if: :input_fields_changed?
 
   ACTIONS_ATTRS = %w[send_message add_label assign_team assign_agent mute_conversation change_status remove_label remove_assigned_agent
@@ -155,16 +151,21 @@ class Macro < ApplicationRecord
     errors.add(:input_fields, "#{prefix}.depends_on must list at least one key")
   end
 
+  # So checa a forma da URL (esquema http(s) + host) -- nao chama
+  # Macros::SafeUrl aqui. O fetch do lookup roda no navegador do agente
+  # (MacroExecuteModal), nao no servidor: quem consome a resposta e o
+  # agente, nao um processo do Rails. A checagem de DNS ja rodou aqui antes e
+  # so causava dano: bloqueava host interno valido (ERP na VPN do cliente,
+  # o caso de uso natural de um campo de consulta) e derrubava o save da
+  # macro sempre que um host publico estivesse momentaneamente fora do ar,
+  # sem proteger nada -- o servidor nunca faz essa requisicao. A guarda real
+  # continua em Macros::ExecutionService, para a URL do send_webhook_event,
+  # que e a unica acionada pelo servidor.
   def validate_lookup_url(prefix, url)
     uri = URI.parse(url)
-    unless %w[http https].include?(uri.scheme) && uri.host.present?
-      errors.add(:input_fields, "#{prefix}.lookup_url must be a valid http(s) URL")
-      return
-    end
+    return if %w[http https].include?(uri.scheme) && uri.host.present?
 
-    return if Macros::SafeUrl.public_http?(url)
-
-    errors.add(:input_fields, "#{prefix}.lookup_url must point to a public host (no private/loopback IPs)")
+    errors.add(:input_fields, "#{prefix}.lookup_url must be a valid http(s) URL")
   rescue URI::InvalidURIError
     errors.add(:input_fields, "#{prefix}.lookup_url is not a valid URL")
   end
