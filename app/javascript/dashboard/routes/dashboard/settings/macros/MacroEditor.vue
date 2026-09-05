@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useStore, useStoreGetters } from 'dashboard/composables/store';
 import MacroForm from './MacroForm.vue';
+import MacroHistory from './MacroHistory.vue';
+import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import { MACRO_ACTION_TYPES } from './constants';
 import { useAlert } from 'dashboard/composables';
 import actionQueryGenerator from 'dashboard/helper/actionQueryGenerator.js';
@@ -24,6 +26,18 @@ const { isAdmin } = useAdmin();
 
 const macro = ref(null);
 const mode = ref('CREATE');
+
+const TAB_VALUES = ['editor', 'history'];
+const activeTab = ref('editor');
+
+const tabs = computed(() =>
+  TAB_VALUES.map(value => ({
+    label: t(`MACROS.TABS.${value.toUpperCase()}`),
+    value,
+  }))
+);
+
+const activeTabIndex = computed(() => TAB_VALUES.indexOf(activeTab.value));
 
 const macroActionTypes = computed(() => {
   return MACRO_ACTION_TYPES.map(type => ({
@@ -104,6 +118,10 @@ const initNewMacro = () => {
 watch(
   () => route,
   () => {
+    // Sem isto, sair de uma macro salva (onde a aba de historico existe) para a
+    // tela de criar deixaria `activeTab` em 'history': a aba some junto com o
+    // modo EDIT e o formulario, escondido pelo v-show, nao aparece no lugar.
+    activeTab.value = 'editor';
     if (route.params.macroId) {
       fetchMacro();
     } else {
@@ -140,13 +158,25 @@ const saveMacro = async macroData => {
       v-if="uiFlags.isFetchingItem"
       :message="t('MACROS.EDITOR.LOADING')"
     />
-    <MacroForm
-      v-if="macro && !uiFlags.isFetchingItem"
-      :macro-data="macro"
-      :can-manage-public-macros="isAdmin"
-      :read-only="isPublicMacroReadOnly"
-      @update:macro-data="macro = $event"
-      @submit="saveMacro"
-    />
+    <template v-if="macro && !uiFlags.isFetchingItem">
+      <TabBar
+        v-if="mode === 'EDIT'"
+        :tabs="tabs"
+        :initial-active-tab="activeTabIndex"
+        @tab-changed="activeTab = $event.value"
+      />
+      <MacroForm
+        v-show="activeTab === 'editor'"
+        :macro-data="macro"
+        :can-manage-public-macros="isAdmin"
+        :read-only="isPublicMacroReadOnly"
+        @update:macro-data="macro = $event"
+        @submit="saveMacro"
+      />
+      <MacroHistory
+        v-if="mode === 'EDIT' && activeTab === 'history'"
+        :macro-id="macroId"
+      />
+    </template>
   </div>
 </template>
