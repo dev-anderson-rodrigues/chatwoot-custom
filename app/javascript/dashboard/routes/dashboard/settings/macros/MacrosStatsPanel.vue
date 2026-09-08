@@ -148,7 +148,7 @@ onMounted(fetchStats);
             <span
               class="text-xs whitespace-nowrap text-n-slate-11 tabular-nums"
             >
-              {{ row.total }} {{ t('MACROS.STATS.RUNS') }}
+              {{ t('MACROS.STATS.RUNS', { count: row.total }, row.total) }}
             </span>
             <span
               class="w-16 text-xs font-medium text-end tabular-nums"

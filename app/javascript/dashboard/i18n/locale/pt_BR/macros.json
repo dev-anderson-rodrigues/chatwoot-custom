@@ -200,7 +200,7 @@
       "FAILED": "Falhas",
       "ACTIVE_MACROS": "Macros usadas",
       "TOP_MACROS": "Macros mais usadas",
-      "RUNS": "execuções",
+      "RUNS": "{count} execução | {count} execuções",
       "NO_DATA": "Nenhuma execução no período.",
       "LAST_RUN": "Última execução {time}"
     },

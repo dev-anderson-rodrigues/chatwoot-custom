@@ -200,7 +200,7 @@
       "FAILED": "Failures",
       "ACTIVE_MACROS": "Macros used",
       "TOP_MACROS": "Most used macros",
-      "RUNS": "runs",
+      "RUNS": "{count} run | {count} runs",
       "NO_DATA": "No runs in this period.",
       "LAST_RUN": "Last run {time}"
     },

@@ -117,6 +117,22 @@ describe('MacrosStatsPanel', () => {
     expect(tile(wrapper, 'Macros used').text()).toContain('6');
   });
 
+  it('counts a single run in the singular', async () => {
+    respondWith([
+      macroStat({
+        total: 1,
+        counts: { pending: 0, success: 1, partial: 0, failed: 0 },
+        success_rate: 100,
+      }),
+    ]);
+    const wrapper = await mountPanel();
+
+    // A chave era texto fixo no plural e a tela mostrava "1 execuções". So
+    // apareceu quando o painel foi olhado renderizado, com dado de verdade.
+    expect(wrapper.find('li').text()).toContain('1 run');
+    expect(wrapper.find('li').text()).not.toContain('1 runs');
+  });
+
   it('shows when each ranked macro last ran', async () => {
     const wrapper = await mountPanel();
 
