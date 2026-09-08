@@ -586,6 +586,59 @@ lateral de primeiro nível crescer sem controle (não há limite nem agrupamento
 configuração não mostra quais apps estão na barra lateral — o admin precisa abrir cada um
 para saber. Nenhum dos dois bloqueia; os dois viram ticket se aparecerem na prática.
 
+#### As duas pendências de segurança da fatia 8 — uma fechada, uma descartada com motivo
+
+`backend-security` voltou às duas perguntas que tinham ficado como NÃO VERIFICADAS. As
+respostas foram conferidas contra o código antes de virar decisão — a segunda não sobreviveu
+à conferência.
+
+**1. `frame-src` — não existe CSP nenhuma, e a correção proposta não serve.**
+
+O diagnóstico está certo: `config/initializers/content_security_policy.rb` está inteiro
+comentado, o nginx do `deployment/` não manda header de segurança, e o único CSP do código
+é o `frame-ancestors` do `widgets_controller.rb`, que é a diretiva **inversa** (quem pode
+embutir o widget) e não tem relação com o dashboard.
+
+A correção proposta era montar uma allowlist de `frame-src` a partir dos hosts cadastrados
+em `dashboard_apps`. **Não dá**, e o motivo é arquitetural: o dashboard é uma SPA — um único
+documento serve todas as telas, então há uma CSP só para o produto inteiro. E há outras
+telas que embutem iframe de host que não está em `dashboard_apps`:
+
+- `components-next/message/bubbles/Embed.vue` embute `attachment.dataUrl`, ou seja, **host
+  arbitrário vindo de anexo de mensagem** (é assim que embed de mídia aparece na conversa);
+- `components-next/message/bubbles/Dyte.vue` embute o link da sala de videochamada.
+
+Uma allowlist estreita o suficiente para restringir o destino dos dashboard apps quebraria
+esses dois. Uma allowlist larga o bastante para mantê-los vivos teria que liberar `https:`
+praticamente inteiro — que é onde já estamos, sem o custo de manter a lista. O revisor olhou
+só o caminho do dashboard app e não fez esse inventário.
+
+Fica registrado assim: **CSP não é a mitigação certa para o risco do `{user_token}` neste
+produto.** Se um dia valer restringir de verdade, o caminho é servir o dashboard app em um
+documento próprio (rota fora da SPA, com CSP própria), não apertar a CSP global.
+
+**2. Userinfo na URL — confirmado e corrigido.**
+
+Este sobreviveu. O `format: uri` + `pattern: ^https?://` do schema aceitam
+`https://host-confiavel.com@host-do-atacante.com/` — o host real é o segundo, mas a string
+começa pelo primeiro. Como a lista de apps mostra a URL truncada no fim
+(`DashboardAppsRow.vue`), o host real é justamente a parte que some: quem audita depois vê o
+prefixo confiável. Com o `{user_token}` viajando nessa URL, o custo de uma confusão de host
+não detectada subiu.
+
+Fechado com um `validate` no model, ao lado do schema, que rejeita URL com userinfo. Não
+limita o admin — ele continua podendo cadastrar o host que quiser; impede é a URL **mentir**
+sobre qual host ela é. A validação do schema passou a interromper antes, para uma URL
+inválida não acumular as duas mensagens de erro.
+
+O `DashboardAppsRow.vue` não precisou mudar: a truncagem corta o fim, e o host aparece logo
+depois do `https://` — com o userinfo barrado no save, o que fica visível é o host real.
+
+> **Débito de dado, não de código:** a validação vale no save. Registro criado antes dela
+> com userinfo na URL continua no banco e continua sendo renderizado. Não há instalação do
+> fork em produção com dashboard app cadastrado, então não vale migração agora — mas se
+> houver, é uma varredura em `dashboard_apps.content`.
+
 #### Verificação visual da fatia 4 — o asterisco que os 113 testes não pegaram
 
 A suíte inteira passava, mas nenhum campo obrigatório do `MacroExecuteModal` mostrava o
