@@ -109,7 +109,7 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 2 — Liberar enterprise | ✅ concluída e verificada |
 | 1 — Backend (macros, dashboard apps, my_teams_only) | ✅ concluída e revisada |
 | 1 — Frontend | ✅ as 8 fatias feitas e revisadas |
-| 5 — Relatórios | 🔄 levantada e fatiada · decisão de atribuição robô×humano em aberto |
+| 5 — Relatórios | 🔄 fatia 4 (cockpit) feita e revisada · decisão de atribuição robô×humano em aberto |
 | 4 · 6 · 3 | pendentes |
 
 #### Fatias do frontend da Onda 1
@@ -1356,6 +1356,65 @@ relatório de bot que já existe.
 atribuição conta como IA. A alternativa é portar igual e registrar a divergência, preservando
 comparabilidade histórica.
 
+##### Fatia 4 — resolvida. Cockpit de Atendentes
+
+Escolhida para abrir a onda por ser a única dos builders que **não toca na separação
+robô × humano**, que segue em aberto — as outras quatro (origem, supervisor, fila, motivos)
+dependem daquela decisão. A tela do Cockpit também não usa o filtro transversal, então ela
+pode vir antes da decisão.
+
+Duas decisões de escopo tomadas ao abrir os arquivos, ambas evitando duplicar conceito:
+
+- **O `top_labels_builder` não será portado.** Ele existe na fonte para resolver o 429 de
+  uma requisição por etiqueta, e o 4.17 já resolveu o mesmo problema com o
+  `LabelSummaryBuilder`, que devolve `conversations_count` por etiqueta numa chamada só.
+  Faltam apenas cor, ordenação e limite — apresentação. Portar criaria uma segunda fonte de
+  verdade para "conversas por etiqueta". **Isso tira um builder e um endpoint da onda.**
+- **O Cockpit não reusa o `AgentSummaryBuilder`**, apesar de repetir cinco métricas. Ele
+  precisa contar conversas encerradas no período e devolver presença, time, CSAT e ranking;
+  adaptar o builder do upstream mexeria num arquivo que o relatório de agentes também usa, e
+  todo sync futuro pagaria o conflito. Os dois leem os mesmos `reporting_events`, então o
+  risco de divergência é baixo — diferente dos casos de etiqueta e de bot, onde as
+  definições eram de fato diferentes.
+
+**Controller próprio, não o do upstream.** O `ReportsController` já estava exatamente no
+teto do `Metrics/ClassLength` antes desta onda: a primeira ação adicionada estourou o cop. As
+ações da onda passam a morar em `OperationReportsController`, com a URL inalterada
+(`/reports/...` apontando para lá). Isso deixa espaço para as outras três ações e mantém o
+arquivo do upstream intocado.
+
+###### O que a revisão do `database-review` mudou
+
+- **`updated_at` como data de encerramento caiu.** Era o ponto que o briefing já marcava como
+  frágil, e o revisor confirmou com o argumento que faltava: além de qualquer edição da
+  conversa (etiqueta, nota, reabertura) poluir a contagem, `(status, updated_at)` não tem
+  índice nenhum, enquanto o evento de resolução cai num índice exato que já existe
+  (`account_id, name, created_at`). "Encerradas no período" passou a sair do
+  `reporting_events`, contando **conversa distinta** — reabrir e resolver de novo na mesma
+  janela é uma só no volume do agente. Dois testes travam isso.
+- **Duas migrations de índice.** `conversations (account_id, created_at)` e
+  `csat_survey_responses (account_id, created_at, assigned_agent_id)`, ambas concorrentes. O
+  detalhe não óbvio: o índice `(account_id, status, created_at)` que já existe **não** serve
+  ao caminho padrão, porque sem igualdade em `status` o `created_at` não fica ordenado dentro
+  do prefixo e o plano degenera para varrer a conta inteira.
+- **Quatro varreduras viraram uma.** Resoluções, tempo de atendimento, primeira resposta e
+  tempo de resposta saem de uma query com agregação condicional — o padrão que o upstream já
+  usa em `Reports::RawDataSource`. O CSAT deixou de fazer `count` e `sum` separados. De 9
+  queries por requisição para 6.
+
+Confirmações do revisor, sem ação pendente: **não há N+1** (queries fixas, independentes do
+número de agentes), e filtrar/ordenar em Ruby é adequado aqui, porque o conjunto é o quadro
+de agentes da conta e todo campo vem de hash já agregado no banco.
+
+**Débito registrado:** quando o rollup de relatórios for ligado (há um TODO em
+`Reports::DataSource.for`), o `AgentSummaryBuilder` passa a ler a tabela agregada de graça e
+este builder fica para trás — é a hora de revisitar a decisão de não reusar. O aviso está no
+topo do arquivo, não só aqui.
+
+**Não verificado:** os planos de execução reais. As afirmações de índice vêm da leitura do
+`schema.rb` e do formato das cláusulas, não de `EXPLAIN ANALYZE` contra volume de produção.
+
+
 ##### Fatiamento proposto
 
 | # | Fatia | Depende de |
@@ -1364,9 +1423,9 @@ comparabilidade histórica.
 | 1 | `origem_builder` (+ escopo por `account_id` no `first_message_table`) | 0 |
 | 2 | `supervisor_builder` (+ `open + pending` nos KPIs) | 0 |
 | 3 | `fila_historico_builder` | 0 |
-| 4 | `cockpit_atendentes_builder` | 0 |
+| 4 | `cockpit_atendentes_builder` | ✅ (nao depende da decisao) |
 | 5 | `motivos_builder` | 0 |
-| 6 | `top_labels_builder` + `bot_summary` do `metric_builder` | — |
+| 6 | ~~`top_labels_builder`~~ descartado (o 4.17 ja resolve) + `bot_summary` | a decisao |
 | 7 | Camada de API, i18n e o filtro compartilhado na tela | 6 |
 | 8–12 | Uma tela por fatia (Monitoramento, Recebidos/Efetuados, Fila, Cockpit, Motivos) | 7 |
 
