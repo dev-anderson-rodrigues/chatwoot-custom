@@ -335,6 +335,11 @@ const closeMobileSidebar = () => {
 
 const newReportRoutes = () => [
   {
+    name: 'Reports Cockpit',
+    label: t('SIDEBAR.REPORTS_COCKPIT'),
+    to: accountScopedRoute('cockpit_atendentes_reports'),
+  },
+  {
     name: 'Reports Agent',
     label: t('SIDEBAR.REPORTS_AGENT'),
     to: accountScopedRoute('agent_reports_index'),

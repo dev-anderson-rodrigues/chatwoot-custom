@@ -1,5 +1,60 @@
 {
   "REPORT": {
+    "COCKPIT": {
+      "TITLE": "Agent cockpit",
+      "DESCRIPTION": "Volume, handling times and satisfaction per agent in the selected period.",
+      "SEARCH_PLACEHOLDER": "Search by name or email",
+      "CLEAR_SEARCH": "Clear search",
+      "LOADING": "Loading the cockpit...",
+      "ERROR": "Could not load the cockpit. Try again.",
+      "EMPTY": "No agent matches the current filters.",
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days",
+        "CUSTOM": "Custom"
+      },
+      "DATE_FIELD": {
+        "LABEL": "Count by",
+        "CREATED": "Opened",
+        "RESOLVED": "Resolved"
+      },
+      "TEAM": {
+        "LABEL": "Team",
+        "ALL": "All teams"
+      },
+      "STATUS": {
+        "LABEL": "Status",
+        "ALL": "All",
+        "ONLINE": "Online",
+        "BUSY": "Busy",
+        "OFFLINE": "Offline"
+      },
+      "KPI": {
+        "AGENTS": "Agents",
+        "ONLINE": "Online",
+        "BUSY": "Busy",
+        "OFFLINE": "Offline",
+        "CONVERSATIONS": "Conversations",
+        "AVG_HANDLE": "Avg handling time",
+        "AVG_CSAT": "Avg CSAT"
+      },
+      "TABLE": {
+        "RANK": "#",
+        "AGENT": "Agent",
+        "TEAM": "Team",
+        "STATUS": "Status",
+        "CONVERSATIONS": "Conversations",
+        "RESOLUTIONS": "Resolved",
+        "AVG_HANDLE": "Handling time",
+        "FIRST_RESPONSE": "First response",
+        "REPLY_TIME": "Reply time",
+        "CSAT": "CSAT",
+        "NO_TEAM": "No team",
+        "NO_CSAT": "No responses"
+      }
+    },
     "HEADER": "Conversations",
     "LOADING_CHART": "Loading chart data...",
     "NO_ENOUGH_DATA": "We've not received enough data points to generate report, Please try again later.",

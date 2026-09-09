@@ -23,6 +23,7 @@ import CsatResponses from './CsatResponses.vue';
 import BotReports from './BotReports.vue';
 import LiveReports from './LiveReports.vue';
 import SLAReports from './SLAReports.vue';
+import CockpitAtendentes from './CockpitAtendentes.vue';
 
 const meta = {
   featureFlag: FEATURE_FLAGS.REPORTS,
@@ -134,6 +135,12 @@ export default {
         },
         ...oldReportRoutes,
         ...revisedReportRoutes,
+        {
+          path: 'cockpit',
+          name: 'cockpit_atendentes_reports',
+          meta,
+          component: CockpitAtendentes,
+        },
         {
           path: 'sla',
           name: 'sla_reports',

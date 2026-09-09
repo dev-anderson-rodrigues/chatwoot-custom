@@ -1,5 +1,60 @@
 {
   "REPORT": {
+    "COCKPIT": {
+      "TITLE": "Cockpit de atendentes",
+      "DESCRIPTION": "Volume, tempos de atendimento e satisfação por atendente no período escolhido.",
+      "SEARCH_PLACEHOLDER": "Buscar por nome ou e-mail",
+      "CLEAR_SEARCH": "Limpar busca",
+      "LOADING": "Carregando o cockpit...",
+      "ERROR": "Não foi possível carregar o cockpit. Tente de novo.",
+      "EMPTY": "Nenhum atendente corresponde aos filtros atuais.",
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias",
+        "CUSTOM": "Personalizado"
+      },
+      "DATE_FIELD": {
+        "LABEL": "Contar por",
+        "CREATED": "Abertura",
+        "RESOLVED": "Encerramento"
+      },
+      "TEAM": {
+        "LABEL": "Time",
+        "ALL": "Todos os times"
+      },
+      "STATUS": {
+        "LABEL": "Status",
+        "ALL": "Todos",
+        "ONLINE": "Online",
+        "BUSY": "Ocupado",
+        "OFFLINE": "Offline"
+      },
+      "KPI": {
+        "AGENTS": "Atendentes",
+        "ONLINE": "Online",
+        "BUSY": "Ocupados",
+        "OFFLINE": "Offline",
+        "CONVERSATIONS": "Conversas",
+        "AVG_HANDLE": "Tempo médio de atendimento",
+        "AVG_CSAT": "CSAT médio"
+      },
+      "TABLE": {
+        "RANK": "#",
+        "AGENT": "Atendente",
+        "TEAM": "Time",
+        "STATUS": "Status",
+        "CONVERSATIONS": "Conversas",
+        "RESOLUTIONS": "Encerradas",
+        "AVG_HANDLE": "Tempo de atendimento",
+        "FIRST_RESPONSE": "Primeira resposta",
+        "REPLY_TIME": "Tempo de resposta",
+        "CSAT": "CSAT",
+        "NO_TEAM": "Sem time",
+        "NO_CSAT": "Sem respostas"
+      }
+    },
     "HEADER": "Conversas",
     "LOADING_CHART": "Carregando dados do gráfico...",
     "NO_ENOUGH_DATA": "Não existem dados suficientes para gerar o relatório. Tente novamente mais tarde.",

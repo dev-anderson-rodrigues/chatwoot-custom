@@ -127,6 +127,21 @@ class ReportsAPI extends ApiClient {
     });
   }
 
+  // [Onda 5] Cockpit de atendentes. `dateField` escolhe entre contar conversas
+  // por abertura ou por encerramento -- sao perguntas diferentes para a operacao.
+  getCockpitAtendentes({ from, to, teamId, status, search, dateField } = {}) {
+    return axios.get(`${this.url}/cockpit_atendentes`, {
+      params: {
+        since: from,
+        until: to,
+        team_id: teamId,
+        status,
+        search,
+        date_field: dateField,
+      },
+    });
+  }
+
   getBotMetrics({ from, to } = {}) {
     return axios.get(`${this.url}/bot_metrics`, {
       params: { since: from, until: to },
