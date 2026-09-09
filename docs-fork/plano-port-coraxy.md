@@ -109,7 +109,8 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 2 — Liberar enterprise | ✅ concluída e verificada |
 | 1 — Backend (macros, dashboard apps, my_teams_only) | ✅ concluída e revisada |
 | 1 — Frontend | ✅ as 8 fatias feitas e revisadas |
-| 4 · 5 · 6 · 3 | pendentes |
+| 5 — Relatórios | 🔄 levantada e fatiada · decisão de atribuição robô×humano em aberto |
+| 4 · 6 · 3 | pendentes |
 
 #### Fatias do frontend da Onda 1
 
@@ -1292,6 +1293,87 @@ Transversal: filtro Todos/Humanos/IA em todas as telas (IA = conversa em caixa c
 > ⚠️ O módulo de relatórios mudou entre 4.2 e 4.17 — revalidar `reports.routes.js`, `ReportsWrapper`, `DateRange`, `ChartStats` e o `metric_builder` contra a versão atual.
 
 **Validação:** `database-review` nos 6 builders (são queries pesadas, multi-tenant) + `backend-engineering` nos endpoints + `frontend-design` nas telas renderizadas com dados reais.
+
+---
+
+#### Onda 5 — levantamento antes de portar (2026-09-09)
+
+**Escala real:** 6 builders (1.277 linhas) + 5 telas (4.093 linhas: 641 a 1.062 cada) + as
+ações nos controllers. Os três controllers (`reports`, `live_reports`, `summary_reports`) já
+existem no 4.17, então o port **acrescenta ações**, não cria controller. Os 6 builders não
+existem no nosso repo — arquivo novo, port limpo, como o plano previa.
+
+O aviso do plano sobre divergência do módulo se confirmou, e é maior: o 4.17 **acrescentou**
+uma camada que a fonte não tem (`drilldown_builder`, `inbox_label_matrix_builder`,
+`label_summary_builder`, `channel_summary_builder`, `first_response_time_distribution_builder`,
+`outgoing_messages_count_builder`). Portar por cima sem olhar duplicaria conceito.
+
+**As telas não podem ser copiadas como estão.** Com 640 a 1.060 linhas cada, elas carregam
+fetch, estado e regra de negócio dentro do `.vue` — o `frontend.mdc` proíbe. Cada tela vai
+precisar de composable próprio, como as fatias 5 a 8 acabaram fazendo.
+
+##### O problema de atribuição robô × humano — decisão em aberto
+
+O filtro transversal Todos/Humanos/IA é o que separa as métricas, e a definição da fonte tem
+furo. Levantado a pedido do usuário, antes de portar.
+
+**Como o Chatwoot marca robô.** Caixa "tem bot" por `Inbox#active_bot?` —
+`agent_bot_inbox&.active? || dialogflow_active?` (`app/models/concerns/inbox_bot_status.rb`),
+e o enterprise sobrescreve somando o Captain (`enterprise/app/models/enterprise/inbox.rb`),
+que no fork está ligado desde a Onda 2. Conversa em caixa com bot **nasce `pending`**
+(`conversation.rb`, "bot conversations should start as pending"); `open` é o humano.
+
+**O furo.** O evento `conversation_bot_handoff` só é gravado quando **o próprio bot** abre a
+conversa. O guarda é explícito em `conversations_controller#bot_handoff?`:
+`return false unless Current.user.is_a?(AgentBot)`. Se um humano abre a pendente pelo
+dashboard, não há evento nenhum.
+
+Cruzando com a definição da fonte — caixa com bot **+** `assignee_id IS NULL` **+** sem
+evento de handoff (`origem_builder#bot_only`) — saem três formas de uma métrica roubar a
+outra:
+
+1. **Humano trabalha, robô leva o crédito.** Agente abre a pendente e responde sem se
+   atribuir: sem evento e sem assignee, a conversa segue contada como robô. Com bot burro
+   isso é o caso comum, não exceção — é justamente quando o bot não resolve que o humano
+   entra.
+2. **Número de período fechado muda depois.** `assignee_id` é estado atual, não histórico.
+   Conversa que o robô resolveu sozinho sai do balde "robô" no dia em que alguém atribuir.
+3. **Duas telas, dois números.** O `BotMetricsBuilder` do 4.17 conta *todas* as conversas de
+   caixa com bot, inclusive atribuídas e com handoff. A tela portada contaria só as sem
+   assignee e sem handoff — mesma conta, duas respostas para "conversas do bot".
+
+Menor, mas real: a fonte usa `agent_bot_inboxes`, que ignora dialogflow e Captain; essas
+conversas cairiam em "Humanos".
+
+**Recomendação (pendente de decisão do usuário):** ancorar em fato imutável — atendimento é
+do robô quando está em caixa com bot **e nenhum humano jamais enviou mensagem de saída nela**
+(`messages` com `message_type = outgoing` e `sender_type = 'User'`). É gravado uma vez e não
+muda depois, resolve os três casos de uma vez e não depende de o bot ter sinalizado handoff.
+Para o conjunto de caixas, usar `active_bot?` em vez de `agent_bot_inboxes`, batendo com o
+relatório de bot que já existe.
+
+**Custo da recomendação:** os números divergem da Coraxy, onde conversa tocada por humano sem
+atribuição conta como IA. A alternativa é portar igual e registrar a divergência, preservando
+comparabilidade histórica.
+
+##### Fatiamento proposto
+
+| # | Fatia | Depende de |
+|---|---|---|
+| 0 | Filtro robô×humano compartilhado + `handed_off` como subquery + ações/rotas | a decisão acima |
+| 1 | `origem_builder` (+ escopo por `account_id` no `first_message_table`) | 0 |
+| 2 | `supervisor_builder` (+ `open + pending` nos KPIs) | 0 |
+| 3 | `fila_historico_builder` | 0 |
+| 4 | `cockpit_atendentes_builder` | 0 |
+| 5 | `motivos_builder` | 0 |
+| 6 | `top_labels_builder` + `bot_summary` do `metric_builder` | — |
+| 7 | Camada de API, i18n e o filtro compartilhado na tela | 6 |
+| 8–12 | Uma tela por fatia (Monitoramento, Recebidos/Efetuados, Fila, Cockpit, Motivos) | 7 |
+
+As correções de performance de agosto **já estão aplicadas na fonte** nesta branch (subquery
+no `handed_off`, escopo por conta no `first_message_table`) — o port precisa preservá-las, não
+reinventá-las.
+
 
 ---
 
