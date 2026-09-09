@@ -639,6 +639,84 @@ depois do `https://` — com o userinfo barrado no save, o que fica visível é 
 > fork em produção com dashboard app cadastrado, então não vale migração agora — mas se
 > houver, é uma varredura em `dashboard_apps.content`.
 
+#### Verificação visual das fatias 5 a 8 — o que a tela mostrou
+
+Feita em 2026-09-08, na aplicação real (Docker + Chrome do host por CDP), com dado semeado
+por `qa_setup_visual.rb`: duas macros, dez execuções espalhadas em 45 dias para o filtro de
+período ter o que separar, e três dashboard apps cobrindo os estados de barra lateral.
+
+**Fatia 7 — painel de métricas: confere com o dado.** 8 execuções na janela de 30 dias (as
+de 40 e 45 dias corretamente fora), taxa de 71,4% com o pendente excluído do denominador,
+"falhas" somando parcial + falhou, e as cores nos limiares certos — âmbar entre 60 e 90%,
+verde em 100%. O seletor de período e o ranking com "última execução" também.
+
+**Fatia 6 — histórico: as quatro pílulas de status são legíveis no modo escuro.** Era uma
+das duas coisas que a nota da fatia 6 mandava olhar antes de produção. Pendente, Sucesso,
+Parcial e Falhou aparecem com contraste suficiente, e a tabela mostra as sete execuções da
+macro com agente, conversa e proporção de ações.
+
+**Fatia 8 — verificada inteira.** Grupo "Aplicativos" na barra lateral, apps fixados
+promovidos a item de primeiro nível, e o **destaque de item ativo acendendo só no app
+aberto** — que era risco real, já que todos os apps compartilham o mesmo nome de rota e o
+casamento poderia ser por nome em vez de caminho. A página renderiza o iframe em altura
+cheia com a URL interpolada de fato carregada. No modal, os dois checkboxes com a
+dependência funcionando e a dica das variáveis **com as chaves literais na tela** — se elas
+tivessem sido escritas direto na mensagem de i18n, o vue-i18n as trataria como interpolação
+e o admin veria a lista vazia; passá-las como parâmetro era exatamente para isso.
+
+**O defeito que só a tela pegou:** o ranking mostrava **"1 execuções"** na macro que rodou
+uma vez. `STATS.RUNS` era texto fixo no plural, com o número concatenado no template,
+enquanto a vizinha `HISTORY.TOTAL_COUNT` já usava mensagem de plural do vue-i18n — ou seja,
+inconsistência dentro da mesma feature. Corrigido nos dois idiomas, com teste do singular
+que foi confirmado falhando contra a chave antiga. **Nenhum dos 120 testes pegava isso**,
+porque todos os casos existentes tinham mais de uma execução.
+
+**Fatia 5 — lookup dinâmico: verificada na tela em 2026-09-09.** Faltava desde a rodada
+anterior, que morreu antes de chegar nela. A resposta do `lookup_url` foi servida por
+`Fetch.fulfillRequest` do próprio driver, em vez de subir um servidor de mentira: quem busca
+é o navegador do agente, então interceptar ali é o ponto certo — e ainda deixa ler o payload
+que o front monta, que é metade do que a fatia faz.
+
+O que a tela mostrou, com o modal aberto sobre a conversa:
+
+- **O POST sai com o payload certo:** `{"cpf":"529.982.247-25"}` — só o campo declarado em
+  `depends_on`, e o CPF **mascarado**, confirmando em runtime a decisão da fatia 4 sobre qual
+  valor viaja.
+- **Uma única chamada** durante o minuto em que o modal ficou aberto. Isso vale como
+  verificação do bug de refetch em loop que a revisão da fatia 5 corrigiu: o defeito, se
+  estivesse vivo, apareceria como um POST a cada ~500ms enquanto o modal existisse. O teste
+  já travava isso; agora está confirmado no app rodando.
+- **As opções chegam mapeadas por `value_key`/`label_key`** (`id`/`name` da macro de QA) e
+  renderizam na lista: "Contrato C-1024 - Fibra 500MB" e "Contrato C-2087 - Movel 20GB".
+- **Máscara progressiva funcionando no campo de CPF** e os asteriscos vermelhos de campo
+  obrigatório visíveis nos dois rótulos — a correção da fatia 4 (asterisco como `<span>`, não
+  pseudo-elemento) está de pé na tela, não só no teste.
+- Contraste legível no modo escuro, no modal e na lista de opções.
+
+**Correção de diagnóstico que vale mais que a fatia:** o acordeão preso em "Obtendo macros"
+**não era fila nem trava do endpoint**. O log do Rails mostra `GET /api/v1/accounts/1/macros`
+completando **200 OK em 159–348ms**. O que parecia travamento era a **primeira renderização
+fria da rota de conversa**, que neste ambiente leva de 5 a 10 minutos (o overlay do Vite
+chegou a marcar 594s). A nota anterior, que atribuía o sintoma ao `/cable`, descrevia um
+segundo problema real, mas não este: aqui as requisições chegavam ao servidor e voltavam
+rápidas. **Como distinguir:** `docker compose logs rails | grep macros` — se a requisição
+aparece e completa, é renderização, não fila; espere em vez de mexer no driver.
+
+**Achado de backend, pré-existente:** o Bullet acusa N+1 no índice de macros —
+`Macro => [:updated_by]` e `Macro => [:files_attachments]`, ambos a partir de
+`_macro.json.jbuilder:11`. É do upstream, não do port, mas cresce com o número de macros da
+conta e merece um `includes` quando alguém encostar nesse controller.
+
+**Achado de acessibilidade, também do upstream:** a barra lateral principal não é um
+landmark — não há `<nav>` nem `<aside>` na página, só `div`s. Quem usa leitor de tela não tem
+como pular para a navegação. Foi assim que a primeira tentativa de driver travou (esperava
+por `nav`), e a lição para quem for automatizar aqui é a mesma que já está registrada:
+ancore em conteúdo, nunca em seletor genérico.
+
+**Superfície nova que vale saber:** a dica do modal lista `{user_token}` para qualquer admin
+que abra a tela de cadastro. Dado que a decisão foi manter a variável, expor é melhor do que
+esconder — mas é mudança de superfície que não estava prevista quando a decisão foi tomada.
+
 #### Verificação visual da fatia 4 — o asterisco que os 113 testes não pegaram
 
 A suíte inteira passava, mas nenhum campo obrigatório do `MacroExecuteModal` mostrava o
@@ -710,13 +788,32 @@ Detalhes que custaram rodadas inteiras:
   texto solto (`querySelectorAll('*').find(el => el.textContent === 'Macros')`) casa com
   qualquer um dos dois e pode navegar para longe da conversa sem erro nenhum. Prefira mirar
   pelo `id`/`for` dos campos do modal ou por um container mais específico.
-- **Puma roda com 5 threads neste ambiente** (`config/puma.rb`, sem workers). Abas de Chrome
-  acumuladas ao longo de várias rodadas de investigação — cada uma com WebSocket do
-  ActionCable aberto — saturam o pool: `GET /api/v1/accounts/1/macros` que roda em 120ms
-  quando a fila está livre passou a levar **~12s** com o pool ocupado, e a rota raiz chegou a
-  **17s**. Sintoma na tela: acordeão preso em "Obtendo macros" sem nunca resolver. Não é bug
-  do backend nem do frontend — é fila. Feche o Chrome de rodadas anteriores antes de cada
-  nova tentativa, não só no final.
+- ~~**Puma roda com 5 threads neste ambiente**~~ — **diagnóstico corrigido em 2026-09-08.**
+  O `docker-compose.dev.local.yaml` já passa `RAILS_MAX_THREADS=32` e o container confirma
+  esse valor (o `RAILS_MAX_THREADS=5` do `.env` perde para o `environment:` do compose). O
+  Puma não é o gargalo.
+
+  **A causa real é o ActionCable em long-polling.** O log do Rails mostrava
+  `Started GET "/cable"` a cada ~10s, sem parar, e **nenhuma** requisição da API que a tela
+  esperava — porque ela nunca saía do navegador. Cada tentativa de `/cable` segura uma das
+  ~6 conexões que o navegador concede por host; com elas todas presas, o XHR fica na fila
+  **dentro do Chrome**. O sintoma é idêntico ao de fila no servidor (tela presa em
+  "Obtendo macros" / "Fetching macros"), mas o servidor está ocioso — dá para distinguir
+  na hora: se o `docker compose logs rails` não mostra a requisição, o problema é do lado
+  do navegador.
+
+  **Solução no driver:** `Network.setBlockedURLs` com `['*/cable', '*/cable?*']` logo após
+  `Network.enable`. Nada do que se verifica visualmente depende de tempo real. Com o bloqueio,
+  as chamadas passaram a chegar ao Rails em segundos.
+
+- **Espere por conteúdo específico, nunca por seletor genérico.** Dois erros custaram
+  rodadas inteiras nesta sessão: `document.querySelector('tbody tr')` casou com a tabela da
+  aba *Editor*, que continua no DOM atrás do `v-show` do `MacroEditor`, e a foto saiu com o
+  histórico ainda carregando; e depois o mesmo seletor casou com um DOM já montado mas **sem
+  CSS** (o Vite ainda compilando a rota), produzindo uma imagem em branco. Ancore em texto do
+  próprio dado (`innerText.includes('[QA] ERP agrupado')`) ou num contador que só muda quando
+  a resposta chega. Um `innerText.includes('macro')` também não serve: a descrição da tela já
+  contém a palavra.
 - **`curl http://127.0.0.1:9333` sozinho não confirma nada** se o Chrome estiver bindado só
   em `[::1]` (IPv6 loopback) — `netstat -ano` mostra o `LISTENING` real; aponte o driver para
   `http://[::1]:PORTA/` ou `http://localhost:PORTA/`.
