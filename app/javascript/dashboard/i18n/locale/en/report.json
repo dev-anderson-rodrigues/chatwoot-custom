@@ -3,6 +3,7 @@
     "COCKPIT": {
       "TITLE": "Agent cockpit",
       "DESCRIPTION": "Volume, handling times and satisfaction per agent in the selected period.",
+      "SEARCH_LABEL": "Search",
       "SEARCH_PLACEHOLDER": "Search by name or email",
       "CLEAR_SEARCH": "Clear search",
       "LOADING": "Loading the cockpit...",

@@ -173,28 +173,28 @@ onMounted(fetch);
         />
       </label>
 
-      <div class="flex flex-col gap-1">
-        <label for="cockpit-search" class="text-sm text-n-slate-11">
-          {{ t('REPORT.COCKPIT.SEARCH_PLACEHOLDER') }}
-        </label>
-        <div class="flex items-center gap-1">
+      <!-- Mesma estrutura dos filtros ao lado (label envolvendo o controle):
+           com um involucro diferente o campo ficava mais alto que os selects,
+           e o items-end da linha nao alinhava. -->
+      <div class="flex items-end gap-1">
+        <label class="flex flex-col gap-1 text-sm text-n-slate-11">
+          {{ t('REPORT.COCKPIT.SEARCH_LABEL') }}
           <input
-            id="cockpit-search"
             :value="filters.search"
             type="search"
             class="px-3 py-2 text-sm border-0 rounded-lg outline outline-1 -outline-offset-1 outline-n-weak bg-n-surface-1 text-n-slate-12 hover:outline-n-slate-6 focus:outline-n-blue-9"
             :placeholder="t('REPORT.COCKPIT.SEARCH_PLACEHOLDER')"
             @input="setSearch($event.target.value)"
           />
-          <Button
-            v-if="filters.search"
-            :label="t('REPORT.COCKPIT.CLEAR_SEARCH')"
-            variant="ghost"
-            color="slate"
-            size="sm"
-            @click="clearSearch"
-          />
-        </div>
+        </label>
+        <Button
+          v-if="filters.search"
+          :label="t('REPORT.COCKPIT.CLEAR_SEARCH')"
+          variant="ghost"
+          color="slate"
+          size="sm"
+          @click="clearSearch"
+        />
       </div>
     </div>
 
@@ -213,7 +213,7 @@ onMounted(fetch);
     <!-- Trocar filtro mantem os numeros anteriores na tela em vez de piscar um
          spinner; a opacidade e a pista de que ha consulta em voo. -->
     <div v-else class="flex flex-col gap-4" :class="{ 'opacity-50': loading }">
-      <dl class="grid grid-cols-2 gap-3 m-0 sm:grid-cols-5">
+      <dl class="grid grid-cols-2 gap-3 m-0 sm:grid-cols-3 xl:grid-cols-5">
         <div
           v-for="tile in tiles"
           :key="tile.key"
@@ -230,73 +230,80 @@ onMounted(fetch);
         </div>
       </dl>
 
-      <BaseTable
-        :headers="tableHeaders"
-        :items="agents"
-        :no-data-message="t('REPORT.COCKPIT.EMPTY')"
-      >
-        <template #row="{ items }">
-          <BaseTableRow v-for="agent in items" :key="agent.id" :item="agent">
-            <BaseTableCell>
-              <span class="text-sm tabular-nums text-n-slate-11">
-                {{ agent.rank }}
-              </span>
-            </BaseTableCell>
-            <BaseTableCell>
-              <div class="flex flex-col min-w-0">
-                <span class="text-sm truncate text-n-slate-12">
-                  {{ agent.name }}
+      <!-- Contêiner de rolagem proprio: o BaseTable e uma div `w-full` sem
+           overflow, entao com 10 colunas as tres ultimas ficavam inalcancaveis
+           em tela estreita -- confirmado renderizado em 768px, onde a tabela
+           media 832px dentro de um espaco de 520px. Rolar aqui mantem filtros e
+           KPIs parados; sem isto quem rolava era o painel inteiro. -->
+      <div class="w-full overflow-x-auto">
+        <BaseTable
+          :headers="tableHeaders"
+          :items="agents"
+          :no-data-message="t('REPORT.COCKPIT.EMPTY')"
+        >
+          <template #row="{ items }">
+            <BaseTableRow v-for="agent in items" :key="agent.id" :item="agent">
+              <BaseTableCell>
+                <span class="text-sm tabular-nums text-n-slate-11">
+                  {{ agent.rank }}
                 </span>
-                <span class="text-xs truncate text-n-slate-11">
-                  {{ agent.email }}
+              </BaseTableCell>
+              <BaseTableCell>
+                <div class="flex flex-col min-w-0">
+                  <span class="text-sm truncate text-n-slate-12">
+                    {{ agent.name }}
+                  </span>
+                  <span class="text-xs truncate text-n-slate-11">
+                    {{ agent.email }}
+                  </span>
+                </div>
+              </BaseTableCell>
+              <BaseTableCell>
+                <span class="text-sm text-n-slate-11">
+                  {{ agent.teamName || t('REPORT.COCKPIT.TABLE.NO_TEAM') }}
                 </span>
-              </div>
-            </BaseTableCell>
-            <BaseTableCell>
-              <span class="text-sm text-n-slate-11">
-                {{ agent.teamName || t('REPORT.COCKPIT.TABLE.NO_TEAM') }}
-              </span>
-            </BaseTableCell>
-            <BaseTableCell>
-              <Label
-                :label="statusLabel(agent.status)"
-                :color="STATUS_COLORS[agent.status] || 'slate'"
-                size="small"
-              />
-            </BaseTableCell>
-            <BaseTableCell>
-              <span class="text-sm tabular-nums text-n-slate-12">
-                {{ agent.conversations }}
-              </span>
-            </BaseTableCell>
-            <BaseTableCell>
-              <span class="text-sm tabular-nums text-n-slate-12">
-                {{ agent.resolutions }}
-              </span>
-            </BaseTableCell>
-            <BaseTableCell>
-              <span class="text-sm tabular-nums text-n-slate-11">
-                {{ formatDuration(agent.avgHandleSeconds) }}
-              </span>
-            </BaseTableCell>
-            <BaseTableCell>
-              <span class="text-sm tabular-nums text-n-slate-11">
-                {{ formatDuration(agent.avgFirstResponseSeconds) }}
-              </span>
-            </BaseTableCell>
-            <BaseTableCell>
-              <span class="text-sm tabular-nums text-n-slate-11">
-                {{ formatDuration(agent.avgReplySeconds) }}
-              </span>
-            </BaseTableCell>
-            <BaseTableCell>
-              <span class="text-sm tabular-nums text-n-slate-12">
-                {{ formatCsat(agent) }}
-              </span>
-            </BaseTableCell>
-          </BaseTableRow>
-        </template>
-      </BaseTable>
+              </BaseTableCell>
+              <BaseTableCell>
+                <Label
+                  :label="statusLabel(agent.status)"
+                  :color="STATUS_COLORS[agent.status] || 'slate'"
+                  size="small"
+                />
+              </BaseTableCell>
+              <BaseTableCell>
+                <span class="text-sm tabular-nums text-n-slate-12">
+                  {{ agent.conversations }}
+                </span>
+              </BaseTableCell>
+              <BaseTableCell>
+                <span class="text-sm tabular-nums text-n-slate-12">
+                  {{ agent.resolutions }}
+                </span>
+              </BaseTableCell>
+              <BaseTableCell>
+                <span class="text-sm tabular-nums text-n-slate-11">
+                  {{ formatDuration(agent.avgHandleSeconds) }}
+                </span>
+              </BaseTableCell>
+              <BaseTableCell>
+                <span class="text-sm tabular-nums text-n-slate-11">
+                  {{ formatDuration(agent.avgFirstResponseSeconds) }}
+                </span>
+              </BaseTableCell>
+              <BaseTableCell>
+                <span class="text-sm tabular-nums text-n-slate-11">
+                  {{ formatDuration(agent.avgReplySeconds) }}
+                </span>
+              </BaseTableCell>
+              <BaseTableCell>
+                <span class="text-sm tabular-nums text-n-slate-12">
+                  {{ formatCsat(agent) }}
+                </span>
+              </BaseTableCell>
+            </BaseTableRow>
+          </template>
+        </BaseTable>
+      </div>
     </div>
   </section>
 </template>

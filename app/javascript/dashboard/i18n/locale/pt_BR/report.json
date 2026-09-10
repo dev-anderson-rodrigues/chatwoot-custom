@@ -3,6 +3,7 @@
     "COCKPIT": {
       "TITLE": "Cockpit de atendentes",
       "DESCRIPTION": "Volume, tempos de atendimento e satisfação por atendente no período escolhido.",
+      "SEARCH_LABEL": "Buscar",
       "SEARCH_PLACEHOLDER": "Buscar por nome ou e-mail",
       "CLEAR_SEARCH": "Limpar busca",
       "LOADING": "Carregando o cockpit...",
