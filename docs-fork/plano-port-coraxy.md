@@ -845,6 +845,44 @@ d482d5d  fix(dev): hot reload no Docker Desktop para Windows
 6b83939  fix(husky): nao abortar o commit quando os linters nao estao no host
 ```
 
+#### A causa raiz da lentidão do ambiente: o bind mount 9p — medida em 2026-09-10
+
+O usuário relatou "muda de página e fica carregando por vários minutos", com o indicador do
+Vite marcando **820 s acumulados em 55 requisições**. Medido dentro do container `vite`, sobre
+os 2.287 arquivos de `app/javascript`:
+
+| Leitura dos mesmos 2.287 arquivos | Tempo |
+|---|---|
+| Pelo bind mount (`D:\…` → `/app`, servido por 9p) | **30,71 s** |
+| Do filesystem do container | **0,06 s** |
+
+**~512x.** E o Vite não lê cada arquivo uma vez: transforma e resolve os imports módulo a
+módulo, sob demanda, e cada resolução são várias chamadas de `stat`. Daí a navegação entre
+telas custar minutos.
+
+Não é a aplicação, não é o Puma, não é o ActionCable — é o filesystem. É **a mesma causa** que
+já tinha sido contornada para o RSpec com o volume `appfast`; o frontend nunca ganhou o
+contorno equivalente.
+
+`docker inspect` confirma o desenho: `/app` é bind do disco Windows, enquanto `node_modules`,
+`public/packs`, `tmp/cache` e `bundle` são volumes locais (rápidos). Ou seja, o que já estava
+em volume ia bem; o código-fonte, não.
+
+O que já existia de mitigação no `vite.config.ts` do fork (watcher em polling, `warmup`) ataca
+sintomas: o `warmup` cobre só `entrypoints/dashboard.js` e `dashboard/App.vue`, então **toda
+tela de rota fica de fora** e paga o custo na primeira navegação.
+
+**Decisão: mover o repositório para dentro do WSL2** (`~/chatwoot` na distro Ubuntu). O Docker
+Desktop aqui roda no backend WSL2, então arquivos em ext4 dentro da distro são lidos
+nativamente, sem 9p. Conserta a causa para tudo de uma vez — Vite, RSpec, `git`, `pnpm` — em
+vez de somar contornos por ferramenta.
+
+Cuidados registrados:
+- **`node_modules` não é copiado.** Tem binário compilado para Windows (esbuild e afins);
+  precisa de `pnpm install` nativo dentro da distro.
+- **A cópia em `D:\` fica intacta** como plano B até a nova estar validada.
+- O `.pnpm-store` (542 MB) também não vai: é cache reconstruível.
+
 #### Como rodar a suíte nesta máquina (importante)
 
 O bind mount do Docker Desktop no Windows é servido por **9p** e é ordens de grandeza
