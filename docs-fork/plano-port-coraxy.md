@@ -109,7 +109,7 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 2 — Liberar enterprise | ✅ concluída e verificada |
 | 1 — Backend (macros, dashboard apps, my_teams_only) | ✅ concluída e revisada |
 | 1 — Frontend | ✅ as 8 fatias feitas e revisadas |
-| 5 — Relatórios | 🔄 fatia 4 (cockpit) feita e revisada · decisão de atribuição robô×humano em aberto |
+| 5 — Relatórios | 🔄 cockpit completo (builder + tela) · decisão de atribuição robô×humano em aberto |
 | 4 · 6 · 3 | pendentes |
 
 #### Fatias do frontend da Onda 1
@@ -1427,7 +1427,8 @@ topo do arquivo, não só aqui.
 | 5 | `motivos_builder` | 0 |
 | 6 | ~~`top_labels_builder`~~ descartado (o 4.17 ja resolve) + `bot_summary` | a decisao |
 | 7 | Camada de API, i18n e o filtro compartilhado na tela | 6 |
-| 8–12 | Uma tela por fatia (Monitoramento, Recebidos/Efetuados, Fila, Cockpit, Motivos) | 7 |
+| 11 | Tela do Cockpit | ✅ (nao depende da decisao) |
+| 8–10, 12 | Telas de Monitoramento, Recebidos/Efetuados, Fila e Motivos | 7 |
 
 As correções de performance de agosto **já estão aplicadas na fonte** nesta branch (subquery
 no `handed_off`, escopo por conta no `first_message_table`) — o port precisa preservá-las, não
