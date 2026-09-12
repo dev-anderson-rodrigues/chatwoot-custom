@@ -25,6 +25,7 @@ import LiveReports from './LiveReports.vue';
 import SLAReports from './SLAReports.vue';
 import CockpitAtendentes from './CockpitAtendentes.vue';
 import RoboHumano from './RoboHumano.vue';
+import MonitoramentoSupervisor from './MonitoramentoSupervisor.vue';
 
 const meta = {
   featureFlag: FEATURE_FLAGS.REPORTS,
@@ -141,6 +142,12 @@ export default {
           name: 'cockpit_atendentes_reports',
           meta,
           component: CockpitAtendentes,
+        },
+        {
+          path: 'supervisor',
+          name: 'supervisor_reports',
+          meta,
+          component: MonitoramentoSupervisor,
         },
         {
           path: 'ownership',

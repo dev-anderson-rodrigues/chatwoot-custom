@@ -23,6 +23,71 @@
         "FIRST_RESPONSE": "First response"
       }
     },
+    "SUPERVISOR": {
+      "TITLE": "Live monitoring (Supervisor)",
+      "DESCRIPTION": "Real-time view of active conversations across the operation.",
+      "ERROR": "Could not load the report. Try again.",
+      "AUTO_REFRESH": "Refreshes every 30s",
+      "TEAM_FILTER": "Team",
+      "ALL_TEAMS": "All teams",
+      "CRITERION": "\"Who's handling\" reflects who is conducting each conversation right now, not who eventually resolves it. It can change from one refresh to the next.",
+      "AGENT_TYPE": {
+        "LABEL": "Who's handling",
+        "ALL": "All",
+        "HUMAN": "Human",
+        "BOT": "AI"
+      },
+      "KPI": {
+        "IN_PROGRESS": "In progress",
+        "IN_QUEUE": "In queue",
+        "LONGEST_WAIT": "Longest wait",
+        "STALE_IN_QUEUE": "{count} older than {days}d, not counted above",
+        "AGENTS_ONLINE": "Agents online",
+        "AVG_LOAD": "Avg load per agent"
+      },
+      "QUEUE_BY_TEAM": {
+        "TITLE": "Queue by team",
+        "EMPTY": "No team has a conversation in queue or in progress.",
+        "NO_TEAM": "No team",
+        "IN_QUEUE": "In queue",
+        "IN_PROGRESS": "In progress",
+        "AGENTS_ONLINE": "Online"
+      },
+      "TABLE": {
+        "TITLE": "Active conversations",
+        "EMPTY": "No conversation matches the current filters.",
+        "STATUS": "Status",
+        "STATUS_FILTER": {
+          "ALL": "All",
+          "NA_FILA": "In queue",
+          "ATENDENDO": "In progress",
+          "AGUARDANDO": "Waiting"
+        },
+        "CONTACT": "Contact",
+        "AGENT": "Agent",
+        "NO_AGENT": "Unassigned",
+        "INBOX": "Inbox",
+        "PRIORITY": "Priority",
+        "DURATION": "Duration",
+        "LAST_MESSAGE": "Last message",
+        "MINUTES": "{minutes}m"
+      },
+      "AGENTS_PANEL": {
+        "TITLE": "Agents",
+        "EMPTY": "No agent in this account yet.",
+        "STATUS": {
+          "ONLINE": "Online",
+          "BUSY": "Busy",
+          "OFFLINE": "Offline"
+        },
+        "LOAD": "{count} active"
+      },
+      "ALERTS": {
+        "TITLE": "Waiting too long",
+        "EMPTY": "No conversation waiting past the alert threshold.",
+        "MINUTES": "{minutes} min waiting"
+      }
+    },
     "COCKPIT": {
       "TITLE": "Agent cockpit",
       "DESCRIPTION": "Volume, handling times and satisfaction per agent in the selected period.",

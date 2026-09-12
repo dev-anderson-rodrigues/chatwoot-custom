@@ -321,6 +321,7 @@
     "REPORTS": "Reports",
     "SETTINGS": "Settings",
     "CONTACTS": "Contacts",
+    "REPORTS_SUPERVISOR": "Live monitoring",
     "REPORTS_COCKPIT": "Agent cockpit",
     "REPORTS_OWNERSHIP": "Bot and human",
     "APPS": "Apps",

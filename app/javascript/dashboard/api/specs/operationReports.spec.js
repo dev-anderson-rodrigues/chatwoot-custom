@@ -179,4 +179,188 @@ describe('#OperationReports API', () => {
       expect(previous.humanResolutions).toBe(0);
     });
   });
+
+  describe('#getSupervisor', () => {
+    const originalAxios = window.axios;
+    const get = vi.fn();
+
+    beforeEach(() => {
+      window.axios = { get };
+      get.mockResolvedValue({
+        data: {
+          kpis: {},
+          queue_by_team: [],
+          conversations: { items: [], counts: {}, pagination: {} },
+          agents: [],
+          alerts: [],
+        },
+      });
+    });
+
+    afterEach(() => {
+      window.axios = originalAxios;
+    });
+
+    const call = (filters, options) =>
+      operationReportsAPI.getSupervisor(filters, options);
+
+    it('translates the filters into the names the api expects', async () => {
+      await call({
+        teamId: 7,
+        agentType: 'bot',
+        statusFilter: 'na_fila',
+        page: 2,
+        perPage: 50,
+      });
+
+      expect(get).toHaveBeenCalledWith(
+        expect.stringContaining('/reports/supervisor'),
+        expect.objectContaining({
+          params: {
+            team_id: 7,
+            agent_type: 'bot',
+            status_filter: 'na_fila',
+            page: 2,
+            per_page: 50,
+          },
+        })
+      );
+    });
+
+    it('passes the abort signal through, so a stale request can be cancelled', async () => {
+      const { signal } = new AbortController();
+
+      await call({}, { signal });
+
+      expect(get.mock.calls[0][1].signal).toBe(signal);
+    });
+
+    it('hands the screen domain names for every section', async () => {
+      get.mockResolvedValue({
+        data: {
+          kpis: {
+            in_progress: 5,
+            in_queue: 2,
+            in_queue_unfiltered: 3,
+            longest_wait_minutes: 45,
+            longest_wait_window_days: 30,
+            stale_in_queue: 1,
+            agents_online: 2,
+            agents_total: 3,
+            avg_load: 2.5,
+          },
+          queue_by_team: [
+            {
+              id: 4,
+              name: 'Suporte',
+              in_queue: 2,
+              in_progress: 5,
+              agents_online: 2,
+            },
+          ],
+          conversations: {
+            items: [
+              {
+                id: 101,
+                contact_name: 'Maria Lima',
+                contact_phone: '+55 11 99999-0000',
+                agent_name: 'Ana Souza',
+                inbox_name: 'WhatsApp',
+                channel_type: 'Channel::Whatsapp',
+                labels: ['vip'],
+                priority: 'high',
+                duration_minutes: 12,
+                last_message_minutes: 3,
+                status: 'atendendo',
+              },
+            ],
+            counts: { all: 7, na_fila: 2, atendendo: 4, aguardando: 1 },
+            pagination: {
+              page: 1,
+              per_page: 25,
+              total_count: 7,
+              total_pages: 1,
+            },
+          },
+          agents: [{ id: 1, name: 'Ana Souza', status: 'online', load: 3 }],
+          alerts: [
+            {
+              id: 202,
+              contact_name: 'Espera Longa',
+              minutes: 22,
+              inbox_name: 'Email',
+              labels: [],
+            },
+          ],
+        },
+      });
+
+      const result = await call({});
+
+      expect(result.kpis).toEqual({
+        inProgress: 5,
+        inQueue: 2,
+        inQueueUnfiltered: 3,
+        longestWaitMinutes: 45,
+        longestWaitWindowDays: 30,
+        staleInQueue: 1,
+        agentsOnline: 2,
+        agentsTotal: 3,
+        avgLoad: 2.5,
+      });
+      expect(result.queueByTeam).toEqual([
+        { id: 4, name: 'Suporte', inQueue: 2, inProgress: 5, agentsOnline: 2 },
+      ]);
+      expect(result.conversations.items[0]).toEqual({
+        id: 101,
+        contactName: 'Maria Lima',
+        contactPhone: '+55 11 99999-0000',
+        agentName: 'Ana Souza',
+        inboxName: 'WhatsApp',
+        channelType: 'Channel::Whatsapp',
+        labels: ['vip'],
+        priority: 'high',
+        durationMinutes: 12,
+        lastMessageMinutes: 3,
+        status: 'atendendo',
+      });
+      expect(result.conversations.counts).toEqual({
+        all: 7,
+        naFila: 2,
+        atendendo: 4,
+        aguardando: 1,
+      });
+      expect(result.conversations.pagination).toEqual({
+        page: 1,
+        perPage: 25,
+        totalCount: 7,
+        totalPages: 1,
+      });
+      expect(result.agents).toEqual([
+        { id: 1, name: 'Ana Souza', status: 'online', load: 3 },
+      ]);
+      expect(result.alerts).toEqual([
+        {
+          id: 202,
+          contactName: 'Espera Longa',
+          minutes: 22,
+          inboxName: 'Email',
+          labels: [],
+        },
+      ]);
+    });
+
+    it('survives an empty response instead of crashing the screen', async () => {
+      get.mockResolvedValue({ data: {} });
+
+      const result = await call({});
+
+      expect(result.kpis.inProgress).toBe(0);
+      expect(result.queueByTeam).toEqual([]);
+      expect(result.conversations.items).toEqual([]);
+      expect(result.conversations.pagination.page).toBe(1);
+      expect(result.agents).toEqual([]);
+      expect(result.alerts).toEqual([]);
+    });
+  });
 });

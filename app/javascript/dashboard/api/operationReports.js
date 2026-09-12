@@ -59,6 +59,110 @@ const normalizeOwnership = summary => ({
   handoffs: summary?.handoffs ?? 0,
 });
 
+export const emptySupervisor = () => ({
+  kpis: {
+    inProgress: 0,
+    inQueue: 0,
+    inQueueUnfiltered: 0,
+    longestWaitMinutes: 0,
+    longestWaitWindowDays: 0,
+    staleInQueue: 0,
+    agentsOnline: 0,
+    agentsTotal: 0,
+    avgLoad: 0,
+  },
+  queueByTeam: [],
+  conversations: {
+    items: [],
+    counts: { all: 0, naFila: 0, atendendo: 0, aguardando: 0 },
+    pagination: { page: 1, perPage: 25, totalCount: 0, totalPages: 0 },
+  },
+  agents: [],
+  alerts: [],
+});
+
+const normalizeSupervisorKpis = kpis => ({
+  inProgress: kpis?.in_progress ?? 0,
+  inQueue: kpis?.in_queue ?? 0,
+  inQueueUnfiltered: kpis?.in_queue_unfiltered ?? 0,
+  longestWaitMinutes: kpis?.longest_wait_minutes ?? 0,
+  longestWaitWindowDays: kpis?.longest_wait_window_days ?? 0,
+  staleInQueue: kpis?.stale_in_queue ?? 0,
+  agentsOnline: kpis?.agents_online ?? 0,
+  agentsTotal: kpis?.agents_total ?? 0,
+  avgLoad: kpis?.avg_load ?? 0,
+});
+
+const normalizeQueueByTeam = rows =>
+  (rows || []).map(row => ({
+    id: row.id,
+    // Time nulo e a linha "Sem equipe" que o builder so inclui quando ha
+    // conversa nela -- a tela decide como rotular.
+    name: row.name,
+    inQueue: row.in_queue ?? 0,
+    inProgress: row.in_progress ?? 0,
+    agentsOnline: row.agents_online ?? 0,
+  }));
+
+const normalizeSupervisorConversation = item => ({
+  id: item.id,
+  // Sem fallback aqui: contato vazio vira "—" na celula, no mesmo padrao do
+  // CsatContactCell.
+  contactName: item.contact_name,
+  contactPhone: item.contact_phone,
+  agentName: item.agent_name,
+  inboxName: item.inbox_name,
+  channelType: item.channel_type,
+  labels: item.labels ?? [],
+  priority: item.priority,
+  durationMinutes: item.duration_minutes ?? 0,
+  lastMessageMinutes: item.last_message_minutes ?? 0,
+  status: item.status,
+});
+
+const normalizeSupervisorCounts = counts => ({
+  all: counts?.all ?? 0,
+  naFila: counts?.na_fila ?? 0,
+  atendendo: counts?.atendendo ?? 0,
+  aguardando: counts?.aguardando ?? 0,
+});
+
+const normalizeSupervisorPagination = pagination => ({
+  page: pagination?.page ?? 1,
+  perPage: pagination?.per_page ?? 25,
+  totalCount: pagination?.total_count ?? 0,
+  totalPages: pagination?.total_pages ?? 0,
+});
+
+const normalizeSupervisorAgent = agent => ({
+  id: agent.id,
+  name: agent.name,
+  status: agent.status,
+  load: agent.load ?? 0,
+});
+
+const normalizeSupervisorAlert = alert => ({
+  id: alert.id,
+  contactName: alert.contact_name,
+  minutes: alert.minutes ?? 0,
+  inboxName: alert.inbox_name,
+  labels: alert.labels ?? [],
+});
+
+const normalizeSupervisor = data => ({
+  kpis: normalizeSupervisorKpis(data?.kpis),
+  queueByTeam: normalizeQueueByTeam(data?.queue_by_team),
+  conversations: {
+    items: (data?.conversations?.items || []).map(
+      normalizeSupervisorConversation
+    ),
+    counts: normalizeSupervisorCounts(data?.conversations?.counts),
+    pagination: normalizeSupervisorPagination(data?.conversations?.pagination),
+  },
+  agents: (data?.agents || []).map(normalizeSupervisorAgent),
+  alerts: (data?.alerts || []).map(normalizeSupervisorAlert),
+});
+
 const normalizeTotals = kpis => ({
   agentsTotal: kpis?.agents_total ?? 0,
   agentsOnline: kpis?.agents_online ?? 0,
@@ -117,6 +221,29 @@ class OperationReportsAPI extends ApiClient {
       current: normalizeOwnership(data?.current),
       previous: normalizeOwnership(data?.previous),
     };
+  }
+
+  /**
+   * Monitoramento em tempo real (Supervisor). A tela se atualiza sozinha (ver
+   * useLiveRefresh no composable), por isso cancelamos via signal a
+   * requisicao anterior -- nao tem periodo de data, so foto atual.
+   */
+  async getSupervisor(
+    { teamId, agentType, statusFilter, page, perPage } = {},
+    { signal } = {}
+  ) {
+    const { data } = await axios.get(`${this.url}/supervisor`, {
+      params: {
+        team_id: teamId,
+        agent_type: agentType,
+        status_filter: statusFilter,
+        page,
+        per_page: perPage,
+      },
+      signal,
+    });
+
+    return normalizeSupervisor(data);
   }
 }
 

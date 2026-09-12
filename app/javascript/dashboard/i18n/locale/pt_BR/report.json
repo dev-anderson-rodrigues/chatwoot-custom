@@ -23,6 +23,71 @@
         "FIRST_RESPONSE": "Primeira resposta"
       }
     },
+    "SUPERVISOR": {
+      "TITLE": "Monitoramento (Supervisor)",
+      "DESCRIPTION": "Visão em tempo real das conversas ativas na operação.",
+      "ERROR": "Não foi possível carregar o relatório. Tente de novo.",
+      "AUTO_REFRESH": "Atualiza a cada 30s",
+      "TEAM_FILTER": "Time",
+      "ALL_TEAMS": "Todos os times",
+      "CRITERION": "\"Quem atende\" mostra quem está conduzindo cada conversa agora, não quem vai resolvê-la. Pode mudar de uma atualização para outra.",
+      "AGENT_TYPE": {
+        "LABEL": "Quem atende",
+        "ALL": "Todos",
+        "HUMAN": "Humanos",
+        "BOT": "IA"
+      },
+      "KPI": {
+        "IN_PROGRESS": "Em atendimento",
+        "IN_QUEUE": "Na fila",
+        "LONGEST_WAIT": "Maior espera",
+        "STALE_IN_QUEUE": "{count} com mais de {days}d, fora da conta acima",
+        "AGENTS_ONLINE": "Agentes online",
+        "AVG_LOAD": "Carga média por agente"
+      },
+      "QUEUE_BY_TEAM": {
+        "TITLE": "Fila por equipe",
+        "EMPTY": "Nenhuma equipe tem conversa na fila ou em atendimento.",
+        "NO_TEAM": "Sem equipe",
+        "IN_QUEUE": "Na fila",
+        "IN_PROGRESS": "Em atendimento",
+        "AGENTS_ONLINE": "Online"
+      },
+      "TABLE": {
+        "TITLE": "Conversas ativas",
+        "EMPTY": "Nenhuma conversa corresponde aos filtros atuais.",
+        "STATUS": "Status",
+        "STATUS_FILTER": {
+          "ALL": "Todas",
+          "NA_FILA": "Na fila",
+          "ATENDENDO": "Em atendimento",
+          "AGUARDANDO": "Aguardando"
+        },
+        "CONTACT": "Contato",
+        "AGENT": "Agente",
+        "NO_AGENT": "Sem atribuição",
+        "INBOX": "Caixa",
+        "PRIORITY": "Prioridade",
+        "DURATION": "Duração",
+        "LAST_MESSAGE": "Última mensagem",
+        "MINUTES": "{minutes}min"
+      },
+      "AGENTS_PANEL": {
+        "TITLE": "Agentes",
+        "EMPTY": "Ainda não há agente nesta conta.",
+        "STATUS": {
+          "ONLINE": "Online",
+          "BUSY": "Ocupado",
+          "OFFLINE": "Offline"
+        },
+        "LOAD": "{count} ativas"
+      },
+      "ALERTS": {
+        "TITLE": "Esperando demais",
+        "EMPTY": "Nenhuma conversa passou do limite de espera.",
+        "MINUTES": "{minutes} min esperando"
+      }
+    },
     "COCKPIT": {
       "TITLE": "Cockpit de atendentes",
       "DESCRIPTION": "Volume, tempos de atendimento e satisfação por atendente no período escolhido.",
