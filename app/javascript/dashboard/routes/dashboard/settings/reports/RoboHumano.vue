@@ -2,9 +2,11 @@
 import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { formatTime } from '@chatwoot/utils';
+import Banner from 'dashboard/components-next/banner/Banner.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import ReportHeader from './components/ReportHeader.vue';
+import ReportTile from './components/ReportTile.vue';
 import {
   useOwnershipReport,
   PERIOD_OPTIONS,
@@ -39,64 +41,43 @@ const tiles = computed(() => [
     label: t('REPORT.OWNERSHIP.KPI.BOT_RESOLUTIONS'),
     value: current.value.botResolutions,
     variation: botResolutionsVariation.value,
-    // Resolver mais sozinho e bom; precisar de mais gente, nem sempre.
-    higherIsBetter: true,
+    // Resolver mais sozinho e bom; precisar de mais gente, nem sempre -- por
+    // isso so esta metrica tem cor, e o resto fica neutro.
+    variationMeaning: 'up-is-good',
   },
   {
     key: 'human',
     label: t('REPORT.OWNERSHIP.KPI.HUMAN_RESOLUTIONS'),
     value: current.value.humanResolutions,
     variation: humanResolutionsVariation.value,
-    higherIsBetter: null,
   },
   {
     key: 'share',
     label: t('REPORT.OWNERSHIP.KPI.BOT_SHARE'),
     value: botShare.value === null ? SEM_DADO : `${botShare.value}%`,
-    variation: null,
-    higherIsBetter: null,
   },
   {
     key: 'handoffs',
     label: t('REPORT.OWNERSHIP.KPI.HANDOFFS'),
     value: current.value.handoffs,
     variation: handoffsVariation.value,
-    higherIsBetter: null,
   },
   {
     key: 'botTime',
     label: t('REPORT.OWNERSHIP.KPI.BOT_AVG_RESOLUTION'),
     value: duracao(current.value.botAvgResolutionSeconds),
-    variation: null,
-    higherIsBetter: null,
   },
   {
     key: 'humanTime',
     label: t('REPORT.OWNERSHIP.KPI.HUMAN_AVG_RESOLUTION'),
     value: duracao(current.value.humanAvgResolutionSeconds),
-    variation: null,
-    higherIsBetter: null,
   },
   {
     key: 'firstResponse',
     label: t('REPORT.OWNERSHIP.KPI.FIRST_RESPONSE'),
     value: duracao(current.value.humanAvgFirstResponseSeconds),
-    variation: null,
-    higherIsBetter: null,
   },
 ]);
-
-const corDaVariacao = tile => {
-  if (tile.variation === null || tile.higherIsBetter === null)
-    return 'text-n-slate-11';
-
-  const bom = tile.higherIsBetter ? tile.variation > 0 : tile.variation < 0;
-
-  return bom ? 'text-n-teal-11' : 'text-n-ruby-11';
-};
-
-const textoDaVariacao = tile =>
-  `${tile.variation > 0 ? '+' : ''}${tile.variation}%`;
 
 onMounted(fetch);
 </script>
@@ -133,38 +114,24 @@ onMounted(fetch);
       <Spinner />
     </div>
 
-    <div
-      v-else-if="hasError"
-      class="flex items-center gap-2 px-4 py-3 text-sm rounded-lg text-n-ruby-11 bg-n-ruby-3"
-    >
-      <span class="size-4 i-lucide-circle-alert" />
-      {{ t('REPORT.OWNERSHIP.ERROR') }}
-    </div>
+    <Banner v-else-if="hasError" color="ruby">
+      <span class="flex items-center gap-2">
+        <span class="size-4 i-lucide-circle-alert" />
+        {{ t('REPORT.OWNERSHIP.ERROR') }}
+      </span>
+    </Banner>
 
     <div v-else class="flex flex-col gap-4" :class="{ 'opacity-50': loading }">
       <dl class="grid grid-cols-2 gap-3 m-0 sm:grid-cols-3 xl:grid-cols-4">
-        <div
+        <ReportTile
           v-for="tile in tiles"
           :key="tile.key"
-          class="flex flex-col p-3 border rounded-lg border-n-weak bg-n-alpha-1"
-        >
-          <dt class="text-xs tracking-wide uppercase text-n-slate-11">
-            {{ tile.label }}
-          </dt>
-          <dd
-            class="flex items-baseline gap-2 m-0 mt-1 text-2xl font-semibold tabular-nums text-n-slate-12"
-          >
-            {{ tile.value }}
-            <span
-              v-if="tile.variation !== null"
-              class="text-xs font-medium tabular-nums"
-              :class="corDaVariacao(tile)"
-              :title="t('REPORT.OWNERSHIP.VARIATION')"
-            >
-              {{ textoDaVariacao(tile) }}
-            </span>
-          </dd>
-        </div>
+          :label="tile.label"
+          :value="tile.value"
+          :variation="tile.variation ?? null"
+          :variation-meaning="tile.variationMeaning ?? 'neutral'"
+          :variation-title="t('REPORT.OWNERSHIP.VARIATION')"
+        />
       </dl>
 
       <p v-if="isEmpty" class="m-0 text-sm text-n-slate-11">

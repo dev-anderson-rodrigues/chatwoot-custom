@@ -8,11 +8,13 @@ import {
   BaseTableRow,
   BaseTableCell,
 } from 'dashboard/components-next/table';
+import Banner from 'dashboard/components-next/banner/Banner.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Select from 'dashboard/components-next/select/Select.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import Label from 'dashboard/components-next/label/Label.vue';
 import ReportHeader from './components/ReportHeader.vue';
+import ReportTile from './components/ReportTile.vue';
 import {
   useCockpitReport,
   PERIOD_OPTIONS,
@@ -202,32 +204,23 @@ onMounted(fetch);
       <Spinner />
     </div>
 
-    <div
-      v-else-if="hasError"
-      class="flex items-center gap-2 px-4 py-3 text-sm rounded-lg text-n-ruby-11 bg-n-ruby-3"
-    >
-      <span class="size-4 i-lucide-circle-alert" />
-      {{ t('REPORT.COCKPIT.ERROR') }}
-    </div>
+    <Banner v-else-if="hasError" color="ruby">
+      <span class="flex items-center gap-2">
+        <span class="size-4 i-lucide-circle-alert" />
+        {{ t('REPORT.COCKPIT.ERROR') }}
+      </span>
+    </Banner>
 
     <!-- Trocar filtro mantem os numeros anteriores na tela em vez de piscar um
          spinner; a opacidade e a pista de que ha consulta em voo. -->
     <div v-else class="flex flex-col gap-4" :class="{ 'opacity-50': loading }">
       <dl class="grid grid-cols-2 gap-3 m-0 sm:grid-cols-3 xl:grid-cols-5">
-        <div
+        <ReportTile
           v-for="tile in tiles"
           :key="tile.key"
-          class="flex flex-col p-3 border rounded-lg border-n-weak bg-n-alpha-1"
-        >
-          <dt class="text-xs tracking-wide uppercase text-n-slate-11">
-            {{ tile.label }}
-          </dt>
-          <dd
-            class="m-0 mt-1 text-2xl font-semibold tabular-nums text-n-slate-12"
-          >
-            {{ tile.value }}
-          </dd>
-        </div>
+          :label="tile.label"
+          :value="tile.value"
+        />
       </dl>
 
       <!-- Contêiner de rolagem proprio: o BaseTable e uma div `w-full` sem
