@@ -109,7 +109,7 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 2 — Liberar enterprise | ✅ concluída e verificada |
 | 1 — Backend (macros, dashboard apps, my_teams_only) | ✅ concluída e revisada |
 | 1 — Frontend | ✅ as 8 fatias feitas e revisadas |
-| 5 — Relatórios | 🔄 cockpit completo (builder + tela) · decisão de atribuição robô×humano em aberto |
+| 5 — Relatórios | 🔄 cockpit completo (builder + tela) · atribuição robô×humano **decidida e implementada** · 5 relatórios a portar |
 | 4 · 6 · 3 | pendentes |
 
 #### Fatias do frontend da Onda 1
@@ -1350,10 +1350,16 @@ uma camada que a fonte não tem (`drilldown_builder`, `inbox_label_matrix_builde
 fetch, estado e regra de negócio dentro do `.vue` — o `frontend.mdc` proíbe. Cada tela vai
 precisar de composable próprio, como as fatias 5 a 8 acabaram fazendo.
 
-##### O problema de atribuição robô × humano — decisão em aberto
+##### O problema de atribuição robô × humano — **decidido em 2026-09-11**
 
 O filtro transversal Todos/Humanos/IA é o que separa as métricas, e a definição da fonte tem
 furo. Levantado a pedido do usuário, antes de portar.
+
+> **A regra, dada pelo dono do produto:** "Quando um robô é vinculado a uma caixa de entrada,
+> todas as conversas iniciais começam como pendentes. Uma conversa finalizada sem ter sido
+> aberta ou atribuída é do robô." **"Ter sido" é histórico**, não estado atual.
+>
+> Implementada em `app/finders/reports/conversation_ownership_finder.rb` (fatia 0b).
 
 **Como o Chatwoot marca robô.** Caixa "tem bot" por `Inbox#active_bot?` —
 `agent_bot_inbox&.active? || dialogflow_active?` (`app/models/concerns/inbox_bot_status.rb`),
@@ -1361,10 +1367,16 @@ e o enterprise sobrescreve somando o Captain (`enterprise/app/models/enterprise/
 que no fork está ligado desde a Onda 2. Conversa em caixa com bot **nasce `pending`**
 (`conversation.rb`, "bot conversations should start as pending"); `open` é o humano.
 
-**O furo.** O evento `conversation_bot_handoff` só é gravado quando **o próprio bot** abre a
-conversa. O guarda é explícito em `conversations_controller#bot_handoff?`:
-`return false unless Current.user.is_a?(AgentBot)`. Se um humano abre a pendente pelo
-dashboard, não há evento nenhum.
+**O furo — e a correção de uma afirmação errada deste plano.** O evento
+`conversation_bot_handoff` só é gravado quando **o próprio bot** abre a conversa; o guarda é
+explícito em `conversations_controller#bot_handoff?`:
+`return false unless Current.user.is_a?(AgentBot)`. Mas a conclusão que estava escrita aqui —
+"se um humano abre a pendente pelo dashboard, não há evento nenhum" — **estava errada**. O
+4.17 grava `conversation_opened` em toda transição para `open`
+(`reporting_event_listener.rb:101`, upstream desde a v4.5.0). O que falta é só o handoff.
+
+É essa correção que torna a regra do dono do produto implementável: "já foi aberta" tem
+fonte histórica e imutável.
 
 Cruzando com a definição da fonte — caixa com bot **+** `assignee_id IS NULL` **+** sem
 evento de handoff (`origem_builder#bot_only`) — saem três formas de uma métrica roubar a
@@ -1383,16 +1395,63 @@ outra:
 Menor, mas real: a fonte usa `agent_bot_inboxes`, que ignora dialogflow e Captain; essas
 conversas cairiam em "Humanos".
 
-**Recomendação (pendente de decisão do usuário):** ancorar em fato imutável — atendimento é
-do robô quando está em caixa com bot **e nenhum humano jamais enviou mensagem de saída nela**
-(`messages` com `message_type = outgoing` e `sender_type = 'User'`). É gravado uma vez e não
-muda depois, resolve os três casos de uma vez e não depende de o bot ter sinalizado handoff.
-Para o conjunto de caixas, usar `active_bot?` em vez de `agent_bot_inboxes`, batendo com o
-relatório de bot que já existe.
+**O critério implementado.** A classificação é **por resolução** e lê só fatos gravados uma
+vez em `reporting_events`. Um `conversation_resolved` é do robô quando:
 
-**Custo da recomendação:** os números divergem da Coraxy, onde conversa tocada por humano sem
-atribuição conta como IA. A alternativa é portar igual e registrar a divergência, preservando
-comparabilidade histórica.
+```sql
+r.user_id IS NULL                                        -- não estava atribuída ao resolver
+AND EXISTS (SELECT 1 FROM reporting_events twin          -- caixa tinha robô ativo no instante
+            WHERE twin.conversation_id = r.conversation_id
+              AND twin.name = 'conversation_bot_resolved'
+              AND twin.event_end_time = r.event_end_time)
+AND NOT EXISTS (SELECT 1 FROM reporting_events ev        -- nunca aberta, nem com resposta humana
+                WHERE ev.conversation_id = r.conversation_id
+                  AND ev.name IN ('conversation_opened','conversation_bot_handoff','first_response')
+                  AND ev.event_end_time <= r.event_end_time)
+```
+
+Humano é a negação exata. Como `IS NULL` e `EXISTS` nunca devolvem NULL, **robô + humano =
+todas as resoluções**, e um spec trava essa invariante.
+
+Por que cada peça:
+
+- **O gêmeo `conversation_bot_resolved`** é a única prova *imutável* de que havia robô na
+  caixa: `active_bot?` é estado atual, e desligar o robô depois reescreveria o passado. Como
+  o gêmeo existe desde a v3.7.0, também sustenta o histórico anterior à v4.5.0, quando
+  `conversation_opened` ainda não existia.
+- **`first_response`** fecha o furo da coexistência do WhatsApp: resposta dada pelo celular
+  entra como `outgoing` **sem remetente**, não barra o gêmeo, mas o Chatwoot a trata como
+  resposta humana. Pega também resposta pública via API sem abrir a conversa.
+- **`conversation_bot_handoff`** preserva o histórico da era 4.2.
+
+**Onde o classificador diverge da regra literal** (aceito, e documentado no código):
+
+| Caso | Regra literal | Classificador | Por quê |
+|---|---|---|---|
+| Humano deixa só nota privada e resolve, sem abrir | robô | humano | o gêmeo exige ausência de `outgoing` de User |
+| Robô desligado antes da resolução | robô | humano | o gêmeo não sai |
+| Pendente atribuída e desatribuída em silêncio | humano | robô | atribuição não deixa rastro imutável |
+
+**Duas decisões tomadas junto, ambas reversíveis:**
+
+- **Sem a condição "o robô mandou mensagem".** Ela só importaria para o Captain, que faz a
+  conversa nascer `open` quando não engaja o contato — e o Captain não está em uso; o robô
+  planejado é um agent bot simples, cuja conversa nasce `pending`. Rever na Onda 3. O cenário
+  está travado em spec.
+- **Sem listener `conversation_assigned`.** Ele fecharia só a terceira divergência da tabela,
+  que é atribuição sem trabalho humano para creditar. É viável pelo `custom/`
+  (`AsyncDispatcher` tem `prepend_mod_with`), mas só acumula histórico a partir do deploy.
+
+**Classificação por conversa** (relatórios de volume), decidida agora e implementada com o
+primeiro consumidor: avaliar **na data de corte**, que é
+`GREATEST(until, primeiro desfecho da conversa)`, onde desfecho é opened, handoff,
+`first_response` ou resolved. Conversa sem desfecho nenhum usa o estado atual (`pending`, sem
+assignee, caixa com robô). Assim **só conversa não finalizada pode mudar de lado depois do
+período fechar**, e ela congela no primeiro desfecho — que é justamente o que a regra do dono
+do produto descreve.
+
+**Custo:** os números divergem da Coraxy, onde conversa tocada por humano sem atribuição
+conta como IA.
 
 ##### Fatia 4 — resolvida. Cockpit de Atendentes
 
@@ -1455,18 +1514,23 @@ topo do arquivo, não só aqui.
 
 ##### Fatiamento proposto
 
-| # | Fatia | Depende de |
+Com a decisão tomada, o resto da onda passa a ser **vertical**: cada fatia leva builder,
+ação, rota, request spec, service, composable, tela, i18n e validação renderizada — um
+relatório por vez, como foi o Cockpit.
+
+| # | Fatia | Estado |
 |---|---|---|
-| 0 | Filtro robô×humano compartilhado + `handed_off` como subquery + ações/rotas | a decisão acima |
-| 1 | `origem_builder` (+ escopo por `account_id` no `first_message_table`) | 0 |
-| 2 | `supervisor_builder` (+ `open + pending` nos KPIs) | 0 |
-| 3 | `fila_historico_builder` | 0 |
-| 4 | `cockpit_atendentes_builder` | ✅ (nao depende da decisao) |
-| 5 | `motivos_builder` | 0 |
-| 6 | ~~`top_labels_builder`~~ descartado (o 4.17 ja resolve) + `bot_summary` | a decisao |
-| 7 | Camada de API, i18n e o filtro compartilhado na tela | 6 |
-| 11 | Tela do Cockpit | ✅ (nao depende da decisao) |
-| 8–10, 12 | Telas de Monitoramento, Recebidos/Efetuados, Fila e Motivos | 7 |
+| 4 | `cockpit_atendentes_builder` | ✅ |
+| 11 | Tela do Cockpit | ✅ |
+| 0a | Blindar o cockpit antes de virar molde (422 da janela, "encerradas" pelo evento, specs de autorização) | ✅ `66b004a759` |
+| 0b | Classificador robô×humano (`Reports::ConversationOwnershipFinder`) + índice | 🔄 |
+| 0c | Front do Cockpit vira molde (service em `api/`, período e guarda reutilizáveis) | ⏳ |
+| 1 | **Visão geral** — resumo por tipo; primeiro consumidor do classificador | ⏳ |
+| 2 | **Monitoramento** — traz `active_conversations`; `in_progress` passa a incluir pending | ⏳ |
+| 3 | **Recebidos e Efetuados** — traz a classificação por conversa; `LATERAL` na primeira mensagem | ⏳ |
+| 4 | **Fila — Histórico** — mesma população nos três recortes; abandono só por resolução humana | ⏳ |
+| 5 | **Motivos** — mistura as duas granularidades, por isso por último | ⏳ |
+| — | ~~`top_labels_builder`~~ descartado (o 4.17 já resolve) | — |
 
 As correções de performance de agosto **já estão aplicadas na fonte** nesta branch (subquery
 no `handed_off`, escopo por conta no `first_message_table`) — o port precisa preservá-las, não
@@ -1540,6 +1604,12 @@ Ressalva de licença registrada na Onda 2 e reafirmada. Abordagem recomendada di
 
 **5.3 Teams — usar o nativo por enquanto.** ✅
 Não portar `add_color_to_teams` nem `add_text_color_to_teams`. Usar `teams.icon` / `teams.icon_color` do 4.17.1.
+
+**5.6 Atribuição robô × humano — decidido pelo dono do produto.** ✅
+Conversa finalizada sem nunca ter sido aberta nem atribuída é do robô. Implementado como
+classificação por resolução sobre `reporting_events`, em
+`Reports::ConversationOwnershipFinder`. O critério, as três divergências aceitas e as duas
+decisões que vieram junto estão na Onda 5, em "O problema de atribuição robô × humano".
 
 ### Ainda em aberto
 

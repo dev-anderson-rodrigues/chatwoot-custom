@@ -74,32 +74,27 @@ Branch: `feature/port-coraxy`. Últimos commits relevantes: `caffd3afb9` (builde
 cockpit), `4ec0ae5e87` (tela), `9b5a2759fd` (três defeitos que só a tela renderizada pegou),
 `0db2cac18b` (medição do 9p).
 
-## 5. A decisão que trava a Onda 5
+## 5. A decisão que travava a Onda 5 — resolvida em 2026-09-11
 
-**Como separar robô de humano nas métricas.** Cinco das sete peças da onda (origem,
-supervisor, fila, motivos e o `bot_summary`) dependem disso e **não devem ser portadas antes
-da resposta** — cada uma escolheria um critério no escuro.
+**Regra do dono do produto:** conversa em caixa com robô nasce pendente; **conversa
+finalizada sem nunca ter sido aberta nem atribuída é do robô** ("nunca" é histórico, não
+estado atual).
 
-O problema, medido no código: existem **três definições diferentes de "robô"** em jogo.
+Implementada em `app/finders/reports/conversation_ownership_finder.rb`. O critério completo,
+as três divergências aceitas e as duas decisões que vieram junto (sem exigir mensagem do
+robô; sem listener de atribuição) estão em `plano-port-coraxy.md`, na Onda 5.
 
-1. `BotMetricsBuilder` do 4.17: toda conversa em caixa com bot.
-2. `origem_builder` da fonte: caixa com bot **+** sem assignee **+** sem evento de handoff.
-3. `bot_summary` da fonte: conversa com evento `conversation_bot_resolved`.
+**Uma afirmação deste documento estava errada** e vale registrar, porque foi ela que fez a
+decisão parecer mais difícil do que era: dizia que "se um humano abre a pendente pelo
+dashboard, nenhum evento é gravado". O 4.17 grava `conversation_opened` em toda transição
+para `open` (upstream desde a v4.5.0); o que falta é só o `conversation_bot_handoff`, que
+exige `Current.user.is_a?(AgentBot)`. É essa gravação que dá à regra uma fonte histórica
+imutável.
 
-E o furo concreto: o evento `conversation_bot_handoff` **só é emitido quando o próprio bot
-abre a conversa** — o guarda em `conversations_controller.rb:95` exige
-`Current.user.is_a?(AgentBot)`. Se um humano abre a pendente pelo dashboard, nenhum evento é
-gravado. Com bot burro (que é o plano do usuário), esse é o caso comum, não a exceção:
-a conversa continua contada como robô mesmo tendo sido trabalhada por humano.
-
-Some-se que `assignee_id` é estado atual, não histórico: atribuir hoje uma conversa que o bot
-resolveu em agosto muda o número de um mês fechado.
-
-**Recomendação registrada:** ancorar em fato imutável — conversa é do robô se está em caixa
-com bot **e nenhum humano jamais enviou mensagem de saída nela** (`messages` com
-`message_type = outgoing` e `sender_type = 'User'`). Resolve os três casos e unifica as
-definições. Custo: os números divergem da Coraxy, onde conversa tocada por humano sem
-atribuição conta como IA.
+Continua valendo o resto do diagnóstico: `assignee_id` é estado atual, então nenhum critério
+pode depender dele; e "resolvido pelo robô" tem três números diferentes no sistema
+(`BotMetricsBuilder` do upstream, os outcomes do Captain e o nosso), o que exige tooltip
+explicando o critério em cada tela.
 
 ## 6. Armadilhas que custaram tempo (não repita)
 

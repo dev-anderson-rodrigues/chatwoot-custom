@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_09_120001) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_11_000000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -1422,6 +1422,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_09_120001) do
     t.index ["account_id", "name", "created_at"], name: "reporting_events__account_id__name__created_at"
     t.index ["account_id", "name", "inbox_id", "created_at"], name: "index_reporting_events_for_response_distribution"
     t.index ["account_id"], name: "index_reporting_events_on_account_id"
+    t.index ["conversation_id", "name", "event_end_time"], name: "index_reporting_events_on_conversation_name_end_time"
     t.index ["conversation_id"], name: "index_reporting_events_on_conversation_id"
     t.index ["created_at"], name: "index_reporting_events_on_created_at"
     t.index ["inbox_id"], name: "index_reporting_events_on_inbox_id"
