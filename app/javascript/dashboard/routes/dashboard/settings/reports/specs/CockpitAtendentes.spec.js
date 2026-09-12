@@ -8,47 +8,59 @@ withFullI18n();
 const getCockpitAtendentes = vi.fn();
 const teams = ref([{ id: 4, name: 'Suporte' }]);
 
-vi.mock('dashboard/api/reports', () => ({
+vi.mock('dashboard/api/operationReports', () => ({
   default: {
     getCockpitAtendentes: (...args) => getCockpitAtendentes(...args),
   },
+  emptyTotals: () => ({
+    agentsTotal: 0,
+    agentsOnline: 0,
+    agentsBusy: 0,
+    agentsOffline: 0,
+    conversationsTotal: 0,
+    avgHandleSeconds: 0,
+    avgCsat: 0,
+  }),
 }));
 
 vi.mock('dashboard/composables/store', () => ({
   useMapGetter: () => teams,
 }));
 
+// Formato de dominio: quem traduz o snake_case da API e o service, e isso tem
+// spec proprio em api/specs/operationReports.spec.js.
 const agent = (overrides = {}) => ({
   id: 1,
   rank: 1,
   name: 'Ana Souza',
   email: 'ana@exemplo.com',
-  team_name: 'Suporte',
+  teamName: 'Suporte',
   status: 'online',
   conversations: 12,
-  resolutions_count: 9,
-  avg_handle_seconds: 3600,
-  avg_first_response_seconds: 120,
-  avg_reply_seconds: 60,
+  resolutions: 9,
+  avgHandleSeconds: 3600,
+  avgFirstResponseSeconds: 120,
+  avgReplySeconds: 60,
   csat: 4.5,
-  csat_responses: 2,
+  csatResponses: 2,
   ...overrides,
 });
 
-const kpis = (overrides = {}) => ({
-  agents_total: 1,
-  agents_online: 1,
-  agents_busy: 0,
-  agents_offline: 0,
-  conversations_total: 12,
-  avg_handle_seconds: 3600,
-  avg_csat: 4.5,
+const totals = (overrides = {}) => ({
+  agentsTotal: 1,
+  agentsOnline: 1,
+  agentsBusy: 0,
+  agentsOffline: 0,
+  conversationsTotal: 12,
+  avgHandleSeconds: 3600,
+  avgCsat: 4.5,
   ...overrides,
 });
 
-const respondWith = (agents, extraKpis = {}) =>
+const respondWith = (agents, extraTotals = {}) =>
   getCockpitAtendentes.mockResolvedValue({
-    data: { agents, kpis: kpis(extraKpis) },
+    agents,
+    totals: totals(extraTotals),
   });
 
 const mountScreen = async () => {
@@ -95,14 +107,14 @@ describe('CockpitAtendentes', () => {
   });
 
   it('says an agent has no team instead of leaving the cell blank', async () => {
-    respondWith([agent({ team_name: null })]);
+    respondWith([agent({ teamName: null })]);
     const wrapper = await mountScreen();
 
     expect(wrapper.find('tbody tr').text()).toContain('No team');
   });
 
   it('says there are no responses instead of showing a made-up score', async () => {
-    respondWith([agent({ csat: null, csat_responses: 0 })]);
+    respondWith([agent({ csat: null, csatResponses: 0 })]);
     const wrapper = await mountScreen();
 
     expect(wrapper.find('tbody tr').text()).toContain('No responses');
@@ -157,12 +169,27 @@ describe('CockpitAtendentes', () => {
     expect(wrapper.text()).not.toContain('500');
   });
 
-  it('ignores a stale response that lands after a newer one', async () => {
-    let resolveFirst;
+  it('shows the error state when the window is refused by the api', async () => {
+    // O backend devolve 422 quando a janela nao chega inteira. Antes disso a
+    // tela mostrava "nenhum dado", que e outra historia.
+    getCockpitAtendentes.mockRejectedValue({
+      response: { status: 422, data: { error: 'invalid time window' } },
+    });
+    const wrapper = await mountScreen();
+
+    expect(wrapper.text()).toContain('Could not load the cockpit');
+  });
+
+  it('cancels the request in flight when the filter changes', async () => {
+    let firstSignal;
     getCockpitAtendentes.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveFirst = resolve;
+      (_params, { signal }) =>
+        new Promise((_resolve, reject) => {
+          firstSignal = signal;
+          // E o que o axios faz quando o signal dispara: rejeita.
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError'))
+          );
         })
     );
     const wrapper = mount(CockpitAtendentes);
@@ -171,12 +198,9 @@ describe('CockpitAtendentes', () => {
     await periodButton(wrapper, '7 days').trigger('click');
     await flushPromises();
 
-    resolveFirst({
-      data: { agents: [agent({ name: 'Trinta dias' })], kpis: kpis() },
-    });
-    await flushPromises();
-
+    expect(firstSignal.aborted).toBe(true);
     expect(wrapper.text()).toContain('Sete dias');
-    expect(wrapper.text()).not.toContain('Trinta dias');
+    // Requisicao cancelada nao vira estado de erro na tela.
+    expect(wrapper.text()).not.toContain('Could not load the cockpit');
   });
 });

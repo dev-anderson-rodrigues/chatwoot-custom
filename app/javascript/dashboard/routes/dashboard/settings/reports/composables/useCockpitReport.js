@@ -1,11 +1,11 @@
 import { computed, reactive, ref } from 'vue';
-import subDays from 'date-fns/subDays';
-import startOfDay from 'date-fns/startOfDay';
-import endOfDay from 'date-fns/endOfDay';
-import getUnixTime from 'date-fns/getUnixTime';
-import reportsAPI from 'dashboard/api/reports';
+import { useAbortableRequest } from 'dashboard/composables/useAbortableRequest';
+import operationReportsAPI, {
+  emptyTotals,
+} from 'dashboard/api/operationReports';
+import { useReportPeriod, PERIOD_OPTIONS } from './useReportPeriod';
 
-export const PERIOD_OPTIONS = ['7d', '30d', '90d'];
+export { PERIOD_OPTIONS };
 
 export const STATUS_OPTIONS = ['online', 'busy', 'offline'];
 
@@ -13,54 +13,19 @@ export const DATE_FIELDS = ['created', 'resolved'];
 
 const SEARCH_DEBOUNCE = 400;
 
-const DAYS_BY_PERIOD = { '7d': 6, '30d': 29, '90d': 89 };
-
-const emptyTotals = () => ({
-  agentsTotal: 0,
-  agentsOnline: 0,
-  agentsBusy: 0,
-  agentsOffline: 0,
-  conversationsTotal: 0,
-  avgHandleSeconds: 0,
-  avgCsat: 0,
-});
-
-const normalizeAgent = row => ({
-  id: row.id,
-  rank: row.rank,
-  name: row.name,
-  email: row.email,
-  teamName: row.team_name,
-  status: row.status,
-  conversations: row.conversations ?? 0,
-  resolutions: row.resolutions_count ?? 0,
-  avgHandleSeconds: row.avg_handle_seconds ?? 0,
-  avgFirstResponseSeconds: row.avg_first_response_seconds ?? 0,
-  avgReplySeconds: row.avg_reply_seconds ?? 0,
-  csat: row.csat,
-  csatResponses: row.csat_responses ?? 0,
-});
-
-const normalizeTotals = kpis => ({
-  agentsTotal: kpis?.agents_total ?? 0,
-  agentsOnline: kpis?.agents_online ?? 0,
-  agentsBusy: kpis?.agents_busy ?? 0,
-  agentsOffline: kpis?.agents_offline ?? 0,
-  conversationsTotal: kpis?.conversations_total ?? 0,
-  avgHandleSeconds: kpis?.avg_handle_seconds ?? 0,
-  avgCsat: kpis?.avg_csat ?? 0,
-});
+// Devolvido pelo `run` quando a requisicao foi cancelada por uma mais nova:
+// quem cancelou e quem manda no estado agora.
+const SUPERSEDED = Symbol('superseded');
 
 /**
  * [Onda 5] Estado, filtros e busca do Cockpit de Atendentes.
  *
- * A tela recebe os dados ja normalizados e nao conhece o formato da API, como
- * manda o frontend.mdc.
+ * A tela recebe os dados ja normalizados pelo service e nao conhece o formato
+ * da API, como manda o frontend.mdc.
  */
 export function useCockpitReport() {
   const agents = ref([]);
   const totals = ref(emptyTotals());
-  const loading = ref(false);
   const hasError = ref(false);
 
   const filters = reactive({
@@ -72,58 +37,42 @@ export function useCockpitReport() {
     search: '',
   });
 
-  // Sobe a cada requisicao: trocar filtro dispara chamadas em sequencia rapida,
-  // e a resposta de um filtro abandonado nao pode sobrescrever a do atual.
-  let epoch = 0;
+  const { range } = useReportPeriod(filters);
+
+  // Trocar filtro dispara chamadas em sequencia rapida. O `run` cancela a
+  // anterior pelo AbortSignal, entao a resposta de um filtro abandonado nunca
+  // sobrescreve a do atual -- e `isPending` ja e o estado de carregando.
+  const { run, isPending: loading } = useAbortableRequest();
+
   let searchTimer = null;
 
-  const isCustomPeriod = computed(
-    () => filters.period === 'custom' && filters.customRange.length === 2
-  );
-
-  const periodRange = computed(() => {
-    const now = new Date();
-    if (isCustomPeriod.value) {
-      return {
-        from: getUnixTime(startOfDay(filters.customRange[0])),
-        to: getUnixTime(endOfDay(filters.customRange[1])),
-      };
-    }
-
-    const days = DAYS_BY_PERIOD[filters.period] ?? DAYS_BY_PERIOD['30d'];
-
-    return {
-      from: getUnixTime(startOfDay(subDays(now, days))),
-      to: getUnixTime(endOfDay(now)),
-    };
-  });
-
   const fetch = async () => {
-    epoch += 1;
-    const requestEpoch = epoch;
-    loading.value = true;
     hasError.value = false;
 
     try {
-      const { from, to } = periodRange.value;
-      const { data } = await reportsAPI.getCockpitAtendentes({
-        from,
-        to,
-        teamId: filters.teamId,
-        status: filters.status,
-        search: filters.search || undefined,
-        dateField: filters.dateField,
-      });
-      if (requestEpoch !== epoch) return;
-      agents.value = (data.agents || []).map(normalizeAgent);
-      totals.value = normalizeTotals(data.kpis);
+      const result = await run(
+        signal =>
+          operationReportsAPI.getCockpitAtendentes(
+            {
+              ...range.value,
+              teamId: filters.teamId,
+              status: filters.status,
+              search: filters.search || undefined,
+              dateField: filters.dateField,
+            },
+            { signal }
+          ),
+        { onAbort: SUPERSEDED }
+      );
+
+      if (result === SUPERSEDED) return;
+
+      agents.value = result.agents;
+      totals.value = result.totals;
     } catch (error) {
-      if (requestEpoch !== epoch) return;
       agents.value = [];
       totals.value = emptyTotals();
       hasError.value = true;
-    } finally {
-      if (requestEpoch === epoch) loading.value = false;
     }
   };
 
@@ -178,7 +127,7 @@ export function useCockpitReport() {
     hasError,
     filters,
     isEmpty,
-    periodRange,
+    range,
     fetch,
     setPeriod,
     setCustomRange,

@@ -12,6 +12,7 @@ import Button from 'dashboard/components-next/button/Button.vue';
 import Select from 'dashboard/components-next/select/Select.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import Label from 'dashboard/components-next/label/Label.vue';
+import ReportHeader from './components/ReportHeader.vue';
 import {
   useCockpitReport,
   PERIOD_OPTIONS,
@@ -117,14 +118,13 @@ onMounted(fetch);
 
 <template>
   <section class="flex flex-col w-full gap-4">
-    <header class="flex flex-col gap-1">
-      <h2 class="m-0 text-lg font-medium text-n-slate-12">
-        {{ t('REPORT.COCKPIT.TITLE') }}
-      </h2>
-      <p class="m-0 text-sm text-n-slate-11">
-        {{ t('REPORT.COCKPIT.DESCRIPTION') }}
-      </p>
-    </header>
+    <!-- Cabecalho do design system, nao um h2 proprio: e ele que traz o
+         respiro do topo (pt-6) e a tipografia que as outras telas de relatorio
+         usam. Sem ele o titulo encostava na borda superior. -->
+    <ReportHeader
+      :header-title="t('REPORT.COCKPIT.TITLE')"
+      :header-description="t('REPORT.COCKPIT.DESCRIPTION')"
+    />
 
     <div class="flex flex-wrap items-end gap-3">
       <div
