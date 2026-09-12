@@ -67,7 +67,7 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 2 — Liberar enterprise | ✅ |
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
-| 5 — Relatórios | 🔄 fundação pronta · 2 telas de 6 · **destravada** |
+| 5 — Relatórios | 🔄 fundação pronta · 3 telas de 6 · **destravada** |
 | 4 · 6 · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.
@@ -82,19 +82,31 @@ fatia 0 (fundação) está fechada:
 | 0c | `f0157a85b4` | Front do cockpit vira molde; `api/reports.js` volta a ser igual ao upstream |
 | 1 | `db76829641` | Tela **Robô e humano** (`/reports/ownership`), primeiro consumidor |
 | — | `d5f13751ce`, `423bcf1e51`, `f5ba73abbc` | defeitos de releitura, caminho do Captain, teto de 6 meses na janela |
+| 2 | `013719dd04`, `699cfc0083`, `808af92295` | Tela **Monitoramento** (`/reports/supervisor`); recorte Todos/Humanos/IA por estado atual, não pelo classificador por resolução |
+| — | `a362de8756`, `b7b1227fc8` | `ReportTile` adotado em Cockpit e Robô/humano; teste trava ausência de N+1 no Monitoramento |
 
-**Faltam quatro telas:** Monitoramento em tempo real, Recebidos e Efetuados, Fila — Histórico
-e Motivos. A ordem e o que cada uma precisa de especial estão no `plano-port-coraxy.md`.
+**2026-09-12 — fatia 2 fechada.** Chegou pela metade, deixada por outro agente (Antigravity)
+sem commitar: encanamento certo (rota, endpoint, i18n, menu), mas builder cobrindo uma fração
+do escopo (6 contadores inventados, não os KPIs do produto) e com N+1 real
+(`inbox.active_bot?` por conversa). Portada completa nesta sessão — decisões e débito
+registrado na seção "Fatia 2" da Onda 5 em `plano-port-coraxy.md`.
+
+**Faltam três telas:** Recebidos e Efetuados, Fila — Histórico e Motivos. A ordem e o que
+cada uma precisa de especial estão no `plano-port-coraxy.md`.
 
 **Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
 e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê
 `POSTGRES_DATABASE`, que no container vale `chatwoot_dev`, e a suíte truncaria o banco de
 desenvolvimento. Os scripts já carregam o override.
 
-**Revisões pendentes:** as de banco (custo do classificador em volume) e de frontend (tema
-claro, 375px, e se os tiles deveriam ser o `ReportMetricCard` do upstream) ficaram sem
-resposta — os agentes bateram no limite de turnos. Vale refazer antes de replicar o padrão
-nas quatro telas restantes.
+**Revisões pendentes (fatia 1) — parcialmente resolvidas em 2026-09-12.** A pergunta sobre os
+tiles está fechada: nenhuma tela usa o `ReportMetricCard` do upstream, e o `ReportTile.vue`
+próprio (que já existia extraído, mas não adotado) agora está em uso no Cockpit, no Robô/
+humano e no Monitoramento (commit `a362de8756`). Seguem em aberto, e valem antes da fatia 3:
+o custo do classificador em volume real de produção (a revisão de banco desta sessão mediu
+a query do Monitoramento, não a das fatias 0/1) e a validação de tema claro/375px do Cockpit
+e do Robô/humano especificamente (a revisão de frontend desta sessão validou o
+Monitoramento).
 
 ## 5. A decisão que travava a Onda 5 — resolvida em 2026-09-11
 

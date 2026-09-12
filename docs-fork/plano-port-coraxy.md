@@ -1526,7 +1526,7 @@ relatório por vez, como foi o Cockpit.
 | 0b | Classificador robô×humano (`Reports::ConversationOwnershipFinder`) + índice | ✅ `9298d63a95` |
 | 0c | Front do Cockpit vira molde (service em `api/`, período e guarda reutilizáveis) | ✅ `f0157a85b4` |
 | 1 | **Robô e humano** — resumo por tipo; primeiro consumidor do classificador | ✅ `db76829641` |
-| 2 | **Monitoramento** — traz `active_conversations`; `in_progress` passa a incluir pending | ⏳ |
+| 2 | **Monitoramento** — traz `active_conversations`; `in_progress` passa a incluir pending | ✅ `699cfc0083` |
 | 3 | **Recebidos e Efetuados** — traz a classificação por conversa; `LATERAL` na primeira mensagem | ⏳ |
 | 4 | **Fila — Histórico** — mesma população nos três recortes; abandono só por resolução humana | ⏳ |
 | 5 | **Motivos** — mistura as duas granularidades, por isso por último | ⏳ |
@@ -1568,6 +1568,56 @@ versionado, que passa pelo `ReportingEventListener`): 7 encerradas pelo robô, 4
 `reporting_events.created_at`, que é a hora em que a **linha foi inserida** (padrão do
 upstream), não `event_end_time`. Spec que gera evento pelo listener precisa de `travel_to`,
 senão tudo nasce "agora" e cai sempre na janela atual.
+
+##### Fatia 2 — resolvida. Monitoramento
+
+Chegou pela metade: um agente (Antigravity) tinha deixado o encanamento pronto e não
+commitado — rota, endpoint, i18n, item de menu, dois specs — mas o builder e a tela cobriam
+uma fração do escopo (6 contadores inventados em vez dos KPIs do produto) e tinham dois
+defeitos de desempenho reais: `conv.inbox&.active_bot?` chamado por conversa dentro de um
+laço Ruby (N consultas em `hooks` por atualização da tela) e a fila inteira carregada em
+memória sem paginação. Decisão tomada com o usuário: portar a fatia completa numa vez só,
+aproveitando o encanamento que já estava certo.
+
+Quatro decisões tomadas ao construir:
+
+- **O recorte Todos/Humanos/IA não é o classificador por resolução.** As fatias 0/1
+  classificam conversas já **resolvidas**, por fato histórico imutável
+  (`reporting_events`). O Monitoramento mostra conversas **ainda abertas** — não há
+  `conversation_resolved` para julgar. Por isso o finder ganhou um segundo predicado,
+  `#bot_conducted`/`#human_conducted`, documentado como **estado atual**: só vale para a foto
+  ao vivo, pode mudar a qualquer segundo, e não deve ser confundido com o predicado por
+  resolução que a série histórica exige. Mora no finder porque o filtro é transversal às
+  fatias 3, 4 e 5 — uma cópia textual por tela repetiria o que o commit `a7907b19a3` acabou
+  de pagar para corrigir no outro predicado.
+- **KPIs do vocabulário do produto, não os seis contadores herdados.** Em atendimento, na
+  fila, maior espera (com janela de 30 dias e contagem de conversas fora dela), agentes
+  online/total e carga média — os mesmos da fonte (`.coraxy-ref`), não
+  Total ativo/Com robô/Com humanos/Não atendidas/Sem atribuição/Pendentes que o encanamento
+  parcial tinha inventado.
+- **Nenhum componente de UI novo.** `BaseTable`/`PaginationFooter`/`TabBar`/`Select`/
+  `CardPriorityIcon` já existiam no design system (o `TabBar` não tinha consumidor nenhum
+  até agora); a tela só compõe. De caminho, o `ReportTile` — extraído numa sessão anterior e
+  nunca adotado — passou a ser usado também pelo Cockpit e pelo Robô/humano, tirando a
+  marcação de tile e de faixa de erro que as duas repetiam à mão.
+- **`useLiveRefresh` no lugar do `setInterval` cru**, e uma regra nova de erro: a atualização
+  automática nunca acende `hasError` nem apaga a tela — só a primeira carga tem essa
+  permissão. Antes disso, qualquer falha isolada de rede a cada 30s piscaria erro na tela
+  toda.
+
+Verificado por specs (58 exemplos backend — finder + builder + controller — e 40 no
+frontend, 0 falhas) e por um teste dedicado de ausência de N+1
+(`spec/builders/v2/reports/supervisor_builder_spec.rb`, seção "desempenho": zero consultas em
+`hooks` ao aplicar o recorte bot/human, e exatamente duas consultas que materializam
+`conversations.*` — a página da tabela e a lista de alertas — não uma por conversa da fila).
+Revisão de arquitetura (`backend-engineering`), banco (`database-review`) e tela renderizada
+(`frontend-design`) rodadas ao final da implementação, não só sobre o plano.
+
+**Débito registrado:** `kpis` e `queue_by_team` ainda fazem uma consulta por métrica em vez
+de uma agregação condicional única (o padrão que `cockpit_atendentes_builder` e
+`ownership_summary_builder` já usam). Aceitável pelo volume atual — poucas dezenas de
+conversas ativas por conta —, mas é o primeiro lugar a otimizar se o `EXPLAIN` em produção
+mostrar custo real.
 
 
 ---
