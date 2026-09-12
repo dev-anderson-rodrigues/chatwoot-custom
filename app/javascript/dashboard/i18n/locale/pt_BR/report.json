@@ -39,6 +39,7 @@
       },
       "KPI": {
         "IN_PROGRESS": "Em atendimento",
+        "IN_PROGRESS_NOTE": "Conta toda conversa aberta com agente. A tabela abaixo mostra {tableCount} porque só marca \"Em atendimento\" quem já recebeu resposta.",
         "IN_QUEUE": "Na fila",
         "LONGEST_WAIT": "Maior espera",
         "STALE_IN_QUEUE": "{count} com mais de {days}d, fora da conta acima",
@@ -69,8 +70,7 @@
         "INBOX": "Caixa",
         "PRIORITY": "Prioridade",
         "DURATION": "Duração",
-        "LAST_MESSAGE": "Última mensagem",
-        "MINUTES": "{minutes}min"
+        "LAST_MESSAGE": "Última mensagem"
       },
       "AGENTS_PANEL": {
         "TITLE": "Agentes",
@@ -85,7 +85,7 @@
       "ALERTS": {
         "TITLE": "Esperando demais",
         "EMPTY": "Nenhuma conversa passou do limite de espera.",
-        "MINUTES": "{minutes} min esperando"
+        "MINUTES": "{duration} esperando"
       }
     },
     "COCKPIT": {

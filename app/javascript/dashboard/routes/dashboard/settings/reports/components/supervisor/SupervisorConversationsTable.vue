@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { formatTime } from '@chatwoot/utils';
 import {
   BaseTable,
   BaseTableRow,
@@ -62,8 +63,10 @@ const onPageChanged = page => emit('update:page', page);
 
 const agentLabel = row =>
   row.agentName || t('REPORT.SUPERVISOR.TABLE.NO_AGENT');
-const minutesLabel = minutes =>
-  t('REPORT.SUPERVISOR.TABLE.MINUTES', { minutes });
+// Minutos crus viravam numero de 5 digitos numa conversa esquecida ha
+// semanas ("64825min"); formatTime escala para hora/dia como o resto das
+// telas de relatorio ja faz com duracao.
+const durationLabel = minutes => (minutes ? formatTime(minutes * 60) : '—');
 
 const tableHeaders = computed(() => [
   t('REPORT.SUPERVISOR.TABLE.STATUS'),
@@ -82,11 +85,18 @@ const tableHeaders = computed(() => [
       <h3 class="m-0 text-sm font-medium text-n-slate-12">
         {{ t('REPORT.SUPERVISOR.TABLE.TITLE') }}
       </h3>
-      <TabBar
-        :tabs="tabs"
-        :initial-active-tab="activeTabIndex"
-        @tab-changed="onTabChanged"
-      />
+      <!-- TabBar e `w-fit`, sem quebra interna entre os chips: com os quatro
+           label+contagem (ex. "Em atendimento (3)") ela passa da largura da
+           tela em 375px e empurrava a PAGINA inteira para rolar na
+           horizontal -- achado renderizado. Rolagem propria aqui, mesmo
+           padrao do container da tabela logo abaixo. -->
+      <div class="w-full overflow-x-auto sm:w-auto">
+        <TabBar
+          :tabs="tabs"
+          :initial-active-tab="activeTabIndex"
+          @tab-changed="onTabChanged"
+        />
+      </div>
     </div>
 
     <!-- Contêiner de rolagem proprio: o BaseTable e uma div `w-full` sem
@@ -134,12 +144,12 @@ const tableHeaders = computed(() => [
             </BaseTableCell>
             <BaseTableCell>
               <span class="text-sm tabular-nums text-n-slate-11">
-                {{ minutesLabel(row.durationMinutes) }}
+                {{ durationLabel(row.durationMinutes) }}
               </span>
             </BaseTableCell>
             <BaseTableCell>
               <span class="text-sm tabular-nums text-n-slate-11">
-                {{ minutesLabel(row.lastMessageMinutes) }}
+                {{ durationLabel(row.lastMessageMinutes) }}
               </span>
             </BaseTableCell>
           </BaseTableRow>

@@ -1,11 +1,17 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
+import { formatTime } from '@chatwoot/utils';
 
 defineProps({
   alerts: { type: Array, default: () => [] },
 });
 
 const { t } = useI18n();
+
+// Mesmo defeito que a tabela tinha: minutos crus viravam numero gigante numa
+// conversa esquecida ha semanas ("64852 min esperando").
+const waitingLabel = minutes =>
+  t('REPORT.SUPERVISOR.ALERTS.MINUTES', { duration: formatTime(minutes * 60) });
 </script>
 
 <template>
@@ -39,9 +45,7 @@ const { t } = useI18n();
           }}</span>
         </div>
         <span class="text-xs font-medium tabular-nums shrink-0 text-n-ruby-11">
-          {{
-            t('REPORT.SUPERVISOR.ALERTS.MINUTES', { minutes: alert.minutes })
-          }}
+          {{ waitingLabel(alert.minutes) }}
         </span>
       </li>
     </ul>

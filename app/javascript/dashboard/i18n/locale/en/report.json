@@ -39,6 +39,7 @@
       },
       "KPI": {
         "IN_PROGRESS": "In progress",
+        "IN_PROGRESS_NOTE": "Counts every open conversation with an agent. The table below shows {tableCount} because it only marks \"In progress\" once there's been a reply.",
         "IN_QUEUE": "In queue",
         "LONGEST_WAIT": "Longest wait",
         "STALE_IN_QUEUE": "{count} older than {days}d, not counted above",
@@ -69,8 +70,7 @@
         "INBOX": "Inbox",
         "PRIORITY": "Priority",
         "DURATION": "Duration",
-        "LAST_MESSAGE": "Last message",
-        "MINUTES": "{minutes}m"
+        "LAST_MESSAGE": "Last message"
       },
       "AGENTS_PANEL": {
         "TITLE": "Agents",
@@ -85,7 +85,7 @@
       "ALERTS": {
         "TITLE": "Waiting too long",
         "EMPTY": "No conversation waiting past the alert threshold.",
-        "MINUTES": "{minutes} min waiting"
+        "MINUTES": "{duration} waiting"
       }
     },
     "COCKPIT": {

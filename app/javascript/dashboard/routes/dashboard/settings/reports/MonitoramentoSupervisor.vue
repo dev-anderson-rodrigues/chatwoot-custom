@@ -89,6 +89,20 @@ const staleInQueueNote = computed(() => {
     days: kpis.longestWaitWindowDays,
   });
 });
+
+// "Em atendimento" no KPI conta toda conversa aberta com agente atribuido; o
+// chip da tabela abaixo separa mais fino e so marca "Em atendimento" quem ja
+// recebeu resposta (o resto cai em "Aguardando"). Achado na tela renderizada:
+// os dois numeros divergem sempre que ha alguma conversa aberta+atribuida
+// ainda sem resposta, e sem explicacao dois numeros iguais em nome diferindo
+// em valor parecem erro -- mesmo raciocinio do CRITERION do Robo/humano.
+const inProgressNote = computed(() => {
+  const kpis = current.value.kpis;
+  const tableCount = current.value.conversations.counts.atendendo;
+  if (kpis.inProgress === tableCount) return null;
+
+  return t('REPORT.SUPERVISOR.KPI.IN_PROGRESS_NOTE', { tableCount });
+});
 </script>
 
 <template>
@@ -172,6 +186,9 @@ const staleInQueueNote = computed(() => {
         </dl>
         <p v-if="staleInQueueNote" class="m-0 text-xs text-n-slate-10">
           {{ staleInQueueNote }}
+        </p>
+        <p v-if="inProgressNote" class="m-0 text-xs text-n-slate-10">
+          {{ inProgressNote }}
         </p>
       </div>
 
