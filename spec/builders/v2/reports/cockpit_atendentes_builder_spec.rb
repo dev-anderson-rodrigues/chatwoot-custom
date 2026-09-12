@@ -100,6 +100,30 @@ RSpec.describe V2::Reports::CockpitAtendentesBuilder do
       expect(row[:conversations]).to eq(1)
     end
 
+    it 'keeps a closed conversation on the row of whoever resolved it, even after reassignment' do
+      # O `user_id` do evento e quem estava atribuido na resolucao. Pelo assignee
+      # atual, reatribuir depois movia a conversa de linha e mudava o numero de um
+      # periodo ja fechado -- e "encerradas" e "resolucoes" discordavam.
+      conversa = conversation_for(ana, status: :resolved)
+      create(:reporting_event, account_id: account.id, name: 'conversation_resolved',
+                               conversation_id: conversa.id, user_id: ana.id, value: 60, created_at: 1.day.ago)
+      conversa.update!(assignee: bruno)
+
+      rows = described_class.new(account, params.merge(date_field: 'resolved')).metrics[:agents]
+      row_ana = rows.find { |r| r[:id] == ana.id }
+      row_bruno = rows.find { |r| r[:id] == bruno.id }
+
+      expect([row_ana[:conversations], row_ana[:resolutions_count]]).to eq([1, 1])
+      expect([row_bruno[:conversations], row_bruno[:resolutions_count]]).to eq([0, 0])
+    end
+
+    it 'refuses to run without a valid time window instead of returning an empty report' do
+      # O `.to_i` antigo transformava ausencia em 1970 e o relatorio saia zerado
+      # sem aviso.
+      expect { described_class.new(account, {}).metrics }.to raise_error(KeyError)
+      expect { described_class.new(account, params.merge(since: 'ontem')).metrics }.to raise_error(ArgumentError)
+    end
+
     it 'averages csat per agent and weights the account average by responses' do
       create(:csat_survey_response, account: account, assigned_agent_id: ana.id, rating: 5, created_at: 1.day.ago)
       create(:csat_survey_response, account: account, assigned_agent_id: ana.id, rating: 4, created_at: 1.day.ago)

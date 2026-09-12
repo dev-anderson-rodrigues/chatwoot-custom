@@ -173,16 +173,22 @@ class V2::Reports::CockpitAtendentesBuilder
   # evento tambem cai num indice exato (account_id, name, created_at), enquanto
   # (status, updated_at) nao tem indice nenhum.
   #
-  # Conta conversa distinta, nao evento: conversa reaberta e resolvida de novo na
-  # mesma janela e uma so no volume do agente.
+  # O dono da linha e o `user_id` do evento -- quem estava atribuido no momento
+  # da resolucao --, nao o assignee atual da conversa. Pelo assignee atual,
+  # reatribuir hoje uma conversa encerrada em agosto mudava o numero de agosto, e
+  # o mesmo agente podia ter "encerradas" e "resolucoes" contando conversas
+  # diferentes. Agora as duas colunas leem o mesmo fato.
+  #
+  # Conta conversa distinta por agente: reaberta e resolvida de novo pelo mesmo
+  # agente na janela e uma so. Se dois agentes a resolveram, cada um fechou uma
+  # vez, e ela conta na linha de ambos.
   def conversations_resolved_in_window
     @account.reporting_events
             .where(name: 'conversation_resolved', created_at: time_range)
-            .joins(:conversation)
-            .where.not(conversations: { assignee_id: nil })
-            .group('conversations.assignee_id')
+            .where.not(user_id: nil)
+            .group(:user_id)
             .distinct
-            .count('conversations.id')
+            .count(:conversation_id)
   end
 
   # Resolucoes, tempo de atendimento, primeira resposta e tempo de resposta saem
@@ -240,9 +246,18 @@ class V2::Reports::CockpitAtendentesBuilder
   end
 
   # Janela explicita em vez do DateRangeHelper do repo: `range` de la devolve nil
-  # quando since/until faltam, e aqui a ausencia de janela filtraria por nil e
-  # zeraria o relatorio em silencio. A tela sempre manda as duas pontas.
+  # quando since/until faltam, e a ausencia de janela zeraria o relatorio em
+  # silencio.
+  #
+  # O controller ja devolve 422 sem as duas pontas; aqui o parse e estrito de
+  # proposito. O `.to_i` de antes transformava ausencia em 1970. Quem chamar o
+  # builder por fora do controller (spec, runner, job futuro) recebe erro, e nao
+  # um relatorio vazio.
   def time_range
-    @time_range ||= Time.zone.at(@params[:since].to_i)..Time.zone.at(@params[:until].to_i)
+    @time_range ||= epoch_param(:since)..epoch_param(:until)
+  end
+
+  def epoch_param(key)
+    Time.zone.at(Integer(@params.fetch(key).to_s, 10))
   end
 end
