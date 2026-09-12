@@ -59,6 +59,31 @@ class Reports::ConversationOwnershipFinder
     end
   end
 
+  # [Onda 5 / fatia 2] Recorte ao vivo, para o Monitoramento (Todos/Humanos/IA).
+  #
+  # Isto NAO e o classificador acima, e de proposito nao reusa o predicado por
+  # RESOLUCAO: a tela de Monitoramento mostra conversas ainda abertas, que nao
+  # tem `conversation_resolved` nenhum para classificar. Aqui a pergunta e
+  # outra -- "quem esta conduzindo agora" --, respondida por ESTADO ATUAL, e
+  # so vale para a foto ao vivo. Ela pode mudar a qualquer segundo (um agente
+  # se atribui, um handoff acontece) e isso e o esperado; o classificador por
+  # resolucao acima e o unico valido para serie historica, porque aquele nao
+  # pode ser reescrito pelo estado de agora.
+  #
+  # bot   = so a IA esta conduzindo: caixa com bot ativo, sem agente atribuido
+  #         e sem handoff registrado.
+  # human = todo o resto (houve handoff, ha agente atribuido, ou a caixa nao
+  #         tem bot).
+  def bot_conducted(scope)
+    scope.where(inbox_id: bot_inbox_ids)
+         .where(assignee_id: nil)
+         .where.not(id: handed_off_conversation_ids)
+  end
+
+  def human_conducted(scope)
+    scope.where.not(id: bot_conducted(scope).select(:id))
+  end
+
   # A mesma condicao como booleano cru, para quem precisa dela dentro de uma
   # agregacao -- `COUNT(*) FILTER (WHERE ...)` numa passada so -- em vez de dois
   # escopos e duas varreduras.
@@ -82,5 +107,18 @@ class Reports::ConversationOwnershipFinder
 
   def quoted_human_evidence_events
     HUMAN_EVIDENCE_EVENTS.map { |name| ActiveRecord::Base.connection.quote(name) }.join(', ')
+  end
+
+  def bot_inbox_ids
+    @bot_inbox_ids ||= @account.agent_bot_inboxes.pluck(:inbox_id)
+  end
+
+  # Subquery (nao array Ruby): numa conta com muito handoff de bot, um `pluck`
+  # aqui vira um `NOT IN` gigante e pode estourar o statement_timeout -- e o
+  # que ja aconteceu em producao (docs-fork/plano-port-coraxy.md).
+  def handed_off_conversation_ids
+    @handed_off_conversation_ids ||= @account.reporting_events
+                                             .where(name: 'conversation_bot_handoff')
+                                             .select(:conversation_id)
   end
 end

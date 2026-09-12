@@ -249,4 +249,56 @@ RSpec.describe Reports::ConversationOwnershipFinder do
       expect(bot + human).to eq(finder.resolutions.count)
     end
   end
+
+  describe '#bot_conducted e #human_conducted' do
+    # Recorte ao vivo (estado atual), usado pelo Monitoramento -- diferente do
+    # classificador por resolucao testado acima.
+    let(:active_scope) { account.conversations.where(status: %w[open pending]) }
+
+    it 'e do robo quando a caixa tem bot, sem agente e sem handoff' do
+      conversation = bot_conversation
+
+      expect(finder.bot_conducted(active_scope)).to include(conversation)
+      expect(finder.human_conducted(active_scope)).not_to include(conversation)
+    end
+
+    it 'e humana quando tem agente atribuido, mesmo com bot na caixa' do
+      conversation = bot_conversation(assignee: agent)
+
+      expect(finder.bot_conducted(active_scope)).not_to include(conversation)
+      expect(finder.human_conducted(active_scope)).to include(conversation)
+    end
+
+    it 'e humana quando ja houve handoff, mesmo sem agente atribuido' do
+      conversation = bot_conversation
+      handoff!(conversation)
+
+      expect(finder.bot_conducted(active_scope)).not_to include(conversation)
+      expect(finder.human_conducted(active_scope)).to include(conversation)
+    end
+
+    it 'e humana quando a caixa nao tem bot' do
+      conversation = create(:conversation, account: account, inbox: plain_inbox)
+
+      expect(finder.bot_conducted(active_scope)).not_to include(conversation)
+      expect(finder.human_conducted(active_scope)).to include(conversation)
+    end
+
+    # bot_inbox_ids e handed_off_conversation_ids vem de `@account`, entao um
+    # escopo sem filtro de conta nao pode vazar caixa/handoff de outra conta
+    # para dentro do predicado.
+    it 'ignora a caixa com bot de outra conta mesmo com escopo sem filtro de conta' do
+      other_account = create(:account)
+      other_bot_inbox = create(:inbox, account: other_account)
+      create(:agent_bot_inbox, agent_bot: create(:agent_bot, account: other_account), inbox: other_bot_inbox)
+      other_conversation = create(:conversation, account: other_account, inbox: other_bot_inbox, status: 'open')
+      conversation = bot_conversation
+
+      unscoped_active = Conversation.where(status: %w[open pending])
+      result = finder.bot_conducted(unscoped_active)
+
+      expect(result).to contain_exactly(conversation)
+      expect(result).not_to include(other_conversation)
+    end
+  end
 end
