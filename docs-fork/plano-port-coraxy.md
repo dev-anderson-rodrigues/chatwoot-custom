@@ -1523,8 +1523,8 @@ relatório por vez, como foi o Cockpit.
 | 4 | `cockpit_atendentes_builder` | ✅ |
 | 11 | Tela do Cockpit | ✅ |
 | 0a | Blindar o cockpit antes de virar molde (422 da janela, "encerradas" pelo evento, specs de autorização) | ✅ `66b004a759` |
-| 0b | Classificador robô×humano (`Reports::ConversationOwnershipFinder`) + índice | 🔄 |
-| 0c | Front do Cockpit vira molde (service em `api/`, período e guarda reutilizáveis) | ⏳ |
+| 0b | Classificador robô×humano (`Reports::ConversationOwnershipFinder`) + índice | ✅ `9298d63a95` |
+| 0c | Front do Cockpit vira molde (service em `api/`, período e guarda reutilizáveis) | ✅ `f0157a85b4` |
 | 1 | **Visão geral** — resumo por tipo; primeiro consumidor do classificador | ⏳ |
 | 2 | **Monitoramento** — traz `active_conversations`; `in_progress` passa a incluir pending | ⏳ |
 | 3 | **Recebidos e Efetuados** — traz a classificação por conversa; `LATERAL` na primeira mensagem | ⏳ |
