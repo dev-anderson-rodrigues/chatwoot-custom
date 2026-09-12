@@ -186,6 +186,39 @@ RSpec.describe V2::Reports::SupervisorBuilder do
     end
   end
 
+  describe '#metrics — fila por equipe' do
+    it 'conta na_fila, em_atendimento e agentes online por equipe' do
+      # Team normaliza o nome para minusculo em before_validation (app/models/team.rb).
+      time_a = create(:team, account: account, name: 'suporte')
+      time_b = create(:team, account: account, name: 'vendas')
+      create(:team_member, team: time_a, user: agent)
+
+      na_fila(inbox: bot_inbox).update!(team: time_a)
+      atendendo.update!(team: time_a)
+      na_fila(inbox: bot_inbox).update!(team: time_b)
+
+      rows = builder.metrics[:queue_by_team].index_by { |row| row[:id] }
+
+      expect(rows[time_a.id]).to include(name: 'suporte', in_queue: 1, in_progress: 1, agents_online: 1)
+      expect(rows[time_b.id]).to include(name: 'vendas', in_queue: 1, in_progress: 0, agents_online: 0)
+    end
+
+    it 'so mostra a linha "sem equipe" quando ha conversa nela' do
+      # Duas instancias, nao a mesma: queue_by_team memoiza `@ivar ||=` dentro
+      # do builder de proposito (nao requery dentro de uma unica chamada), e
+      # reusar o `subject` memoizado devolveria o resultado da primeira
+      # chamada, que e exatamente o que o controller nunca faz (um builder
+      # novo por requisicao).
+      expect(described_class.new(account, params).metrics[:queue_by_team].map { |row| row[:id] })
+        .not_to include(nil)
+
+      na_fila # sem team:
+
+      expect(described_class.new(account, params).metrics[:queue_by_team].map { |row| row[:id] })
+        .to include(nil)
+    end
+  end
+
   describe '#metrics — desempenho' do
     # Defeito da versao anterior: o recorte bot/human chamava `inbox.active_bot?`
     # dentro de um laco por conversa, e esse metodo consulta `hooks` (dialogflow)
@@ -224,6 +257,34 @@ RSpec.describe V2::Reports::SupervisorBuilder do
       # inteira). `counts`, `kpis` e `queue_by_team` usam `.count`/
       # `.group(...).count`, que nao selecionam `conversations.*`.
       expect(conversation_queries.size).to eq(2)
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+    end
+
+    # Achado da revisao de banco: `NOT IN (subquery)` nao e correlacionado --
+    # o Postgres precisa materializar TODO o historico de
+    # `conversation_bot_handoff` da conta antes de poder negar qualquer linha
+    # (medido: 271ms lendo 100 mil linhas numa conta com handoff antigo,
+    # repetido de 3 a 10 vezes por requisicao porque kpis/queue_by_team/a
+    # tabela chamam o predicado varias vezes). `NOT EXISTS` correlacionado por
+    # `conversation_id` vira um lookup indexado por candidata. Trava a forma
+    # da query, nao so o resultado -- e o unico jeito barato de provar isto
+    # sem semear 100 mil linhas num teste unitario.
+    it 'usa NOT EXISTS correlacionado para o handoff, nao NOT IN sobre o historico inteiro' do
+      alvo = na_fila
+      handoff!(na_fila)
+
+      reporting_events_queries = []
+      subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+        reporting_events_queries << payload[:sql] if payload[:sql].include?('reporting_events') && !payload[:cached]
+      end
+
+      itens = described_class.new(account, agent_type: 'bot').metrics[:conversations][:items]
+
+      expect(itens.map { |i| i[:id] }).to include(alvo.display_id)
+      expect(reporting_events_queries).not_to be_empty
+      expect(reporting_events_queries).to all(match(/NOT EXISTS/))
+      expect(reporting_events_queries).not_to include(a_string_matching(/NOT IN\s*\(\s*SELECT/))
     ensure
       ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
     end

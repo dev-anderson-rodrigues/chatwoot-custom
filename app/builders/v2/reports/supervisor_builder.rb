@@ -108,7 +108,7 @@ class V2::Reports::SupervisorBuilder
 
   def kpis
     {
-      in_progress: in_progress_scope.count,
+      in_progress: in_progress_count,
       in_queue: in_queue_scope.count,
       # Fila sem o recorte Humanos/IA: no modo IA a fila filtrada apenas
       # repetiria "em atendimento", entao a tela mostra a fila real (quem esta
@@ -134,6 +134,12 @@ class V2::Reports::SupervisorBuilder
                            else
                              base_scope.open.where.not(assignee_id: nil)
                            end
+  end
+
+  # `kpis` e `avg_load` fazem a mesma pergunta; sem isto era a mesma contagem
+  # disparada duas vezes.
+  def in_progress_count
+    @in_progress_count ||= in_progress_scope.count
   end
 
   # Conversas ativas ainda sem agente.
@@ -170,7 +176,7 @@ class V2::Reports::SupervisorBuilder
     online = online_user_ids.size
     return 0.0 if online.zero?
 
-    (in_progress_scope.count.to_f / online).round(1)
+    (in_progress_count.to_f / online).round(1)
   end
 
   # ---------- Fila por equipe ----------
@@ -188,7 +194,7 @@ class V2::Reports::SupervisorBuilder
       name: team.name,
       in_queue: in_queue_by_team[team.id].to_i,
       in_progress: in_progress_by_team[team.id].to_i,
-      agents_online: online_agent_ids_for(team).size
+      agents_online: online_agents_by_team[team.id].to_i
     }
   end
 
@@ -211,8 +217,16 @@ class V2::Reports::SupervisorBuilder
     @in_progress_by_team ||= in_progress_scope.unscope(:order).group(:team_id).count
   end
 
-  def online_agent_ids_for(team)
-    team.members.pluck(:id).map(&:to_s) & online_user_ids
+  # Uma query so para todas as equipes, nao uma por equipe dentro do
+  # `.map` de `queue_by_team` -- achado pela revisao de backend: era o mesmo
+  # N+1 que este builder existe para eliminar, so que por numero de equipes em
+  # vez de por conversa.
+  def online_agents_by_team
+    @online_agents_by_team ||= TeamMember.joins(:team)
+                                         .where(teams: { account_id: @account.id })
+                                         .pluck(:team_id, :user_id)
+                                         .group_by(&:first)
+                                         .transform_values { |pairs| (pairs.map { |(_id, user_id)| user_id.to_s } & online_user_ids).size }
   end
 
   # ---------- Helpers ----------

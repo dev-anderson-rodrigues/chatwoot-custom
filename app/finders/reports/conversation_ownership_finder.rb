@@ -77,9 +77,14 @@ class Reports::ConversationOwnershipFinder
   def bot_conducted(scope)
     scope.where(inbox_id: bot_inbox_ids)
          .where(assignee_id: nil)
-         .where.not(id: handed_off_conversation_ids)
+         .where(never_handed_off_condition)
   end
 
+  # Ao contrario de `bot_conducted`, esta nao tem trava de conta propria --
+  # `bot_inbox_ids`/`handed_off_conversation_ids` sao de `@account`, mas a
+  # negacao herda o multi-tenant so do `scope` que o chamador passar. Todo
+  # chamador de hoje comeca de `@account.conversations`; quem reusar isto
+  # (fatias 3 a 5 tambem vao precisar do recorte) precisa continuar assim.
   def human_conducted(scope)
     scope.where.not(id: bot_conducted(scope).select(:id))
   end
@@ -113,12 +118,32 @@ class Reports::ConversationOwnershipFinder
     @bot_inbox_ids ||= @account.agent_bot_inboxes.pluck(:inbox_id)
   end
 
-  # Subquery (nao array Ruby): numa conta com muito handoff de bot, um `pluck`
-  # aqui vira um `NOT IN` gigante e pode estourar o statement_timeout -- e o
-  # que ja aconteceu em producao (docs-fork/plano-port-coraxy.md).
-  def handed_off_conversation_ids
-    @handed_off_conversation_ids ||= @account.reporting_events
-                                             .where(name: 'conversation_bot_handoff')
-                                             .select(:conversation_id)
+  # `NOT EXISTS` correlacionado, nao `NOT IN (subquery)`. A subquery de
+  # `NOT IN` nao e correlacionada -- o Postgres precisa materializar TODO o
+  # historico de `conversation_bot_handoff` da conta antes de poder negar
+  # qualquer linha (medido pela revisao de banco: 271ms lendo 100 mil linhas
+  # via heap fetch, numa conta com handoff antigo, e repetido 3 a 10 vezes por
+  # requisicao porque `kpis`/`queue_by_team`/a tabela chamam este predicado
+  # varias vezes). O `NOT IN` gigante que o comentario antigo citava (estourou
+  # `statement_timeout` em producao) era de um `pluck` em array Ruby, mas o
+  # substituto por subquery ActiveRecord tinha o mesmo problema de fundo, so
+  # que dentro do banco em vez de na aplicacao.
+  #
+  # `NOT EXISTS` correlacionado por `conversation_id` usa o indice que ja
+  # existe, `index_reporting_events_on_conversation_name_end_time
+  # (conversation_id, name, event_end_time)`, como um lookup por candidata --
+  # dezenas de conversas ativas, nao centenas de milhares de linhas
+  # historicas. So correlaciona por `conversation_id`: nao precisa repetir
+  # `account_id` aqui porque so pode combinar com a linha de `conversations`
+  # que tem o mesmo id, e id e unico entre contas -- mesmo raciocinio que
+  # `bot_resolution_condition` ja usa nas subqueries "twin"/`human_evidence`
+  # acima.
+  def never_handed_off_condition
+    Arel.sql(<<~SQL.squish)
+      NOT EXISTS (
+        SELECT 1 FROM reporting_events
+        WHERE reporting_events.conversation_id = conversations.id
+          AND reporting_events.name = 'conversation_bot_handoff')
+    SQL
   end
 end

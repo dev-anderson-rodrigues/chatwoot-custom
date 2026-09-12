@@ -16,7 +16,12 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
   MAX_WINDOW = 6.months
 
   before_action :check_authorization
-  before_action :validate_time_window, only: %i[cockpit_atendentes ownership_summary]
+  # `except:`, nao `only:`, de proposito: a maioria das acoes futuras da onda
+  # (fatias 3 a 5) tem janela, e esquecer de inclui-la aqui falharia alto (422
+  # obvio no primeiro teste manual). O contrario -- esquecer de EXCLUIR uma
+  # acao sem janela -- tambem falha alto, mas so nela, e so quem editar o
+  # `supervisor` precisa saber disso.
+  before_action :validate_time_window, except: %i[supervisor]
 
   def cockpit_atendentes
     builder = V2::Reports::CockpitAtendentesBuilder.new(Current.account, cockpit_atendentes_params)
