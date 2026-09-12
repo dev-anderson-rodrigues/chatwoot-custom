@@ -16,6 +16,11 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
     render json: builder.metrics
   end
 
+  def ownership_summary
+    builder = V2::Reports::OwnershipSummaryBuilder.new(Current.account, ownership_summary_params)
+    render json: builder.metrics
+  end
+
   private
 
   # Mesma autorizacao do ReportsController: relatorio e coisa de administrador.
@@ -38,5 +43,9 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
 
   def cockpit_atendentes_params
     params.permit(:since, :until, :team_id, :status, :search, :date_field).to_h.symbolize_keys
+  end
+
+  def ownership_summary_params
+    params.permit(:since, :until).to_h.symbolize_keys
   end
 end

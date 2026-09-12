@@ -548,6 +548,7 @@ Rails.application.routes.draw do
               get :drilldown
               get :bot_metrics
               get :cockpit_atendentes, to: 'operation_reports#cockpit_atendentes'
+              get :ownership_summary, to: 'operation_reports#ownership_summary'
               get :inbox_label_matrix
               get :first_response_time_distribution
               get :outgoing_messages_count

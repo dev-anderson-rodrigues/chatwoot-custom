@@ -1,5 +1,28 @@
 {
   "REPORT": {
+    "OWNERSHIP": {
+      "TITLE": "Robô e humano",
+      "DESCRIPTION": "Quanto o robô encerrou sozinho, quanto chegou ao time, e quanto cada lado demorou.",
+      "ERROR": "Não foi possível carregar o relatório. Tente de novo.",
+      "EMPTY": "Nenhuma conversa foi encerrada neste período.",
+      "VARIATION": "Comparado ao período anterior de mesmo tamanho",
+      "CRITERION": "A conversa conta como do robô quando foi encerrada sem nunca ter sido aberta nem atribuída a alguém. O relatório de Robôs usa outra regra, então os números de lá não batem com estes.",
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias"
+      },
+      "KPI": {
+        "BOT_RESOLUTIONS": "Encerradas pelo robô",
+        "HUMAN_RESOLUTIONS": "Encerradas por gente",
+        "BOT_SHARE": "Fatia do robô",
+        "HANDOFFS": "Passadas para gente",
+        "BOT_AVG_RESOLUTION": "Tempo do robô",
+        "HUMAN_AVG_RESOLUTION": "Tempo humano",
+        "FIRST_RESPONSE": "Primeira resposta"
+      }
+    },
     "COCKPIT": {
       "TITLE": "Cockpit de atendentes",
       "DESCRIPTION": "Volume, tempos de atendimento e satisfação por atendente no período escolhido.",

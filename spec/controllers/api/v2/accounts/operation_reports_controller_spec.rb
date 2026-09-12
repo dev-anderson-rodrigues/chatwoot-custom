@@ -65,4 +65,35 @@ RSpec.describe Api::V2::Accounts::OperationReportsController, type: :request do
       end
     end
   end
+
+  describe 'GET /api/v2/accounts/{account.id}/reports/ownership_summary' do
+    let(:path) { "/api/v2/accounts/#{account.id}/reports/ownership_summary" }
+
+    context 'when authenticated as an agent without report permission' do
+      it 'returns unauthorized' do
+        get path, params: window, headers: agent.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when authenticated as an administrator' do
+      it 'returns the current and the previous window' do
+        get path, params: window, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.keys).to contain_exactly('current', 'previous')
+        expect(response.parsed_body['current'].keys).to contain_exactly(
+          'bot_resolutions', 'human_resolutions', 'bot_avg_resolution_seconds',
+          'human_avg_resolution_seconds', 'human_avg_first_response_seconds', 'handoffs'
+        )
+      end
+
+      it 'refuses a request without a time window' do
+        get path, params: {}, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+    end
+  end
 end

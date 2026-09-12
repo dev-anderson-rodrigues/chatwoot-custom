@@ -1,5 +1,28 @@
 {
   "REPORT": {
+    "OWNERSHIP": {
+      "TITLE": "Bot and human",
+      "DESCRIPTION": "How much the bot closed on its own, how much reached the team, and how long each side took.",
+      "ERROR": "Could not load the report. Try again.",
+      "EMPTY": "No conversation was closed in this period.",
+      "VARIATION": "Compared to the previous period of the same length",
+      "CRITERION": "A conversation counts as the bot's when it was closed without ever being opened or assigned to someone. The Bots report uses a different rule, so the numbers there will not match.",
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days"
+      },
+      "KPI": {
+        "BOT_RESOLUTIONS": "Closed by the bot",
+        "HUMAN_RESOLUTIONS": "Closed by people",
+        "BOT_SHARE": "Bot share",
+        "HANDOFFS": "Handed to people",
+        "BOT_AVG_RESOLUTION": "Bot handling time",
+        "HUMAN_AVG_RESOLUTION": "Human handling time",
+        "FIRST_RESPONSE": "First response"
+      }
+    },
     "COCKPIT": {
       "TITLE": "Agent cockpit",
       "DESCRIPTION": "Volume, handling times and satisfaction per agent in the selected period.",

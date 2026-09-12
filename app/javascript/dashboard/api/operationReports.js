@@ -41,6 +41,24 @@ const normalizeAgent = row => ({
   csatResponses: row.csat_responses ?? 0,
 });
 
+export const emptyOwnership = () => ({
+  botResolutions: 0,
+  humanResolutions: 0,
+  botAvgResolutionSeconds: 0,
+  humanAvgResolutionSeconds: 0,
+  humanAvgFirstResponseSeconds: 0,
+  handoffs: 0,
+});
+
+const normalizeOwnership = summary => ({
+  botResolutions: summary?.bot_resolutions ?? 0,
+  humanResolutions: summary?.human_resolutions ?? 0,
+  botAvgResolutionSeconds: summary?.bot_avg_resolution_seconds ?? 0,
+  humanAvgResolutionSeconds: summary?.human_avg_resolution_seconds ?? 0,
+  humanAvgFirstResponseSeconds: summary?.human_avg_first_response_seconds ?? 0,
+  handoffs: summary?.handoffs ?? 0,
+});
+
 const normalizeTotals = kpis => ({
   agentsTotal: kpis?.agents_total ?? 0,
   agentsOnline: kpis?.agents_online ?? 0,
@@ -82,6 +100,22 @@ class OperationReportsAPI extends ApiClient {
     return {
       agents: (data?.agents || []).map(normalizeAgent),
       totals: normalizeTotals(data?.kpis),
+    };
+  }
+
+  /**
+   * Resumo de atendimento separado por robo e humano, no periodo e no periodo
+   * anterior de mesmo tamanho -- e a comparacao que da sentido a variacao.
+   */
+  async getOwnershipSummary({ from, to } = {}, { signal } = {}) {
+    const { data } = await axios.get(`${this.url}/ownership_summary`, {
+      params: { since: from, until: to },
+      signal,
+    });
+
+    return {
+      current: normalizeOwnership(data?.current),
+      previous: normalizeOwnership(data?.previous),
     };
   }
 }

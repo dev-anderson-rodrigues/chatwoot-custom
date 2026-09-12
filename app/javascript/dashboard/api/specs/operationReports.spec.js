@@ -125,4 +125,58 @@ describe('#OperationReports API', () => {
       expect(totals.conversationsTotal).toBe(0);
     });
   });
+
+  describe('#getOwnershipSummary', () => {
+    const originalAxios = window.axios;
+    const get = vi.fn();
+
+    beforeEach(() => {
+      window.axios = { get };
+      get.mockResolvedValue({ data: { current: {}, previous: {} } });
+    });
+
+    afterEach(() => {
+      window.axios = originalAxios;
+    });
+
+    it('asks for the window with the names the api expects', async () => {
+      await operationReportsAPI.getOwnershipSummary({ from: 1000, to: 2000 });
+
+      expect(get).toHaveBeenCalledWith(
+        expect.stringContaining('/reports/ownership_summary'),
+        expect.objectContaining({ params: { since: 1000, until: 2000 } })
+      );
+    });
+
+    it('hands the screen domain names for both windows', async () => {
+      get.mockResolvedValue({
+        data: {
+          current: {
+            bot_resolutions: 8,
+            human_resolutions: 2,
+            bot_avg_resolution_seconds: 120,
+            human_avg_resolution_seconds: 900,
+            human_avg_first_response_seconds: 60,
+            handoffs: 3,
+          },
+          previous: { bot_resolutions: 4 },
+        },
+      });
+
+      const { current, previous } =
+        await operationReportsAPI.getOwnershipSummary({
+          from: 1,
+          to: 2,
+        });
+
+      expect(current.botResolutions).toBe(8);
+      expect(current.humanResolutions).toBe(2);
+      expect(current.botAvgResolutionSeconds).toBe(120);
+      expect(current.handoffs).toBe(3);
+      expect(previous.botResolutions).toBe(4);
+      // O que o backend nao mandou vira zero, nao undefined: a tela soma esses
+      // numeros.
+      expect(previous.humanResolutions).toBe(0);
+    });
+  });
 });

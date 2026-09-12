@@ -24,6 +24,7 @@ import BotReports from './BotReports.vue';
 import LiveReports from './LiveReports.vue';
 import SLAReports from './SLAReports.vue';
 import CockpitAtendentes from './CockpitAtendentes.vue';
+import RoboHumano from './RoboHumano.vue';
 
 const meta = {
   featureFlag: FEATURE_FLAGS.REPORTS,
@@ -140,6 +141,12 @@ export default {
           name: 'cockpit_atendentes_reports',
           meta,
           component: CockpitAtendentes,
+        },
+        {
+          path: 'ownership',
+          name: 'ownership_reports',
+          meta,
+          component: RoboHumano,
         },
         {
           path: 'sla',
