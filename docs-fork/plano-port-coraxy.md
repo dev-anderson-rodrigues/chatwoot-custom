@@ -1525,7 +1525,7 @@ relatório por vez, como foi o Cockpit.
 | 0a | Blindar o cockpit antes de virar molde (422 da janela, "encerradas" pelo evento, specs de autorização) | ✅ `66b004a759` |
 | 0b | Classificador robô×humano (`Reports::ConversationOwnershipFinder`) + índice | ✅ `9298d63a95` |
 | 0c | Front do Cockpit vira molde (service em `api/`, período e guarda reutilizáveis) | ✅ `f0157a85b4` |
-| 1 | **Visão geral** — resumo por tipo; primeiro consumidor do classificador | ⏳ |
+| 1 | **Robô e humano** — resumo por tipo; primeiro consumidor do classificador | ✅ `db76829641` |
 | 2 | **Monitoramento** — traz `active_conversations`; `in_progress` passa a incluir pending | ⏳ |
 | 3 | **Recebidos e Efetuados** — traz a classificação por conversa; `LATERAL` na primeira mensagem | ⏳ |
 | 4 | **Fila — Histórico** — mesma população nos três recortes; abandono só por resolução humana | ⏳ |
@@ -1535,6 +1535,39 @@ relatório por vez, como foi o Cockpit.
 As correções de performance de agosto **já estão aplicadas na fonte** nesta branch (subquery
 no `handed_off`, escopo por conta no `first_message_table`) — o port precisa preservá-las, não
 reinventá-las.
+
+##### Fatia 1 — resolvida. Robô e humano
+
+Primeiro consumidor do classificador, escolhido para abrir a sequência vertical porque só
+depende da classificação **por resolução** — a parte mais simples e a que valida o predicado
+com dado real antes de quatro telas dependerem dele.
+
+Três decisões de escopo tomadas ao construir:
+
+- **Tela própria (`/reports/ownership`), não dentro da "Visão geral".** O 4.17 já tem uma tela
+  com esse nome, e o que a nossa responde é especificamente a divisão robô × humano. Herdar o
+  nome criaria duas "Visão geral" no mesmo menu.
+- **O `bot_summary` do upstream fica intocado.** Ele conta resolução do bot pelo evento
+  `conversation_bot_resolved` sozinho, sem olhar se a conversa foi aberta ou atribuída antes.
+  Mexer nele mudaria o número da tela de Robôs e pagaria conflito em todo sync. As duas telas
+  convivem, e **o critério fica escrito na nossa** — dois números diferentes sem explicação
+  viram desconfiança.
+- **"TME do robô" não existe e não foi portado.** O `first_response` só é gravado para
+  resposta humana, então por construção esse número seria sempre do humano. A fonte mostrava
+  o campo, vazio.
+
+O builder faz **uma passada por período** com `COUNT/AVG ... FILTER`, em vez de uma varredura
+por métrica: o predicado do classificador roda dentro de cada uma, então repetir sai caro.
+
+Verificado renderizado com dado semeado pelos fluxos reais (`qa_setup_ownership.rb`, não
+versionado, que passa pelo `ReportingEventListener`): 7 encerradas pelo robô, 4 por gente
+(3 abertas por humano + 1 transferida), fatia de 64%, tempo do robô 4min e tempo humano
+37min30 — todos batendo com o seed.
+
+**Aprendizado que vale para as próximas fatias:** o relatório filtra por
+`reporting_events.created_at`, que é a hora em que a **linha foi inserida** (padrão do
+upstream), não `event_end_time`. Spec que gera evento pelo listener precisa de `travel_to`,
+senão tudo nasce "agora" e cai sempre na janela atual.
 
 
 ---
