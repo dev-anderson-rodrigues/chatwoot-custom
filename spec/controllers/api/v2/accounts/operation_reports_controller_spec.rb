@@ -116,4 +116,72 @@ RSpec.describe Api::V2::Accounts::OperationReportsController, type: :request do
       end
     end
   end
+
+  describe 'GET /api/v2/accounts/{account.id}/reports/supervisor' do
+    let(:path) { "/api/v2/accounts/#{account.id}/reports/supervisor" }
+
+    context 'when authenticated as an agent without report permission' do
+      it 'returns unauthorized' do
+        get path, headers: agent.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when authenticated as an administrator' do
+      before do
+        # Presenca vem do Redis; sem stub o teste dependeria de estado externo.
+        allow(OnlineStatusTracker).to receive(:get_available_users).and_return({})
+      end
+
+      it 'returns the five sections, without needing a time window' do
+        get path, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.keys).to contain_exactly(
+          'kpis', 'queue_by_team', 'conversations', 'agents', 'alerts'
+        )
+        expect(response.parsed_body['kpis'].keys).to contain_exactly(
+          'in_progress', 'in_queue', 'in_queue_unfiltered', 'longest_wait_minutes',
+          'longest_wait_window_days', 'stale_in_queue', 'agents_online', 'agents_total', 'avg_load'
+        )
+        expect(response.parsed_body['conversations'].keys).to contain_exactly('items', 'counts', 'pagination')
+      end
+
+      it 'accepts a team_id parameter' do
+        team = create(:team, account: account)
+        get path, params: { team_id: team.id }, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
+
+      it 'accepts the three values of agent_type' do
+        %w[all human bot].each do |agent_type|
+          get path, params: { agent_type: agent_type }, headers: admin.create_new_auth_token, as: :json
+
+          expect(response).to have_http_status(:success)
+        end
+      end
+
+      it 'ignores an agent_type it does not recognize instead of failing' do
+        get path, params: { agent_type: 'alien' }, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
+
+      it 'accepts the three values of status_filter' do
+        %w[na_fila atendendo aguardando].each do |status_filter|
+          get path, params: { status_filter: status_filter }, headers: admin.create_new_auth_token, as: :json
+
+          expect(response).to have_http_status(:success)
+        end
+      end
+
+      it 'ignores a status_filter it does not recognize instead of failing' do
+        get path, params: { status_filter: 'alien' }, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
+    end
+  end
 end

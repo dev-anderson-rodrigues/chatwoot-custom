@@ -16,7 +16,7 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
   MAX_WINDOW = 6.months
 
   before_action :check_authorization
-  before_action :validate_time_window
+  before_action :validate_time_window, only: %i[cockpit_atendentes ownership_summary]
 
   def cockpit_atendentes
     builder = V2::Reports::CockpitAtendentesBuilder.new(Current.account, cockpit_atendentes_params)
@@ -25,6 +25,11 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
 
   def ownership_summary
     builder = V2::Reports::OwnershipSummaryBuilder.new(Current.account, ownership_summary_params)
+    render json: builder.metrics
+  end
+
+  def supervisor
+    builder = V2::Reports::SupervisorBuilder.new(Current.account, supervisor_params)
     render json: builder.metrics
   end
 
@@ -57,5 +62,9 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
 
   def ownership_summary_params
     params.permit(:since, :until).to_h.symbolize_keys
+  end
+
+  def supervisor_params
+    params.permit(:team_id, :agent_type, :status_filter, :page, :per_page).to_h.symbolize_keys
   end
 end
