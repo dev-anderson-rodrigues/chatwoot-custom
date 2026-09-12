@@ -185,4 +185,47 @@ RSpec.describe V2::Reports::SupervisorBuilder do
       expect(builder.metrics[:kpis][:in_queue]).to eq(0)
     end
   end
+
+  describe '#metrics — desempenho' do
+    # Defeito da versao anterior: o recorte bot/human chamava `inbox.active_bot?`
+    # dentro de um laco por conversa, e esse metodo consulta `hooks` (dialogflow)
+    # a cada chamada -- N consultas para N conversas. O recorte atual delega ao
+    # Reports::ConversationOwnershipFinder, que resolve a caixa com bot com um
+    # `pluck` so, fora do laco. Trava a ausencia da consulta, nao so o resultado.
+    it 'nao consulta hooks por conversa ao aplicar o recorte bot/human' do
+      5.times { na_fila }
+      atendendo
+
+      hooks_queries = []
+      subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+        hooks_queries << payload[:sql] if payload[:sql].match?(/\ASELECT .*FROM "hooks"/m) && !payload[:cached]
+      end
+
+      described_class.new(account, agent_type: 'bot').metrics
+      described_class.new(account, agent_type: 'human').metrics
+
+      expect(hooks_queries).to be_empty
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+    end
+
+    it 'nao materializa toda a fila em Ruby -- so a pagina pedida e os alertas' do
+      12.times { na_fila }
+
+      conversation_queries = []
+      subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+        conversation_queries << payload[:sql] if payload[:sql].match?(/\ASELECT "conversations"\.\* FROM "conversations"/m) && !payload[:cached]
+      end
+
+      described_class.new(account, per_page: '5').metrics
+
+      # Duas queries materializam registro de conversa: a pagina da tabela e a
+      # lista de alertas (ambas `.includes` explicito, nao `.to_a` da fila
+      # inteira). `counts`, `kpis` e `queue_by_team` usam `.count`/
+      # `.group(...).count`, que nao selecionam `conversations.*`.
+      expect(conversation_queries.size).to eq(2)
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+    end
+  end
 end
