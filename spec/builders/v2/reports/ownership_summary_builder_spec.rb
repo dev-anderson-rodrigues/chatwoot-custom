@@ -104,9 +104,12 @@ RSpec.describe V2::Reports::OwnershipSummaryBuilder do
     end
 
     it 'reports the first response time, which is human by construction' do
-      conversa = bot_conversation(created_at: 3.days.ago)
+      # Instante fixo: chamar `3.days.ago` duas vezes deixava o relogio andar
+      # entre a conversa e a mensagem, e o teste falhava por um segundo.
+      inicio = 3.days.ago
+      conversa = bot_conversation(created_at: inicio)
       mensagem = create(:message, message_type: 'outgoing', sender: agent, account: account,
-                                  inbox: bot_inbox, conversation: conversa, created_at: 3.days.ago + 60.seconds)
+                                  inbox: bot_inbox, conversation: conversa, created_at: inicio + 60.seconds)
       travel_to(mensagem.created_at) do
         listener.first_reply_created(
           Events::Base.new('first.reply.created', mensagem.created_at, message: mensagem)

@@ -14,8 +14,6 @@
 # Nao existe "TME do robo": o `first_response` so e gravado para resposta humana
 # (ver Message#human_response?), entao por construcao ele e sempre do humano.
 class V2::Reports::OwnershipSummaryBuilder
-  EVENT_NAMES = %w[conversation_resolved first_response conversation_bot_handoff].freeze
-
   def initialize(account, params = {})
     @account = account
     @params = params
@@ -27,36 +25,49 @@ class V2::Reports::OwnershipSummaryBuilder
 
   private
 
-  # Uma passada por periodo, com agregacao condicional: o mesmo padrao do
-  # cockpit e do Reports::RawDataSource do upstream. A alternativa seria uma
-  # varredura por metrica, e o predicado do classificador roda em cada uma.
   def summary(range)
-    row = @account.reporting_events
-                  .where(name: EVENT_NAMES, created_at: range)
-                  .pick(Arel.sql(aggregates))
+    por_dono = resolutions_by_owner(range)
+    demais = other_metrics(range)
 
     {
-      bot_resolutions: row[0].to_i,
-      human_resolutions: row[1].to_i,
-      bot_avg_resolution_seconds: row[2].to_f.round,
-      human_avg_resolution_seconds: row[3].to_f.round,
-      human_avg_first_response_seconds: row[4].to_f.round,
-      handoffs: row[5].to_i
+      bot_resolutions: por_dono.dig(true, :count).to_i,
+      human_resolutions: por_dono.dig(false, :count).to_i,
+      bot_avg_resolution_seconds: por_dono.dig(true, :avg).to_f.round,
+      human_avg_resolution_seconds: por_dono.dig(false, :avg).to_f.round,
+      human_avg_first_response_seconds: demais[0].to_f.round,
+      handoffs: demais[1].to_i
     }
   end
 
-  def aggregates
-    resolved = "name = 'conversation_resolved'"
-    bot = ownership_finder.bot_resolution_condition
+  # Agrupa pelo proprio predicado em vez de repeti-lo dentro de varios FILTER.
+  #
+  # O motivo e medido, nao estetico: o Postgres NAO reaproveita subexpressao
+  # comum entre FILTERs diferentes, mesmo sendo o mesmo texto SQL. A versao
+  # anterior repetia o predicado quatro vezes e o plano saia com OITO
+  # subconsultas correlacionadas por linha -- 1,7s para 150 mil resolucoes de uma
+  # conta, e `metrics` chama isto duas vezes (periodo atual e anterior). No
+  # GROUP BY o predicado vira chave de agrupamento e e avaliado uma vez por
+  # linha: duas sondas em vez de oito.
+  def resolutions_by_owner(range)
+    condicao = ownership_finder.bot_resolution_condition
 
-    <<~SQL.squish
-      COUNT(*) FILTER (WHERE #{resolved} AND #{bot}),
-      COUNT(*) FILTER (WHERE #{resolved} AND NOT #{bot}),
-      AVG(value) FILTER (WHERE #{resolved} AND #{bot}),
-      AVG(value) FILTER (WHERE #{resolved} AND NOT #{bot}),
-      AVG(value) FILTER (WHERE name = 'first_response'),
-      COUNT(DISTINCT conversation_id) FILTER (WHERE name = 'conversation_bot_handoff')
-    SQL
+    @account.reporting_events
+            .where(name: 'conversation_resolved', created_at: range)
+            .group(condicao)
+            .pluck(condicao, Arel.sql('COUNT(*)'), Arel.sql('AVG(value)'))
+            .to_h { |is_bot, count, avg| [is_bot, { count: count, avg: avg }] }
+  end
+
+  # Estas duas nao dependem de quem atendeu, entao ficam fora do escopo do
+  # classificador: assim o predicado nao roda nas linhas de `first_response` e de
+  # handoff, que antes tambem o pagavam.
+  def other_metrics(range)
+    @account.reporting_events
+            .where(name: %w[first_response conversation_bot_handoff], created_at: range)
+            .pick(Arel.sql(<<~SQL.squish))
+              AVG(value) FILTER (WHERE name = 'first_response'),
+              COUNT(DISTINCT conversation_id) FILTER (WHERE name = 'conversation_bot_handoff')
+            SQL
   end
 
   def ownership_finder
