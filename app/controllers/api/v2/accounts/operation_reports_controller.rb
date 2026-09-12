@@ -8,6 +8,13 @@
 #
 # A URL nao muda: as rotas continuam sob /reports/... e apontam para ca.
 class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseController
+  # Mesmo teto que o upstream aplica no summary de canais, e pela mesma razao:
+  # consulta pesada com janela aberta e convite para estourar o statement_timeout
+  # de 14s. Aqui pesa o dobro, porque o resumo tambem consulta o periodo
+  # anterior. As telas oferecem no maximo 90 dias; o teto so barra intervalo
+  # livre absurdo ou chamada direta na API.
+  MAX_WINDOW = 6.months
+
   before_action :check_authorization
   before_action :validate_time_window
 
@@ -36,9 +43,12 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
   def validate_time_window
     since = Integer(params[:since].to_s, 10, exception: false)
     until_time = Integer(params[:until].to_s, 10, exception: false)
-    return if since && until_time && since < until_time
+    return render_could_not_create_error(I18n.t('errors.reports.invalid_time_window')) unless
+      since && until_time && since < until_time
 
-    render_could_not_create_error(I18n.t('errors.reports.invalid_time_window'))
+    return unless until_time - since > MAX_WINDOW
+
+    render_could_not_create_error(I18n.t('errors.reports.date_range_too_long'))
   end
 
   def cockpit_atendentes_params
