@@ -1605,19 +1605,58 @@ Quatro decisões tomadas ao construir:
   permissão. Antes disso, qualquer falha isolada de rede a cada 30s piscaria erro na tela
   toda.
 
-Verificado por specs (58 exemplos backend — finder + builder + controller — e 40 no
-frontend, 0 falhas) e por um teste dedicado de ausência de N+1
-(`spec/builders/v2/reports/supervisor_builder_spec.rb`, seção "desempenho": zero consultas em
-`hooks` ao aplicar o recorte bot/human, e exatamente duas consultas que materializam
-`conversations.*` — a página da tabela e a lista de alertas — não uma por conversa da fila).
-Revisão de arquitetura (`backend-engineering`), banco (`database-review`) e tela renderizada
-(`frontend-design`) rodadas ao final da implementação, não só sobre o plano.
+**As três revisões (`backend-engineering`, `database-review`, `frontend-design`) rodaram
+sobre a implementação final, não sobre o plano, e as três acharam coisa real** — nenhuma
+saiu "sem achados":
+
+- **Bloqueante, achado pelo `database-review`, corrigido no mesmo dia:** `bot_conducted`/
+  `human_conducted` usavam `NOT IN (subquery)` para checar handoff. Essa forma não é
+  correlacionada — o Postgres precisa materializar todo o histórico de
+  `conversation_bot_handoff` da conta antes de poder negar qualquer linha. Medido contra
+  100 mil linhas sintéticas (carregadas numa transação `BEGIN...ROLLBACK`, nada persistido):
+  271ms por execução, repetido de 3 (`agent_type=bot`) a 10 (`agent_type=human`) vezes por
+  requisição. Reescrito para `NOT EXISTS` correlacionado por `conversation_id`, usando o
+  índice que já existia (`index_reporting_events_on_conversation_name_end_time`) como lookup
+  por candidata em vez de scan do histórico inteiro. Trancado com spec que verifica a forma
+  da query (`NOT EXISTS` presente, `NOT IN (SELECT` ausente), não só o resultado.
+- **Do `backend-engineering`:** um N+1 menor reintroduzido em `queue_by_team` →
+  `online_agent_ids_for` (`team.members.pluck(:id)` por equipe dentro do laço — a mesma
+  forma do defeito que esta fatia existe para eliminar, só que por número de equipes em vez
+  de conversas). Corrigido para uma query só, pré-computada fora do laço. De quebra, um
+  `.count` duplicado (`kpis`/`avg_load` chamavam a mesma contagem duas vezes) e a reversão de
+  `validate_time_window` para `except: %i[supervisor]` — a troca desta sessão para `only:`
+  tinha o argumento errado: o incidente que o próprio comentário do método documenta (janela
+  ausente virando `1970..1970` silencioso) é exatamente o que `only:` reintroduziria para a
+  *próxima* ação sem janela ser esquecida na lista, e as fatias 3-5 são majoritariamente
+  janeladas.
+- **Do `frontend-design`, achado só na tela renderizada:** `duration_minutes`/
+  `last_message_minutes`/`alert.minutes` são inteiros crus, e uma conversa esquecida há 45
+  dias virava `"64825min"` na tabela e `"64852 min esperando"` nos alertas — corrigido com
+  `formatTime`, a mesma função que Cockpit/Robô-humano já usam. O `TabBar` (design system,
+  primeiro uso real nesta fatia) escondia a contagem quando `count` era `0`
+  (`tab.count ? ... : ''` trata zero como falsy), e sem quebra interna entre os chips
+  empurrava a **página inteira** para rolar na horizontal em 375px — os dois corrigidos, o
+  segundo com um `overflow-x-auto` escopado no lugar da rolagem da página. Achado à parte,
+  de produto: o KPI "Em atendimento" conta toda conversa aberta com agente, mas o chip da
+  tabela logo abaixo só marca "Em atendimento" quem já recebeu resposta — os números
+  divergem sempre que há conversa aberta+atribuída ainda sem resposta, e ganharam uma nota
+  condicional explicando a diferença.
+
+Depois dos três rounds de correção: 89 exemplos backend (finder + builder + controller,
+incluindo os specs de `ownership_summary_builder` e `cockpit_atendentes_builder` para
+confirmar que nada dos outros dois consumidores do `ReportTile` regrediu) e 40 no frontend,
+0 falhas. Rubocop e ESLint limpos.
 
 **Débito registrado:** `kpis` e `queue_by_team` ainda fazem uma consulta por métrica em vez
 de uma agregação condicional única (o padrão que `cockpit_atendentes_builder` e
-`ownership_summary_builder` já usam). Aceitável pelo volume atual — poucas dezenas de
-conversas ativas por conta —, mas é o primeiro lugar a otimizar se o `EXPLAIN` em produção
-mostrar custo real.
+`ownership_summary_builder` já usam) — o `database-review` mediu que isso custa ~10-15ms de
+round-trip numa conta de ~10 mil conversas, não é o que pesa hoje, então fica como melhoria
+de consistência, não correção de performance. Revisitar com um índice parcial
+`(account_id, status, team_id, assignee_id) WHERE status IN (0,2)` só se uma conta crescer
+muito além disso. `waiting_since` na ordenação da tabela não reusa o padrão já existente em
+`app/models/concerns/sort_handler.rb#sort_on_waiting_since` (`NULLS LAST` implícito do
+Postgres em vez de explícito) — confirmar com produto se é intencional antes de portar o
+padrão para as próximas telas.
 
 
 ---
