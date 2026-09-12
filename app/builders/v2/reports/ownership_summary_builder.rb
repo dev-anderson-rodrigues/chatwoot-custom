@@ -65,10 +65,14 @@ class V2::Reports::OwnershipSummaryBuilder
 
   # Periodo anterior de mesmo tamanho, colado no inicio do atual: e o que faz a
   # variacao significar alguma coisa.
+  #
+  # Intervalo aberto no fim (`...`) de proposito: o atual comeca em
+  # `time_range.begin` e o inclui, entao fechar os dois contaria um evento no
+  # instante exato da fronteira duas vezes.
   def previous_range
     duracao = time_range.end - time_range.begin
 
-    (time_range.begin - duracao)..time_range.begin
+    (time_range.begin - duracao)...time_range.begin
   end
 
   # A janela chega validada pelo controller (422 sem as duas pontas). O parse

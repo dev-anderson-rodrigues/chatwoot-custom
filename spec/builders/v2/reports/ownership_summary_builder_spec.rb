@@ -82,6 +82,18 @@ RSpec.describe V2::Reports::OwnershipSummaryBuilder do
       expect(resultado[:previous][:bot_resolutions]).to eq(1)
     end
 
+    it 'does not count an event on the boundary in both windows' do
+      # O periodo anterior termina onde o atual comeca. Fechar os dois faria o
+      # mesmo evento aparecer duas vezes e inflar a variacao.
+      inicio = Time.zone.at(params[:since].to_i)
+      resolve!(bot_conversation(created_at: inicio - 60.seconds), at: inicio)
+
+      resultado = builder.metrics
+
+      expect(resultado[:current][:bot_resolutions]).to eq(1)
+      expect(resultado[:previous][:bot_resolutions]).to eq(0)
+    end
+
     it 'counts each handed off conversation once' do
       conversa = bot_conversation
       handoff!(conversa, at: 3.days.ago)

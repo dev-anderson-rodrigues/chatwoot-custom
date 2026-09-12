@@ -15,6 +15,7 @@ const { t } = useI18n();
 const {
   current,
   loading,
+  loaded,
   hasError,
   filters,
   isEmpty,
@@ -124,10 +125,11 @@ onMounted(fetch);
       />
     </div>
 
-    <div
-      v-if="loading && !current.botResolutions"
-      class="flex justify-center py-10"
-    >
+    <!-- Spinner so na primeira carga. Depois, trocar o periodo mantem os
+         numeros anteriores esmaecidos: usar `botResolutions` aqui fazia a tela
+         piscar spinner a cada filtro em toda conta que tem zero encerradas pelo
+         robo, que e um caso normal. -->
+    <div v-if="loading && !loaded" class="flex justify-center py-10">
       <Spinner />
     </div>
 

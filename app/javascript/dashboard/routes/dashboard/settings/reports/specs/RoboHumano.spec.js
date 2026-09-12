@@ -111,6 +111,20 @@ describe('RoboHumano', () => {
     );
   });
 
+  it('keeps the numbers on screen while refetching, even with no bot resolutions', async () => {
+    // Conta sem robô resolvendo nada e um caso normal. Trocar o filtro nao pode
+    // apagar a tela e mostrar spinner de novo.
+    respondWith({ botResolutions: 0, humanResolutions: 5 });
+    const wrapper = await mountScreen();
+
+    getOwnershipSummary.mockImplementationOnce(() => new Promise(() => {}));
+    await periodButton(wrapper, '7 days').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.findAll('dl > div').length).toBeGreaterThan(0);
+    expect(tile(wrapper, 'Closed by people').text()).toContain('5');
+  });
+
   it('always states the criterion, because the Bots report counts differently', async () => {
     const wrapper = await mountScreen();
 

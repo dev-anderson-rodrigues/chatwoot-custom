@@ -91,6 +91,9 @@ export function useOwnershipReport() {
     current,
     previous,
     loading,
+    // A tela usa isto para decidir entre spinner e numeros esmaecidos: depois da
+    // primeira carga, trocar filtro nao pode apagar o que ja esta na tela.
+    loaded,
     hasError,
     filters,
     isEmpty,
