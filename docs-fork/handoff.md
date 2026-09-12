@@ -67,12 +67,34 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 2 — Liberar enterprise | ✅ |
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
-| 5 — Relatórios | 🔄 só o Cockpit (builder + tela) · **bloqueada por decisão** |
+| 5 — Relatórios | 🔄 fundação pronta · 2 telas de 6 · **destravada** |
 | 4 · 6 · 3 | pendentes |
 
-Branch: `feature/port-coraxy`. Últimos commits relevantes: `caffd3afb9` (builder do
-cockpit), `4ec0ae5e87` (tela), `9b5a2759fd` (três defeitos que só a tela renderizada pegou),
-`0db2cac18b` (medição do 9p).
+Branch: `feature/port-coraxy`.
+
+**Onda 5 em detalhe.** A decisão de atribuição foi tomada e implementada (ver seção 5), e a
+fatia 0 (fundação) está fechada:
+
+| | Commit | O que é |
+|---|---|---|
+| 0a | `66b004a759` | Cockpit devolve 422 sem janela; "encerradas" passa a ser de quem resolveu |
+| 0b | `9298d63a95` | `Reports::ConversationOwnershipFinder` + índice em `reporting_events` |
+| 0c | `f0157a85b4` | Front do cockpit vira molde; `api/reports.js` volta a ser igual ao upstream |
+| 1 | `db76829641` | Tela **Robô e humano** (`/reports/ownership`), primeiro consumidor |
+| — | `d5f13751ce`, `423bcf1e51`, `f5ba73abbc` | defeitos de releitura, caminho do Captain, teto de 6 meses na janela |
+
+**Faltam quatro telas:** Monitoramento em tempo real, Recebidos e Efetuados, Fila — Histórico
+e Motivos. A ordem e o que cada uma precisa de especial estão no `plano-port-coraxy.md`.
+
+**Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
+e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê
+`POSTGRES_DATABASE`, que no container vale `chatwoot_dev`, e a suíte truncaria o banco de
+desenvolvimento. Os scripts já carregam o override.
+
+**Revisões pendentes:** as de banco (custo do classificador em volume) e de frontend (tema
+claro, 375px, e se os tiles deveriam ser o `ReportMetricCard` do upstream) ficaram sem
+resposta — os agentes bateram no limite de turnos. Vale refazer antes de replicar o padrão
+nas quatro telas restantes.
 
 ## 5. A decisão que travava a Onda 5 — resolvida em 2026-09-11
 
