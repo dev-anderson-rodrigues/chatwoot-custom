@@ -78,6 +78,23 @@ RSpec.describe V2::Reports::OrigemBuilder do
       )
     end
 
+    it 'inclui conversa criada exatamente na fronteira de since e until' do
+      since_time = 7.days.ago.change(usec: 0)
+      until_time = since_time + 1.hour
+
+      no_inicio = conversa(created_at: since_time)
+      mensagem(no_inicio, tipo: 'incoming')
+
+      no_fim = conversa(created_at: until_time)
+      mensagem(no_fim, tipo: 'incoming')
+
+      builder_com_fronteira = described_class.new(
+        account, since: since_time.to_i.to_s, until: until_time.to_i.to_s
+      )
+
+      expect(builder_com_fronteira.summary[:total]).to eq(2)
+    end
+
     it 'nunca le conversa de outra conta' do
       outra_conta = create(:account)
       outro_inbox = create(:inbox, account: outra_conta)
@@ -244,6 +261,28 @@ RSpec.describe V2::Reports::OrigemBuilder do
 
       expect(first_message_queries).not_to be_empty
       expect(first_message_queries).to all(match(/account_id = #{account.id}\b/))
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+    end
+
+    # Achado da revisao de banco desta fatia: `summary`/`daily_evolution`/
+    # `breakdown` rodavam duas consultas independentes (total e efetuados) sem
+    # uma transacao/snapshot compartilhado -- uma conversa criada entre as duas
+    # podia fazer `efetuados` passar `total` e `recebidos` sair negativo. Uma
+    # unica consulta agrupada pelo predicado (`efetuado_predicate_sql`) fecha a
+    # janela de tempo entre as duas; esta trava garante que a forma nao volte.
+    it 'calcula recebido/efetuado numa unica consulta, nao duas separadas' do
+      efetuada = conversa
+      mensagem(efetuada, tipo: 'outgoing', sender: agent)
+
+      first_message_queries = []
+      subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+        first_message_queries << payload[:sql] if payload[:sql].include?('DISTINCT ON (conversation_id)') && !payload[:cached]
+      end
+
+      builder.summary
+
+      expect(first_message_queries.size).to eq(1)
     ensure
       ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
     end

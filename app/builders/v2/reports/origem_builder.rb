@@ -32,8 +32,9 @@ class V2::Reports::OrigemBuilder
   end
 
   def summary
-    total = base_scope.count
-    efetuados = base_scope.merge(efetuado_scope).count
+    counts = efetuado_split_counts(base_scope)
+    total = counts.values.sum
+    efetuados = counts[true].to_i
     recebidos = total - efetuados
 
     {
@@ -46,15 +47,17 @@ class V2::Reports::OrigemBuilder
   end
 
   def daily_evolution
-    totals = base_scope.group(Arel.sql('DATE(conversations.created_at)')).count
-    efetuados = base_scope.merge(efetuado_scope).group(Arel.sql('DATE(conversations.created_at)')).count
+    rows = base_scope
+           .joins(first_message_join_sql)
+           .group(Arel.sql('DATE(conversations.created_at)'), efetuado_predicate_sql)
+           .count
 
-    rows = totals.map do |date, total|
-      efetuado = efetuados[date].to_i
-      { date: date.to_s, recebidos: total - efetuado, efetuados: efetuado }
+    by_date = rows.each_with_object({}) do |((date, efetuado), count), acc|
+      acc[date] ||= { recebidos: 0, efetuados: 0 }
+      acc[date][efetuado ? :efetuados : :recebidos] += count
     end
 
-    rows.sort_by { |row| row[:date] }
+    by_date.map { |date, day| { date: date.to_s, **day } }.sort_by { |row| row[:date] }
   end
 
   # Origem de cada atendimento efetuado: campanha, bot, template ou atendente.
@@ -62,7 +65,6 @@ class V2::Reports::OrigemBuilder
   def by_origin
     rows = base_scope
            .merge(efetuado_scope)
-           .joins("JOIN #{first_message_table} fm ON fm.conversation_id = conversations.id")
            .pluck(Arel.sql(origin_case_sql))
            .tally
 
@@ -154,7 +156,7 @@ class V2::Reports::OrigemBuilder
           conversation_id, message_type, sender_type, additional_attributes
         FROM messages
         WHERE account_id = #{@account.id.to_i} AND message_type <> #{Message.message_types['activity']}
-        ORDER BY conversation_id, created_at
+        ORDER BY conversation_id, created_at, id
       )
     SQL
   end
@@ -172,22 +174,52 @@ class V2::Reports::OrigemBuilder
     names.map { |name| Message.message_types[name] }
   end
 
-  def breakdown(join_sql, id_expression, name_expression)
-    totals = base_scope.joins(join_sql).group(Arel.sql(id_expression), Arel.sql(name_expression)).count
-    efetuados = base_scope.merge(efetuado_scope).joins(join_sql).group(Arel.sql(id_expression), Arel.sql(name_expression)).count
+  # LEFT JOIN (nao INNER): uma conversa sem nenhuma mensagem nao-activity
+  # ainda precisa aparecer na contagem total, como "recebido" (mesmo criterio
+  # do `efetuado_scope`, que so acha conversas COM primeira mensagem).
+  # DISTINCT ON garante no maximo uma linha de `fm` por conversa -- o LEFT
+  # JOIN nunca duplica linha de `conversations`.
+  def first_message_join_sql
+    "LEFT JOIN #{first_message_table} fm ON fm.conversation_id = conversations.id"
+  end
 
-    rows = totals.map do |(id, name), total|
-      efetuado = efetuados[[id, name]].to_i
-      {
-        id: id,
-        name: name,
-        total: total,
-        efetuados: efetuado,
-        recebidos: total - efetuado
-      }
+  # Agrupar pelo predicado (nao repeti-lo em FILTERs separados) e o mesmo
+  # motivo, medido, do `OwnershipSummaryBuilder#resolutions_by_owner`: uma
+  # unica consulta, uma raspada nas linhas, sem a janela de tempo entre duas
+  # consultas separadas que deixava `efetuados` passar `total` (contagem
+  # negativa) se uma conversa fosse criada entre as duas.
+  # COALESCE fecha o `NULL` de conversa sem `fm` como "nao efetuado".
+  def efetuado_predicate_sql
+    Arel.sql("COALESCE(fm.message_type IN (#{message_type_values(OUTGOING_TYPES).join(',')}), false)")
+  end
+
+  def efetuado_split_counts(scope)
+    scope.joins(first_message_join_sql).group(efetuado_predicate_sql).count
+  end
+
+  def breakdown(join_sql, id_expression, name_expression)
+    rows = base_scope
+           .joins(join_sql)
+           .joins(first_message_join_sql)
+           .group(Arel.sql(id_expression), Arel.sql(name_expression), efetuado_predicate_sql)
+           .count
+
+    breakdown_rows = group_breakdown_rows(rows)
+    breakdown_rows.sort_by { |row| -row[:total] }
+  end
+
+  def group_breakdown_rows(rows)
+    totals = Hash.new { |hash, key| hash[key] = { total: 0, efetuados: 0 } }
+
+    rows.each do |(id, name, efetuado), count|
+      row = totals[[id, name]]
+      row[:total] += count
+      row[:efetuados] += count if efetuado
     end
 
-    rows.sort_by { |row| -row[:total] }
+    totals.map do |(id, name), row|
+      { id: id, name: name, total: row[:total], efetuados: row[:efetuados], recebidos: row[:total] - row[:efetuados] }
+    end
   end
 
   # A janela chega validada pelo controller (422 sem as duas pontas), como as

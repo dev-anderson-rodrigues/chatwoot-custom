@@ -219,6 +219,26 @@ RSpec.describe Api::V2::Accounts::OperationReportsController, type: :request do
 
         expect(response).to have_http_status(:success)
       end
+
+      # `origem` nao esta na lista `except:` de `validate_time_window` -- este
+      # teste trava esse fato, para uma futura mudanca na lista nao liberar a
+      # acao do limite em silencio, sem nenhum teste denunciando.
+      it 'refuses a window longer than six months' do
+        get path,
+            params: { since: 400.days.ago.to_i.to_s, until: Time.current.to_i.to_s },
+            headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to eq(I18n.t('errors.reports.date_range_too_long'))
+      end
+
+      it 'accepts a window just inside the limit' do
+        get path,
+            params: { since: 100.days.ago.to_i.to_s, until: Time.current.to_i.to_s },
+            headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
     end
   end
 end
