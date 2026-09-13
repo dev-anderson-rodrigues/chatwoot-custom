@@ -184,4 +184,41 @@ RSpec.describe Api::V2::Accounts::OperationReportsController, type: :request do
       end
     end
   end
+
+  describe 'GET /api/v2/accounts/{account.id}/reports/origem' do
+    let(:path) { "/api/v2/accounts/#{account.id}/reports/origem" }
+
+    context 'when authenticated as an agent without report permission' do
+      it 'returns unauthorized' do
+        get path, params: window, headers: agent.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when authenticated as an administrator' do
+      it 'returns the six sections' do
+        get path, params: window, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.keys).to contain_exactly(
+          'summary', 'daily_evolution', 'by_origin', 'by_team', 'by_inbox', 'by_agent'
+        )
+      end
+
+      it 'refuses a request without a time window' do
+        get path, params: {}, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+
+      it 'accepts team_id and agent_type' do
+        team = create(:team, account: account)
+        get path, params: window.merge(team_id: team.id, agent_type: 'human'),
+                  headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
+    end
+  end
 end

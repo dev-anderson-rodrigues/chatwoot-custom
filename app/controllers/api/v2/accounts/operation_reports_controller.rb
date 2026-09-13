@@ -1,5 +1,6 @@
-# [Onda 5] Relatorios de operacao do fork (cockpit, e adiante origem, fila e
-# motivos) moram aqui em vez de crescerem o ReportsController do upstream.
+# [Onda 5] Relatorios de operacao do fork (cockpit, monitoramento, origem, e
+# adiante fila e motivos) moram aqui em vez de crescerem o ReportsController
+# do upstream.
 #
 # Dois motivos. O arquivo do upstream ja batia no limite do Metrics/ClassLength
 # antes desta onda -- a primeira acao adicionada estourou o cop --, e ainda
@@ -38,6 +39,11 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
     render json: builder.metrics
   end
 
+  def origem
+    builder = V2::Reports::OrigemBuilder.new(Current.account, origem_params)
+    render json: builder.metrics
+  end
+
   private
 
   # Mesma autorizacao do ReportsController: relatorio e coisa de administrador.
@@ -71,5 +77,9 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
 
   def supervisor_params
     params.permit(:team_id, :agent_type, :status_filter, :page, :per_page).to_h.symbolize_keys
+  end
+
+  def origem_params
+    params.permit(:since, :until, :team_id, :agent_type).to_h.symbolize_keys
   end
 end

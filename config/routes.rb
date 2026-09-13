@@ -550,6 +550,7 @@ Rails.application.routes.draw do
               get :cockpit_atendentes, to: 'operation_reports#cockpit_atendentes'
               get :ownership_summary, to: 'operation_reports#ownership_summary'
               get :supervisor, to: 'operation_reports#supervisor'
+              get :origem, to: 'operation_reports#origem'
               get :inbox_label_matrix
               get :first_response_time_distribution
               get :outgoing_messages_count
