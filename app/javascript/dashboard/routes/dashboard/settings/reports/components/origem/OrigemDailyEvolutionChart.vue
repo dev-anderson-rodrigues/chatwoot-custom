@@ -1,18 +1,22 @@
 <script setup>
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useLocale } from 'shared/composables/useLocale';
 import LineChart from 'shared/components/charts/LineChart.vue';
 
 const props = defineProps({
   dailyEvolution: { type: Array, default: () => [] },
 });
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { resolvedLocale } = useLocale();
 
 // `date` chega como "AAAA-MM-DD" (Date#to_s do Ruby); Intl formata no idioma
-// da tela em vez do "dia/mes" fixo que a fonte montava na mao.
+// da tela em vez do "dia/mes" fixo que a fonte montava na mao. `locale.value`
+// cru (ex.: "pt_BR") derruba o Intl com RangeError -- resolvedLocale ja
+// normaliza para o formato BCP 47 que o Intl aceita.
 const formatDate = value =>
-  new Intl.DateTimeFormat(locale.value, {
+  new Intl.DateTimeFormat(resolvedLocale.value, {
     month: 'short',
     day: '2-digit',
   }).format(new Date(`${value}T00:00:00`));
