@@ -1527,7 +1527,7 @@ relatório por vez, como foi o Cockpit.
 | 0c | Front do Cockpit vira molde (service em `api/`, período e guarda reutilizáveis) | ✅ `f0157a85b4` |
 | 1 | **Robô e humano** — resumo por tipo; primeiro consumidor do classificador | ✅ `db76829641` |
 | 2 | **Monitoramento** — traz `active_conversations`; `in_progress` passa a incluir pending | ✅ `699cfc0083` |
-| 3 | **Recebidos e Efetuados** — traz a classificação por conversa; `LATERAL` na primeira mensagem | ⏳ |
+| 3 | **Recebidos e Efetuados** — traz a classificação por conversa; `LATERAL` na primeira mensagem | ✅ `1e190410f4` |
 | 4 | **Fila — Histórico** — mesma população nos três recortes; abandono só por resolução humana | ⏳ |
 | 5 | **Motivos** — mistura as duas granularidades, por isso por último | ⏳ |
 | — | ~~`top_labels_builder`~~ descartado (o 4.17 já resolve) | — |
@@ -1657,6 +1657,75 @@ muito além disso. `waiting_since` na ordenação da tabela não reusa o padrão
 `app/models/concerns/sort_handler.rb#sort_on_waiting_since` (`NULLS LAST` implícito do
 Postgres em vez de explícito) — confirmar com produto se é intencional antes de portar o
 padrão para as próximas telas.
+
+##### Fatia 3 — resolvida. Recebidos e Efetuados
+
+Duas decisões de escopo, tomadas antes de escrever código: o recorte Todos/Humanos/IA
+delega para `Reports::ConversationOwnershipFinder#bot_conducted`/`#human_conducted` (mesmo
+predicado por estado atual da fatia 2, não uma cópia local — a fonte tinha sua própria cópia
+do `NOT IN` que a fatia 2 já corrigiu, e reescrever aqui reintroduziria o mesmo defeito); e
+`by_origin` devolve chave estável (`campaign`/`bot`/`template`/`agent_direct`/`other`) mais
+`kind` (`automation`/`human`), não texto em português pronto — quem traduz é a tela, como os
+outros builders desta onda já fazem. Gráfico de evolução diária usa `@chatwoot/viz`
+(`LineChart`, novo wrapper espelhando o `BarChart.vue` que já existia), não chart.js/
+vue-chartjs como a fonte — não é dependência deste projeto. Primeira tela da onda a consumir
+`customRange` de `useReportPeriod.js` (a parte de intervalo livre nunca tinha sido usada até
+aqui).
+
+**As três revisões rodaram sobre a implementação final, de novo sem sair nenhuma "sem
+achados"** — e desta vez a verificação visual achou o bloqueante, não os specs:
+
+- **Bloqueante, achado só na tela renderizada:** `OrigemDailyEvolutionChart.vue` chamava
+  `new Intl.DateTimeFormat(locale.value, {...})` com o valor cru do vue-i18n (`"pt_BR"`, com
+  underscore), que o `Intl` rejeita com `RangeError`. O erro não tratado durante o computed
+  `chartData` derrubava o render — mas não só do gráfico: as outras três seções que dependem
+  de dado buscado (`OrigemBreakdown`, e os dois `OrigemComparisonBreakdown` de equipe/canal)
+  também saíam vazias, apesar de não dependerem do gráfico nem de locale. Os specs existentes
+  não pegaram porque mockam `@chatwoot/viz` inteiro, escondendo o `formatDate` real. Corrigido
+  trocando para `useLocale()` — composable que já existia no projeto (`pt_BR` → `pt-BR` com
+  fallback), só nunca tinha sido adotado aqui — e travado com um spec novo que roda o
+  `formatDate` de verdade (sem mockar a formatação de data) e reproduz o `RangeError` no
+  código antigo antes de confirmar a correção. O `frontend-design` revisou o mecanismo de
+  cascata e considerou que um guard de locale fecha o incidente — não recomendou error
+  boundary por seção para as telas de relatório (nenhum precedente disso no código, seria uma
+  camada nova para um bug que já tem causa raiz eliminada), mas achou o mesmo bug, intacto e
+  não relacionado a esta fatia, em `ResolutionTrendCard.vue` (Captain, feature anterior) —
+  corrigido à parte, no mesmo padrão, commit `20556a865f`.
+- **Bloqueante, achado pelo `database-review`:** `summary`/`daily_evolution`/`breakdown`
+  rodavam duas consultas independentes (total e efetuados) sem transação/snapshot
+  compartilhado — uma conversa criada entre as duas podia fazer `efetuados` passar `total` e
+  `recebidos` sair negativo na resposta, e a janela padrão (`since: 7.days.ago, until:
+  Time.current`) inclui a borda "agora", então não é um caso de ponta, é o caminho comum.
+  Reescrito para uma única consulta agrupada pelo predicado (`efetuado_predicate_sql`,
+  `COALESCE(fm.message_type IN (...), false)`), a mesma técnica, já medida, do
+  `OwnershipSummaryBuilder#resolutions_by_owner` — elimina a janela de tempo entre as duas
+  consultas e reduz para metade o número de consultas. Travado com spec que conta quantas
+  consultas tocam `first_message_table` por chamada (uma, não duas).
+- **Do `backend-engineering` e do `database-review`, convergindo na mesma coisa:**
+  `first_message_table` não tinha índice que sustentasse o `DISTINCT ON` + `ORDER BY` por
+  `account_id`, e não é limitado pela janela do relatório — o `EXPLAIN` mostrou um `Sort`
+  explícito varrendo todo o histórico de mensagens não-activity da conta a cada chamada,
+  independente de o relatório pedir 7 dias ou 90. Nova migration
+  (`20260912000000_add_account_conversation_created_index_to_messages.rb`) adiciona
+  `(account_id, conversation_id, created_at)`. De quebra: `ORDER BY` ganhou `id` como
+  desempate (mensagens com `created_at` idêntico não tinham ordem estável), e um `JOIN`
+  explícito redundante em `by_origin` foi removido (o `merge(efetuado_scope)` já trazia o
+  alias `fm`; a query gerada já deduplicava as duas cópias por igualdade de string, mas
+  dependia de coincidência, não de intenção).
+- **Débito registrado, não corrigido nesta fatia:** `daily_evolution` agrupa por
+  `DATE(conversations.created_at)` no timezone da sessão do banco, não no timezone da conta —
+  nenhum outro builder desta onda faz bucket por dia ainda, então não há padrão estabelecido
+  para seguir; revisitar se a fatia 4 ou 5 também fizer bucket diário. Barras de progresso de
+  `OrigemBreakdown`/`OrigemComparisonBreakdown` não têm `aria-hidden` (os números já aparecem
+  como texto ao lado, então não é um problema de acessibilidade hoje) e `width: pct%` não é
+  clampado (cosmético, contido pelo `overflow-hidden` do próprio trilho).
+
+Depois das correções: 46 exemplos backend (builder + controller, incluindo os das outras
+ações desta onda no mesmo arquivo) e a suíte de frontend de 4 arquivos relevantes, 0 falhas.
+Rubocop e ESLint limpos. Verificação renderizada (Chromium + CDP isolado) em claro/escuro,
+desktop e 375px — as seis seções (tiles, gráfico, origem, equipe, canal, atendente) conferem
+com o dado semeado (39 conversas — 21 recebidos, 18 efetuados) tanto antes quanto depois da
+reescrita do builder, confirmando que a correção de concorrência preserva os números.
 
 
 ---

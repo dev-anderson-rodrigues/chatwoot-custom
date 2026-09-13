@@ -67,7 +67,7 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 2 — Liberar enterprise | ✅ |
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
-| 5 — Relatórios | 🔄 fundação pronta · 3 telas de 6 · **destravada** |
+| 5 — Relatórios | 🔄 fundação pronta · 4 telas de 6 · **destravada** |
 | 4 · 6 · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.
@@ -84,6 +84,8 @@ fatia 0 (fundação) está fechada:
 | — | `d5f13751ce`, `423bcf1e51`, `f5ba73abbc` | defeitos de releitura, caminho do Captain, teto de 6 meses na janela |
 | 2 | `013719dd04`, `699cfc0083`, `808af92295` | Tela **Monitoramento** (`/reports/supervisor`); recorte Todos/Humanos/IA por estado atual, não pelo classificador por resolução |
 | — | `a362de8756`, `b7b1227fc8` | `ReportTile` adotado em Cockpit e Robô/humano; teste trava ausência de N+1 no Monitoramento |
+| 3 | `6a7c66ee0e`, `1e190410f4` | Tela **Recebidos e Efetuados** (`/reports/origem`); primeiro consumidor de `customRange` em `useReportPeriod` |
+| — | `157b892443`, `5e3bfa52ce`, `20556a865f` | `Intl.DateTimeFormat` com locale cru (`pt_BR`) derrubava 4 seções da tela; consultas de total/efetuado sem snapshot compartilhado podiam gerar `recebidos` negativo; índice novo para `first_message_table`; mesmo bug de locale corrigido à parte em `ResolutionTrendCard.vue` (Captain, não relacionado a esta onda) |
 
 **2026-09-12 — fatia 2 fechada.** Chegou pela metade, deixada por outro agente (Antigravity)
 sem commitar: encanamento certo (rota, endpoint, i18n, menu), mas builder cobrindo uma fração
@@ -91,8 +93,17 @@ do escopo (6 contadores inventados, não os KPIs do produto) e com N+1 real
 (`inbox.active_bot?` por conversa). Portada completa nesta sessão — decisões e débito
 registrado na seção "Fatia 2" da Onda 5 em `plano-port-coraxy.md`.
 
-**Faltam três telas:** Recebidos e Efetuados, Fila — Histórico e Motivos. A ordem e o que
-cada uma precisa de especial estão no `plano-port-coraxy.md`.
+**2026-09-12 — fatia 3 fechada.** Recebidos e Efetuados portada completa, revisada pelos três
+especialistas sobre a implementação final. Achado mais importante: a verificação visual (não
+os specs, que mockam `@chatwoot/viz`) pegou um `RangeError` no `Intl.DateTimeFormat` do
+gráfico de evolução diária que derrubava o render de quatro seções da tela inteiras — mesmo
+bug encontrado, à parte, em `ResolutionTrendCard.vue` (feature anterior, não relacionada). A
+revisão de banco também achou uma corrida real (duas consultas sem snapshot compartilhado
+podiam gerar contagem negativa) e a falta de índice para o `first_message_table`, ambas
+corrigidas. Detalhe completo na seção "Fatia 3" da Onda 5 em `plano-port-coraxy.md`.
+
+**Faltam duas telas:** Fila — Histórico e Motivos. A ordem e o que cada uma precisa de
+especial estão no `plano-port-coraxy.md`.
 
 **Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
 e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê
