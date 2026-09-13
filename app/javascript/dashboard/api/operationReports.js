@@ -163,6 +163,65 @@ const normalizeSupervisor = data => ({
   alerts: (data?.alerts || []).map(normalizeSupervisorAlert),
 });
 
+export const emptyOrigem = () => ({
+  summary: {
+    total: 0,
+    recebidos: 0,
+    efetuados: 0,
+    recebidosPct: 0,
+    efetuadosPct: 0,
+  },
+  dailyEvolution: [],
+  byOrigin: [],
+  byTeam: [],
+  byInbox: [],
+  byAgent: [],
+});
+
+const normalizeOrigemSummary = summary => ({
+  total: summary?.total ?? 0,
+  recebidos: summary?.recebidos ?? 0,
+  efetuados: summary?.efetuados ?? 0,
+  recebidosPct: summary?.recebidos_pct ?? 0,
+  efetuadosPct: summary?.efetuados_pct ?? 0,
+});
+
+const normalizeOrigemDay = row => ({
+  date: row.date,
+  recebidos: row.recebidos ?? 0,
+  efetuados: row.efetuados ?? 0,
+});
+
+// `key`/`kind` sao as chaves estaveis que o builder manda (campaign/bot/
+// template/agent_direct/other, automation/human) -- quem traduz para o
+// usuario e a tela, nao o backend.
+const normalizeOrigemOrigin = row => ({
+  key: row.key,
+  kind: row.kind,
+  count: row.count ?? 0,
+  pct: row.pct ?? 0,
+});
+
+// Usado por by_team/by_inbox/by_agent -- os tres tem o mesmo formato de linha.
+// `name` nulo (sem equipe / sem atendente) chega assim de proposito; a tela
+// decide o rotulo traduzido, como o `queueByTeam` da fatia 2 ja faz.
+const normalizeOrigemBreakdownRow = row => ({
+  id: row.id,
+  name: row.name,
+  total: row.total ?? 0,
+  recebidos: row.recebidos ?? 0,
+  efetuados: row.efetuados ?? 0,
+});
+
+const normalizeOrigem = data => ({
+  summary: normalizeOrigemSummary(data?.summary),
+  dailyEvolution: (data?.daily_evolution || []).map(normalizeOrigemDay),
+  byOrigin: (data?.by_origin || []).map(normalizeOrigemOrigin),
+  byTeam: (data?.by_team || []).map(normalizeOrigemBreakdownRow),
+  byInbox: (data?.by_inbox || []).map(normalizeOrigemBreakdownRow),
+  byAgent: (data?.by_agent || []).map(normalizeOrigemBreakdownRow),
+});
+
 const normalizeTotals = kpis => ({
   agentsTotal: kpis?.agents_total ?? 0,
   agentsOnline: kpis?.agents_online ?? 0,
@@ -244,6 +303,25 @@ class OperationReportsAPI extends ApiClient {
     });
 
     return normalizeSupervisor(data);
+  }
+
+  /**
+   * Recebidos e Efetuados: quanto o cliente abriu contra quanto a empresa
+   * abriu, com evolucao diaria, origem do primeiro contato e quebra por
+   * equipe/caixa/atendente.
+   */
+  async getOrigem({ from, to, teamId, agentType } = {}, { signal } = {}) {
+    const { data } = await axios.get(`${this.url}/origem`, {
+      params: {
+        since: from,
+        until: to,
+        team_id: teamId,
+        agent_type: agentType,
+      },
+      signal,
+    });
+
+    return normalizeOrigem(data);
   }
 }
 

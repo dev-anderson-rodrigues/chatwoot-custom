@@ -322,6 +322,7 @@
     "SETTINGS": "Settings",
     "CONTACTS": "Contacts",
     "REPORTS_SUPERVISOR": "Live monitoring",
+    "REPORTS_ORIGEM": "Received and Made",
     "REPORTS_COCKPIT": "Agent cockpit",
     "REPORTS_OWNERSHIP": "Bot and human",
     "APPS": "Apps",

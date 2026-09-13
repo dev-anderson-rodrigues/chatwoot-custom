@@ -30,9 +30,13 @@ const props = defineProps({
   variationMeaning: {
     type: String,
     default: 'neutral',
-    validator: valor => ['up-is-good', 'down-is-good', 'neutral'].includes(valor),
+    validator: valor =>
+      ['up-is-good', 'down-is-good', 'neutral'].includes(valor),
   },
   variationTitle: { type: String, default: '' },
+  // Linha curta embaixo do valor (ex. "45% · cliente procurou a empresa").
+  // Vazio esconde -- nem toda tela precisa de uma segunda linha.
+  description: { type: String, default: '' },
 });
 
 const hasVariation = computed(() => props.variation !== null);
@@ -71,5 +75,8 @@ const variationClass = computed(() => {
         {{ variationText }}
       </span>
     </dd>
+    <p v-if="description" class="m-0 mt-1 text-xs text-n-slate-10">
+      {{ description }}
+    </p>
   </div>
 </template>

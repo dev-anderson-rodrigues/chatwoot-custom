@@ -363,4 +363,139 @@ describe('#OperationReports API', () => {
       expect(result.alerts).toEqual([]);
     });
   });
+
+  describe('#getOrigem', () => {
+    const originalAxios = window.axios;
+    const get = vi.fn();
+
+    beforeEach(() => {
+      window.axios = { get };
+      get.mockResolvedValue({
+        data: {
+          summary: {},
+          daily_evolution: [],
+          by_origin: [],
+          by_team: [],
+          by_inbox: [],
+          by_agent: [],
+        },
+      });
+    });
+
+    afterEach(() => {
+      window.axios = originalAxios;
+    });
+
+    const call = (filters, options) =>
+      operationReportsAPI.getOrigem(filters, options);
+
+    it('translates the filters into the names the api expects', async () => {
+      await call({ from: 1000, to: 2000, teamId: 7, agentType: 'bot' });
+
+      expect(get).toHaveBeenCalledWith(
+        expect.stringContaining('/reports/origem'),
+        expect.objectContaining({
+          params: { since: 1000, until: 2000, team_id: 7, agent_type: 'bot' },
+        })
+      );
+    });
+
+    it('passes the abort signal through, so a stale request can be cancelled', async () => {
+      const { signal } = new AbortController();
+
+      await call({ from: 1, to: 2 }, { signal });
+
+      expect(get.mock.calls[0][1].signal).toBe(signal);
+    });
+
+    it('hands the screen domain names for every section', async () => {
+      get.mockResolvedValue({
+        data: {
+          summary: {
+            total: 10,
+            recebidos: 6,
+            efetuados: 4,
+            recebidos_pct: 60.0,
+            efetuados_pct: 40.0,
+          },
+          daily_evolution: [
+            { date: '2026-01-01', recebidos: 3, efetuados: 1 },
+          ],
+          by_origin: [
+            { key: 'campaign', kind: 'automation', count: 2, pct: 50.0 },
+          ],
+          by_team: [
+            { id: 4, name: 'Suporte', total: 5, recebidos: 3, efetuados: 2 },
+          ],
+          by_inbox: [
+            { id: 9, name: 'WhatsApp', total: 5, recebidos: 3, efetuados: 2 },
+          ],
+          by_agent: [
+            { id: 1, name: 'Ana Souza', total: 5, recebidos: 3, efetuados: 2 },
+          ],
+        },
+      });
+
+      const result = await call({ from: 1, to: 2 });
+
+      expect(result.summary).toEqual({
+        total: 10,
+        recebidos: 6,
+        efetuados: 4,
+        recebidosPct: 60.0,
+        efetuadosPct: 40.0,
+      });
+      expect(result.dailyEvolution).toEqual([
+        { date: '2026-01-01', recebidos: 3, efetuados: 1 },
+      ]);
+      expect(result.byOrigin).toEqual([
+        { key: 'campaign', kind: 'automation', count: 2, pct: 50.0 },
+      ]);
+      expect(result.byTeam).toEqual([
+        { id: 4, name: 'Suporte', total: 5, recebidos: 3, efetuados: 2 },
+      ]);
+      expect(result.byInbox).toEqual([
+        { id: 9, name: 'WhatsApp', total: 5, recebidos: 3, efetuados: 2 },
+      ]);
+      expect(result.byAgent).toEqual([
+        { id: 1, name: 'Ana Souza', total: 5, recebidos: 3, efetuados: 2 },
+      ]);
+    });
+
+    it('keeps a null name (no team / no agent) instead of inventing a label', async () => {
+      get.mockResolvedValue({
+        data: {
+          summary: {},
+          daily_evolution: [],
+          by_origin: [],
+          by_team: [{ id: null, name: null, total: 2, recebidos: 1, efetuados: 1 }],
+          by_inbox: [],
+          by_agent: [],
+        },
+      });
+
+      const result = await call({ from: 1, to: 2 });
+
+      expect(result.byTeam[0].name).toBeNull();
+    });
+
+    it('survives an empty response instead of crashing the screen', async () => {
+      get.mockResolvedValue({ data: {} });
+
+      const result = await call({ from: 1, to: 2 });
+
+      expect(result.summary).toEqual({
+        total: 0,
+        recebidos: 0,
+        efetuados: 0,
+        recebidosPct: 0,
+        efetuadosPct: 0,
+      });
+      expect(result.dailyEvolution).toEqual([]);
+      expect(result.byOrigin).toEqual([]);
+      expect(result.byTeam).toEqual([]);
+      expect(result.byInbox).toEqual([]);
+      expect(result.byAgent).toEqual([]);
+    });
+  });
 });

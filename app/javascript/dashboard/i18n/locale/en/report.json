@@ -88,6 +88,82 @@
         "MINUTES": "{duration} waiting"
       }
     },
+    "ORIGEM": {
+      "TITLE": "Received and Made",
+      "DESCRIPTION": "How many conversations the customer opened and how many the company opened, broken down by team, channel and agent.",
+      "ERROR": "Could not load the data. Try again in a few seconds.",
+      "TEAM_FILTER": "Team",
+      "ALL_TEAMS": "All teams",
+      "RECEBIDOS": "Received",
+      "EFETUADOS": "Made",
+      "CRITERION": "\"Who's handling\" reflects conversations conducted by the AI or by a human, the same live split the Live monitoring screen uses.",
+      "AGENT_TYPE": {
+        "LABEL": "Who's handling",
+        "ALL": "All",
+        "HUMAN": "Human",
+        "BOT": "AI"
+      },
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days",
+        "CUSTOM": "Custom"
+      },
+      "SUMMARY": {
+        "TOTAL": "Total in period",
+        "TOTAL_DESC": "{count} conversations opened",
+        "RECEBIDOS_DESC": "{pct}% · customer reached out",
+        "EFETUADOS_DESC": "{pct}% · company reached out"
+      },
+      "CHART": {
+        "TITLE": "Daily evolution",
+        "HINT": "Isolated spikes in Made are usually automation — a drip campaign or bulk send running in batch.",
+        "EMPTY": "No data in this period."
+      },
+      "ORIGIN": {
+        "TITLE": "Where each made contact comes from",
+        "DESCRIPTION": "{count} conversations opened by the company in the period.",
+        "EMPTY": "No conversation opened by the company in this period.",
+        "KEY": {
+          "CAMPAIGN": "Campaign / bulk send",
+          "BOT": "Bot / proactive AI",
+          "TEMPLATE": "Agent template",
+          "AGENT_DIRECT": "Agent (direct message)",
+          "OTHER": "Other"
+        },
+        "KIND": {
+          "AUTOMATION": "automation",
+          "HUMAN": "human"
+        }
+      },
+      "TEAM": {
+        "TITLE": "By team",
+        "HINT": "Teams with more Made than Received usually work by outreach.",
+        "NO_TEAM": "No team",
+        "EMPTY": "No data",
+        "SHOW_ALL": "Show all ({count})"
+      },
+      "INBOX": {
+        "TITLE": "By channel",
+        "HINT": "Only channels that allow the company to start a conversation show up on both sides.",
+        "EMPTY": "No data"
+      },
+      "AGENT": {
+        "TITLE": "By agent",
+        "DESCRIPTION": "Groups conversations by the assigned agent. Conversations without an agent show up as \"Unassigned\".",
+        "NO_AGENT": "Unassigned",
+        "EMPTY": "No data",
+        "TABLE": {
+          "AGENT": "Agent",
+          "RECEBIDOS": "Received",
+          "EFETUADOS": "Made",
+          "TOTAL": "Total"
+        },
+        "SHOW_ALL": "Show all ({count})",
+        "SHOW_LESS": "Show less"
+      }
+    },
     "COCKPIT": {
       "TITLE": "Agent cockpit",
       "DESCRIPTION": "Volume, handling times and satisfaction per agent in the selected period.",

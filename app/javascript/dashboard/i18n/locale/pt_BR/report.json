@@ -88,6 +88,82 @@
         "MINUTES": "{duration} esperando"
       }
     },
+    "ORIGEM": {
+      "TITLE": "Recebidos e Efetuados",
+      "DESCRIPTION": "Quantos atendimentos o cliente abriu e quantos a empresa abriu, com quebra por equipe, canal e atendente.",
+      "ERROR": "Não foi possível carregar os dados agora. Tente de novo em alguns segundos.",
+      "TEAM_FILTER": "Time",
+      "ALL_TEAMS": "Todos os times",
+      "RECEBIDOS": "Recebidos",
+      "EFETUADOS": "Efetuados",
+      "CRITERION": "\"Quem atende\" mostra conversas conduzidas pela IA ou por humanos, o mesmo recorte ao vivo que a tela de Monitoramento usa.",
+      "AGENT_TYPE": {
+        "LABEL": "Quem atende",
+        "ALL": "Todos",
+        "HUMAN": "Humanos",
+        "BOT": "IA"
+      },
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias",
+        "CUSTOM": "Personalizado"
+      },
+      "SUMMARY": {
+        "TOTAL": "Total no período",
+        "TOTAL_DESC": "{count} conversas abertas",
+        "RECEBIDOS_DESC": "{pct}% · cliente procurou a empresa",
+        "EFETUADOS_DESC": "{pct}% · empresa procurou o cliente"
+      },
+      "CHART": {
+        "TITLE": "Evolução diária",
+        "HINT": "Picos isolados de Efetuados costumam ser automação — régua ou campanha rodando em lote.",
+        "EMPTY": "Sem dados neste período."
+      },
+      "ORIGIN": {
+        "TITLE": "De onde vem cada atendimento efetuado",
+        "DESCRIPTION": "{count} conversas abertas pela empresa no período.",
+        "EMPTY": "Nenhuma conversa aberta pela empresa neste período.",
+        "KEY": {
+          "CAMPAIGN": "Campanha / envio em massa",
+          "BOT": "Bot / IA proativo",
+          "TEMPLATE": "Template do atendente",
+          "AGENT_DIRECT": "Atendente (mensagem direta)",
+          "OTHER": "Outros"
+        },
+        "KIND": {
+          "AUTOMATION": "automação",
+          "HUMAN": "humano"
+        }
+      },
+      "TEAM": {
+        "TITLE": "Por equipe",
+        "HINT": "Times com mais Efetuados que Recebidos costumam trabalhar por régua.",
+        "NO_TEAM": "Sem equipe",
+        "EMPTY": "Sem dados",
+        "SHOW_ALL": "Mostrar todos ({count})"
+      },
+      "INBOX": {
+        "TITLE": "Por canal",
+        "HINT": "Só os canais que permitem a empresa iniciar aparecem dos dois lados.",
+        "EMPTY": "Sem dados"
+      },
+      "AGENT": {
+        "TITLE": "Por atendente",
+        "DESCRIPTION": "Agrupa as conversas pelo agente atribuído. Conversas sem agente aparecem como \"Sem atribuição\".",
+        "NO_AGENT": "Sem atribuição",
+        "EMPTY": "Sem dados",
+        "TABLE": {
+          "AGENT": "Atendente",
+          "RECEBIDOS": "Recebidos",
+          "EFETUADOS": "Efetuados",
+          "TOTAL": "Total"
+        },
+        "SHOW_ALL": "Mostrar todos ({count})",
+        "SHOW_LESS": "Mostrar menos"
+      }
+    },
     "COCKPIT": {
       "TITLE": "Cockpit de atendentes",
       "DESCRIPTION": "Volume, tempos de atendimento e satisfação por atendente no período escolhido.",
