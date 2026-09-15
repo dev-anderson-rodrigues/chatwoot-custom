@@ -323,6 +323,7 @@
     "CONTACTS": "Contacts",
     "REPORTS_SUPERVISOR": "Live monitoring",
     "REPORTS_ORIGEM": "Received and Made",
+    "REPORTS_FILA": "Queue history",
     "REPORTS_COCKPIT": "Agent cockpit",
     "REPORTS_OWNERSHIP": "Bot and human",
     "APPS": "Apps",

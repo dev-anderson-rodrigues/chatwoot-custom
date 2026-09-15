@@ -222,6 +222,81 @@ const normalizeOrigem = data => ({
   byAgent: (data?.by_agent || []).map(normalizeOrigemBreakdownRow),
 });
 
+export const emptyFilaHistoricoKpis = () => ({
+  total: 0,
+  avgWaitSeconds: 0,
+  maxWaitSeconds: 0,
+  abandonRate: 0,
+  abandonedCount: 0,
+});
+
+export const emptyFilaHistorico = () => ({
+  kpis: {
+    current: emptyFilaHistoricoKpis(),
+    previous: emptyFilaHistoricoKpis(),
+  },
+  dailyEvolution: [],
+  byTeam: [],
+  byAgent: [],
+  capacityVsDemand: [],
+});
+
+const normalizeFilaHistoricoKpis = kpis => ({
+  total: kpis?.total ?? 0,
+  avgWaitSeconds: kpis?.avg_wait_seconds ?? 0,
+  maxWaitSeconds: kpis?.max_wait_seconds ?? 0,
+  abandonRate: kpis?.abandon_rate ?? 0,
+  abandonedCount: kpis?.abandoned_count ?? 0,
+});
+
+const normalizeFilaHistoricoDay = row => ({
+  date: row.date,
+  volume: row.volume ?? 0,
+  avgWaitMinutes: row.avg_wait_minutes ?? 0,
+});
+
+// `name` nulo (sem equipe / sem atendente) chega assim de proposito -- a tela
+// decide o rotulo traduzido, mesmo padrao do `byTeam`/`byAgent` da fatia 3.
+const normalizeFilaHistoricoTeamRow = row => ({
+  id: row.id,
+  name: row.name,
+  total: row.total ?? 0,
+  avgWaitSeconds: row.avg_wait_seconds ?? 0,
+  maxWaitSeconds: row.max_wait_seconds ?? 0,
+  abandoned: row.abandoned ?? 0,
+});
+
+const normalizeFilaHistoricoAgentRow = row => ({
+  id: row.id,
+  name: row.name,
+  total: row.total ?? 0,
+  avgWaitSeconds: row.avg_wait_seconds ?? 0,
+  maxWaitSeconds: row.max_wait_seconds ?? 0,
+  loadPct: row.load_pct ?? 0,
+});
+
+const normalizeFilaHistoricoCapacityRow = row => ({
+  id: row.id,
+  name: row.name,
+  demand: row.demand ?? 0,
+  agents: row.agents ?? 0,
+  capacity: row.capacity ?? 0,
+  usagePct: row.usage_pct ?? 0,
+});
+
+const normalizeFilaHistorico = data => ({
+  kpis: {
+    current: normalizeFilaHistoricoKpis(data?.kpis?.current),
+    previous: normalizeFilaHistoricoKpis(data?.kpis?.previous),
+  },
+  dailyEvolution: (data?.daily_evolution || []).map(normalizeFilaHistoricoDay),
+  byTeam: (data?.by_team || []).map(normalizeFilaHistoricoTeamRow),
+  byAgent: (data?.by_agent || []).map(normalizeFilaHistoricoAgentRow),
+  capacityVsDemand: (data?.capacity_vs_demand || []).map(
+    normalizeFilaHistoricoCapacityRow
+  ),
+});
+
 const normalizeTotals = kpis => ({
   agentsTotal: kpis?.agents_total ?? 0,
   agentsOnline: kpis?.agents_online ?? 0,
@@ -322,6 +397,27 @@ class OperationReportsAPI extends ApiClient {
     });
 
     return normalizeOrigem(data);
+  }
+
+  /**
+   * Fila -- Historico: tempo de espera, volume e abandono ao longo do tempo,
+   * com KPIs comparados ao periodo anterior de mesma duracao.
+   */
+  async getFilaHistorico(
+    { from, to, teamId, agentType } = {},
+    { signal } = {}
+  ) {
+    const { data } = await axios.get(`${this.url}/fila_historico`, {
+      params: {
+        since: from,
+        until: to,
+        team_id: teamId,
+        agent_type: agentType,
+      },
+      signal,
+    });
+
+    return normalizeFilaHistorico(data);
   }
 }
 

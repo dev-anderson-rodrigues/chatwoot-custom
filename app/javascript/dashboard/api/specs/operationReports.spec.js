@@ -418,9 +418,7 @@ describe('#OperationReports API', () => {
             recebidos_pct: 60.0,
             efetuados_pct: 40.0,
           },
-          daily_evolution: [
-            { date: '2026-01-01', recebidos: 3, efetuados: 1 },
-          ],
+          daily_evolution: [{ date: '2026-01-01', recebidos: 3, efetuados: 1 }],
           by_origin: [
             { key: 'campaign', kind: 'automation', count: 2, pct: 50.0 },
           ],
@@ -468,7 +466,9 @@ describe('#OperationReports API', () => {
           summary: {},
           daily_evolution: [],
           by_origin: [],
-          by_team: [{ id: null, name: null, total: 2, recebidos: 1, efetuados: 1 }],
+          by_team: [
+            { id: null, name: null, total: 2, recebidos: 1, efetuados: 1 },
+          ],
           by_inbox: [],
           by_agent: [],
         },
@@ -496,6 +496,206 @@ describe('#OperationReports API', () => {
       expect(result.byTeam).toEqual([]);
       expect(result.byInbox).toEqual([]);
       expect(result.byAgent).toEqual([]);
+    });
+  });
+
+  describe('#getFilaHistorico', () => {
+    const originalAxios = window.axios;
+    const get = vi.fn();
+
+    beforeEach(() => {
+      window.axios = { get };
+      get.mockResolvedValue({
+        data: {
+          kpis: { current: {}, previous: {} },
+          daily_evolution: [],
+          by_team: [],
+          by_agent: [],
+          capacity_vs_demand: [],
+        },
+      });
+    });
+
+    afterEach(() => {
+      window.axios = originalAxios;
+    });
+
+    const call = (filters, options) =>
+      operationReportsAPI.getFilaHistorico(filters, options);
+
+    it('translates the filters into the names the api expects', async () => {
+      await call({ from: 1000, to: 2000, teamId: 7, agentType: 'bot' });
+
+      expect(get).toHaveBeenCalledWith(
+        expect.stringContaining('/reports/fila_historico'),
+        expect.objectContaining({
+          params: { since: 1000, until: 2000, team_id: 7, agent_type: 'bot' },
+        })
+      );
+    });
+
+    it('passes the abort signal through, so a stale request can be cancelled', async () => {
+      const { signal } = new AbortController();
+
+      await call({ from: 1, to: 2 }, { signal });
+
+      expect(get.mock.calls[0][1].signal).toBe(signal);
+    });
+
+    it('hands the screen domain names for every section', async () => {
+      get.mockResolvedValue({
+        data: {
+          kpis: {
+            current: {
+              total: 10,
+              avg_wait_seconds: 90,
+              max_wait_seconds: 300,
+              abandon_rate: 10.0,
+              abandoned_count: 1,
+            },
+            previous: {
+              total: 8,
+              avg_wait_seconds: 100,
+              max_wait_seconds: 200,
+              abandon_rate: 0.0,
+              abandoned_count: 0,
+            },
+          },
+          daily_evolution: [
+            { date: '2026-01-01', volume: 3, avg_wait_minutes: 1.5 },
+          ],
+          by_team: [
+            {
+              id: 4,
+              name: 'Suporte',
+              total: 5,
+              avg_wait_seconds: 90,
+              max_wait_seconds: 300,
+              abandoned: 1,
+            },
+          ],
+          by_agent: [
+            {
+              id: 1,
+              name: 'Ana Souza',
+              total: 5,
+              avg_wait_seconds: 90,
+              max_wait_seconds: 300,
+              load_pct: 100.0,
+            },
+          ],
+          capacity_vs_demand: [
+            {
+              id: 4,
+              name: 'Suporte',
+              demand: 5,
+              agents: 1,
+              capacity: 5,
+              usage_pct: 100,
+            },
+          ],
+        },
+      });
+
+      const result = await call({ from: 1, to: 2 });
+
+      expect(result.kpis.current).toEqual({
+        total: 10,
+        avgWaitSeconds: 90,
+        maxWaitSeconds: 300,
+        abandonRate: 10.0,
+        abandonedCount: 1,
+      });
+      expect(result.kpis.previous).toEqual({
+        total: 8,
+        avgWaitSeconds: 100,
+        maxWaitSeconds: 200,
+        abandonRate: 0.0,
+        abandonedCount: 0,
+      });
+      expect(result.dailyEvolution).toEqual([
+        { date: '2026-01-01', volume: 3, avgWaitMinutes: 1.5 },
+      ]);
+      expect(result.byTeam).toEqual([
+        {
+          id: 4,
+          name: 'Suporte',
+          total: 5,
+          avgWaitSeconds: 90,
+          maxWaitSeconds: 300,
+          abandoned: 1,
+        },
+      ]);
+      expect(result.byAgent).toEqual([
+        {
+          id: 1,
+          name: 'Ana Souza',
+          total: 5,
+          avgWaitSeconds: 90,
+          maxWaitSeconds: 300,
+          loadPct: 100.0,
+        },
+      ]);
+      expect(result.capacityVsDemand).toEqual([
+        {
+          id: 4,
+          name: 'Suporte',
+          demand: 5,
+          agents: 1,
+          capacity: 5,
+          usagePct: 100,
+        },
+      ]);
+    });
+
+    it('keeps a null name (no team / no agent) instead of inventing a label', async () => {
+      get.mockResolvedValue({
+        data: {
+          kpis: { current: {}, previous: {} },
+          daily_evolution: [],
+          by_team: [
+            {
+              id: null,
+              name: null,
+              total: 2,
+              avg_wait_seconds: 0,
+              max_wait_seconds: 0,
+              abandoned: 0,
+            },
+          ],
+          by_agent: [],
+          capacity_vs_demand: [],
+        },
+      });
+
+      const result = await call({ from: 1, to: 2 });
+
+      expect(result.byTeam[0].name).toBeNull();
+    });
+
+    it('survives an empty response instead of crashing the screen', async () => {
+      get.mockResolvedValue({ data: {} });
+
+      const result = await call({ from: 1, to: 2 });
+
+      expect(result.kpis.current).toEqual({
+        total: 0,
+        avgWaitSeconds: 0,
+        maxWaitSeconds: 0,
+        abandonRate: 0,
+        abandonedCount: 0,
+      });
+      expect(result.kpis.previous).toEqual({
+        total: 0,
+        avgWaitSeconds: 0,
+        maxWaitSeconds: 0,
+        abandonRate: 0,
+        abandonedCount: 0,
+      });
+      expect(result.dailyEvolution).toEqual([]);
+      expect(result.byTeam).toEqual([]);
+      expect(result.byAgent).toEqual([]);
+      expect(result.capacityVsDemand).toEqual([]);
     });
   });
 });

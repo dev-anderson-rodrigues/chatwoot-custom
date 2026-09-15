@@ -27,6 +27,7 @@ import CockpitAtendentes from './CockpitAtendentes.vue';
 import RoboHumano from './RoboHumano.vue';
 import MonitoramentoSupervisor from './MonitoramentoSupervisor.vue';
 import RecebidosEfetuados from './RecebidosEfetuados.vue';
+import FilaHistorico from './FilaHistorico.vue';
 
 const meta = {
   featureFlag: FEATURE_FLAGS.REPORTS,
@@ -155,6 +156,12 @@ export default {
           name: 'origem_reports',
           meta,
           component: RecebidosEfetuados,
+        },
+        {
+          path: 'fila',
+          name: 'fila_historico_reports',
+          meta,
+          component: FilaHistorico,
         },
         {
           path: 'ownership',

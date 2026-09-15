@@ -164,6 +164,79 @@
         "SHOW_LESS": "Show less"
       }
     },
+    "FILA": {
+      "TITLE": "Queue — History",
+      "DESCRIPTION": "Wait time, volume and abandonment of the queue over time. All wait metrics use the time until an agent's first response.",
+      "ERROR": "Could not load the data. Try again in a few seconds.",
+      "TEAM_FILTER": "Team",
+      "ALL_TEAMS": "All teams",
+      "CRITERION": "\"Who's handling\" reflects conversations conducted by the AI or by a human, the same live split the Live monitoring screen uses. Abandonment only counts a human resolution with no response at all — a bot resolution never counts as abandonment.",
+      "AGENT_TYPE": {
+        "LABEL": "Who's handling",
+        "ALL": "All",
+        "HUMAN": "Human",
+        "BOT": "AI"
+      },
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days",
+        "CUSTOM": "Custom"
+      },
+      "VARIATION": "vs previous period",
+      "KPI": {
+        "TOTAL": "Total in queue",
+        "TOTAL_DESC": "Conversations opened in the selected period, considering the filtered team.",
+        "AVG_WAIT": "Avg wait time",
+        "AVG_WAIT_DESC": "Average time between a conversation opening and an agent's first response.",
+        "MAX_WAIT": "Longest wait",
+        "MAX_WAIT_DESC": "Longest time recorded between a conversation opening and its first response in the period.",
+        "ABANDON_RATE": "Abandon rate",
+        "ABANDON_RATE_DESC": "Percentage of conversations resolved by a human with no agent response at all. {count} conversation(s) in the period."
+      },
+      "CHART": {
+        "VOLUME_TITLE": "Conversation volume",
+        "VOLUME_HINT": "Number of conversations opened per day in the period.",
+        "WAIT_TITLE": "Average wait time (min)",
+        "WAIT_HINT": "Daily average of the time between a conversation opening and the agent's first response.",
+        "EMPTY": "No data in this period."
+      },
+      "TEAM": {
+        "TITLE": "By team",
+        "NO_TEAM": "No team",
+        "EMPTY": "No data in this period.",
+        "TABLE": {
+          "TEAM": "Team",
+          "TOTAL": "Total",
+          "AVG_WAIT": "Avg wait",
+          "MAX_WAIT": "Longest wait",
+          "ABANDONED": "Abandoned"
+        }
+      },
+      "CAPACITY": {
+        "TITLE": "Capacity vs Demand",
+        "HINT": "Estimate: capacity is calculated from the number of agents on the team multiplied by the average handling volume per agent in the period. There's no capacity configured per team in the system.",
+        "EMPTY": "No data in this period.",
+        "AGENTS": "{count} agent(s)"
+      },
+      "AGENT": {
+        "TITLE": "By agent",
+        "DESCRIPTION": "Groups conversations by the assigned agent.",
+        "BOT_HINT": "The AI split considers conversations without an assigned agent, so this panel tends to stay empty.",
+        "NO_AGENT": "Unassigned",
+        "EMPTY": "No data in this period.",
+        "TABLE": {
+          "AGENT": "Agent",
+          "TOTAL": "Handled",
+          "AVG_WAIT": "Avg wait",
+          "MAX_WAIT": "Longest wait",
+          "LOAD_PCT": "% Load"
+        },
+        "SHOW_ALL": "Show all ({count})",
+        "SHOW_LESS": "Show less"
+      }
+    },
     "COCKPIT": {
       "TITLE": "Agent cockpit",
       "DESCRIPTION": "Volume, handling times and satisfaction per agent in the selected period.",
