@@ -1,10 +1,10 @@
-# [Onda 5] Relatorios de operacao do fork (cockpit, monitoramento, origem, e
-# adiante fila e motivos) moram aqui em vez de crescerem o ReportsController
+# [Onda 5] Relatorios de operacao do fork (cockpit, monitoramento, origem,
+# fila, e adiante motivos) moram aqui em vez de crescerem o ReportsController
 # do upstream.
 #
 # Dois motivos. O arquivo do upstream ja batia no limite do Metrics/ClassLength
 # antes desta onda -- a primeira acao adicionada estourou o cop --, e ainda
-# faltam tres. E deixar o arquivo do upstream intocado tira conflito de todo
+# falta uma. E deixar o arquivo do upstream intocado tira conflito de todo
 # sync futuro, que e a estrategia do fork.
 #
 # A URL nao muda: as rotas continuam sob /reports/... e apontam para ca.
@@ -44,6 +44,11 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
     render json: builder.metrics
   end
 
+  def fila_historico
+    builder = V2::Reports::FilaHistoricoBuilder.new(Current.account, fila_historico_params)
+    render json: builder.metrics
+  end
+
   private
 
   # Mesma autorizacao do ReportsController: relatorio e coisa de administrador.
@@ -80,6 +85,10 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
   end
 
   def origem_params
+    params.permit(:since, :until, :team_id, :agent_type).to_h.symbolize_keys
+  end
+
+  def fila_historico_params
     params.permit(:since, :until, :team_id, :agent_type).to_h.symbolize_keys
   end
 end

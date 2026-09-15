@@ -241,4 +241,58 @@ RSpec.describe Api::V2::Accounts::OperationReportsController, type: :request do
       end
     end
   end
+
+  describe 'GET /api/v2/accounts/{account.id}/reports/fila_historico' do
+    let(:path) { "/api/v2/accounts/#{account.id}/reports/fila_historico" }
+
+    context 'when authenticated as an agent without report permission' do
+      it 'returns unauthorized' do
+        get path, params: window, headers: agent.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when authenticated as an administrator' do
+      it 'returns the five sections' do
+        get path, params: window, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.keys).to contain_exactly(
+          'kpis', 'daily_evolution', 'by_team', 'by_agent', 'capacity_vs_demand'
+        )
+      end
+
+      it 'refuses a request without a time window' do
+        get path, params: {}, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+
+      it 'accepts team_id and agent_type' do
+        team = create(:team, account: account)
+        get path, params: window.merge(team_id: team.id, agent_type: 'human'),
+                  headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
+
+      it 'refuses a window longer than six months' do
+        get path,
+            params: { since: 400.days.ago.to_i.to_s, until: Time.current.to_i.to_s },
+            headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to eq(I18n.t('errors.reports.date_range_too_long'))
+      end
+
+      it 'accepts a window just inside the limit' do
+        get path,
+            params: { since: 100.days.ago.to_i.to_s, until: Time.current.to_i.to_s },
+            headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
+    end
+  end
 end

@@ -108,6 +108,23 @@ class Reports::ConversationOwnershipFinder
     SQL
   end
 
+  # [Onda 5 / fatia 4] Abandono da fila: nenhum agente respondeu antes desta
+  # resolucao. Diferente de `bot_resolution_condition` (que decide quem
+  # resolveu), este predicado so faz sentido dentro de `resolutions('human')`
+  # -- uma resolucao do robo sem `first_response` nao e abandono, e sucesso do
+  # fluxo automatizado. `NOT EXISTS` correlacionado, mesmo indice que as
+  # subqueries "twin"/`human_evidence` acima ja usam
+  # (`index_reporting_events_on_conversation_name_end_time`).
+  def never_first_responded_condition
+    Arel.sql(<<~SQL.squish)
+      NOT EXISTS (
+        SELECT 1 FROM reporting_events fr
+        WHERE fr.conversation_id = reporting_events.conversation_id
+          AND fr.name = 'first_response'
+          AND fr.event_end_time <= reporting_events.event_end_time)
+    SQL
+  end
+
   private
 
   def quoted_human_evidence_events

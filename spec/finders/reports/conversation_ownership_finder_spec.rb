@@ -250,6 +250,49 @@ RSpec.describe Reports::ConversationOwnershipFinder do
     end
   end
 
+  describe '#never_first_responded_condition' do
+    # So faz sentido dentro de resolutions('human') -- o chamador (fila
+    # historico) e quem garante isso, o predicado sozinho so olha first_response.
+    def humanas_sem_resposta
+      finder.resolutions('human').where(finder.never_first_responded_condition)
+    end
+
+    it 'e verdadeiro quando a resolucao humana nunca teve first_response' do
+      conversation = bot_conversation(assignee: agent)
+      resolve!(conversation)
+
+      expect(humanas_sem_resposta.count).to eq(1)
+    end
+
+    it 'e falso quando houve first_response antes da resolucao' do
+      conversation = bot_conversation(assignee: agent)
+      message = create(:message, message_type: 'outgoing', sender: agent, account: account,
+                                 inbox: bot_inbox, conversation: conversation, created_at: 2.hours.ago)
+      first_reply!(message)
+      resolve!(conversation, at: 1.hour.ago)
+
+      expect(humanas_sem_resposta.count).to eq(0)
+    end
+
+    it 'ignora first_response que aconteceu depois daquela resolucao' do
+      conversation = bot_conversation(assignee: agent)
+      resolve!(conversation, at: 2.hours.ago)
+      message = create(:message, message_type: 'outgoing', sender: agent, account: account,
+                                 inbox: bot_inbox, conversation: conversation, created_at: 1.hour.ago)
+      first_reply!(message)
+
+      expect(humanas_sem_resposta.count).to eq(1)
+    end
+
+    it 'nao classifica resolucao do robo como abandono, mesmo sem first_response' do
+      conversation = bot_conversation
+      resolve!(conversation)
+
+      expect(finder.resolutions('bot').where(finder.never_first_responded_condition).count).to eq(1)
+      expect(humanas_sem_resposta.count).to eq(0)
+    end
+  end
+
   describe '#bot_conducted e #human_conducted' do
     # Recorte ao vivo (estado atual), usado pelo Monitoramento -- diferente do
     # classificador por resolucao testado acima.
