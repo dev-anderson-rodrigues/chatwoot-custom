@@ -181,8 +181,10 @@ class V2::Reports::SupervisorBuilder
 
   # ---------- Fila por equipe ----------
 
+  # So as equipes que `team_id` permite -- a conta inteira com filtro ativo
+  # mostraria "0" pra equipe fora do filtro, igual a "sem fila agora".
   def queue_by_team
-    rows = @account.teams.order(:name).map { |team| team_queue_row(team) }
+    rows = teams_scope.order(:name).map { |team| team_queue_row(team) }
     rows << unassigned_queue_row if unassigned_queue_row[:in_queue].positive? || unassigned_queue_row[:in_progress].positive?
 
     rows
@@ -232,11 +234,11 @@ class V2::Reports::SupervisorBuilder
   # ---------- Helpers ----------
 
   def base_scope
-    @base_scope ||= begin
-      scope = @account.conversations
-      scope = scope.where(team_id: @params[:team_id]) if @params[:team_id].present?
-      scope
-    end
+    @base_scope ||= @params[:team_id].present? ? @account.conversations.where(team_id: @params[:team_id]) : @account.conversations
+  end
+
+  def teams_scope
+    @params[:team_id].present? ? @account.teams.where(id: @params[:team_id]) : @account.teams
   end
 
   def agent_type

@@ -115,9 +115,19 @@ class Reports::ConversationOwnershipFinder
   # fluxo automatizado. `NOT EXISTS` correlacionado, mesmo indice que as
   # subqueries "twin"/`human_evidence` acima ja usam
   # (`index_reporting_events_on_conversation_name_end_time`).
+  #
+  # `event_end_time IS NOT NULL` explicito: sem isso, uma resolucao com
+  # `event_end_time` nulo (dado legado -- o listener atual sempre grava um
+  # valor real) faz `fr.event_end_time <= NULL` avaliar UNKNOWN para toda
+  # candidata, e o NOT EXISTS vira verdadeiro por vacuidade -- contando
+  # abandono mesmo quando houve first_response real antes. Mesmo cuidado que
+  # `bot_resolution_condition` ja tem com esse dado ambiguo, so que do lado
+  # conservador oposto (aqui, nao provar a ordem exclui do abandono em vez de
+  # incluir).
   def never_first_responded_condition
     Arel.sql(<<~SQL.squish)
-      NOT EXISTS (
+      reporting_events.event_end_time IS NOT NULL
+      AND NOT EXISTS (
         SELECT 1 FROM reporting_events fr
         WHERE fr.conversation_id = reporting_events.conversation_id
           AND fr.name = 'first_response'

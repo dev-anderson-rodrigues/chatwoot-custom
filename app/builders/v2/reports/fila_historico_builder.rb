@@ -32,7 +32,7 @@ class V2::Reports::FilaHistoricoBuilder
   # ---------- KPIs ----------
 
   def kpis_for(range)
-    total = conversations_in(range).count
+    total = total_conversations_in(range)
     avg_wait, max_wait = first_response_events(range).pick(Arel.sql('AVG(value), MAX(value)'))
     abandoned = abandoned_count(range)
 
@@ -73,10 +73,13 @@ class V2::Reports::FilaHistoricoBuilder
 
   # ---------- Por equipe ----------
 
-  # Enumera TODAS as equipes da conta (nao so as que aparecem no GROUP BY de
+  # Enumera as equipes da conta (nao so as que aparecem no GROUP BY de
   # conversas do periodo) -- mesmo padrao de `supervisor_builder#queue_by_team`
   # nesta onda: uma equipe configurada e ociosa no periodo e informacao de
-  # gestao (sem demanda), nao deve desaparecer da tela.
+  # gestao (sem demanda), nao deve desaparecer da tela. Mas so as equipes que o
+  # filtro de `team_id` permite -- enumerar a conta inteira quando ha filtro
+  # ativo mostraria "0" para toda equipe fora do filtro, indistinguivel de
+  # "equipe sem atendimento no periodo" (achado da revisao desta fatia).
   # Memoizado: `capacity_vs_demand` chama `by_team` de novo por cima, e sem
   # cache isso dobraria as 4 consultas a cada `metrics`.
   def by_team
@@ -88,7 +91,7 @@ class V2::Reports::FilaHistoricoBuilder
                           .group('conversations.team_id')
                           .distinct.count(:conversation_id)
 
-      rows = @account.teams.order(:name).map do |team|
+      rows = teams_scope.order(:name).map do |team|
         team_row(team.id, team.name, totals, wait_by_team, abandoned_by_team)
       end
       rows << team_row(nil, nil, totals, wait_by_team, abandoned_by_team) if totals.key?(nil)
@@ -174,13 +177,28 @@ class V2::Reports::FilaHistoricoBuilder
     total_agents = @account.users.count
     return 1 if total_agents.zero?
 
-    [(conversations_in(current_range).count.to_f / total_agents).round, 1].max
+    [(total_conversations_in(current_range).to_f / total_agents).round, 1].max
+  end
+
+  # Memoizado por range (`current_range`/`previous_range` sao sempre o mesmo
+  # objeto dentro da instancia): `kpis_for(current_range)` e
+  # `reference_per_agent` perguntavam a mesma coisa duas vezes -- achado da
+  # revisao desta fatia.
+  def total_conversations_in(range)
+    @total_conversations_in ||= {}
+    @total_conversations_in[range] ||= conversations_in(range).count
   end
 
   def team_member_counts
     @team_member_counts ||= @account.teams.left_joins(:team_members)
                                     .group(:id)
                                     .count('team_members.id')
+  end
+
+  def teams_scope
+    return @account.teams.where(id: @params[:team_id]) if @params[:team_id].present?
+
+    @account.teams
   end
 
   # ---------- Escopos ----------

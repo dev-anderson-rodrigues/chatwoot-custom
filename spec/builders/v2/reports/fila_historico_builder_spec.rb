@@ -175,6 +175,20 @@ RSpec.describe V2::Reports::FilaHistoricoBuilder do
       resultado = builder.by_team.index_by { |row| row[:id] }
       expect(resultado[time.id][:abandoned]).to eq(1)
     end
+
+    # Achado da revisao desta fatia: enumerar a conta inteira quando ha
+    # filtro de team_id mostrava "0" para toda equipe fora do filtro,
+    # indistinguivel de "equipe sem atendimento no periodo".
+    it 'so lista a equipe filtrada quando params[:team_id] esta presente' do
+      filtrada = create(:team, account: account)
+      outra = create(:team, account: account)
+      conversa(team: filtrada, assignee: agent)
+      conversa(team: outra, assignee: agent)
+
+      filtrado = described_class.new(account, params.merge(team_id: filtrada.id))
+
+      expect(filtrado.by_team.map { |row| row[:id] }).to contain_exactly(filtrada.id)
+    end
   end
 
   describe '#by_agent' do
@@ -220,6 +234,20 @@ RSpec.describe V2::Reports::FilaHistoricoBuilder do
       linha = builder.capacity_vs_demand.find { |row| row[:id] == time.id }
       expect(linha[:capacity]).to eq(0)
       expect(linha[:usage_pct]).to eq(100)
+    end
+
+    # Deriva de by_team (o mesmo achado se aplica aqui de graca), mas trava
+    # explicitamente para nao regredir se capacity_vs_demand parar de reusar
+    # by_team no futuro.
+    it 'so lista a equipe filtrada quando params[:team_id] esta presente' do
+      filtrada = create(:team, account: account)
+      outra = create(:team, account: account)
+      conversa(team: filtrada, assignee: agent)
+      conversa(team: outra, assignee: agent)
+
+      filtrado = described_class.new(account, params.merge(team_id: filtrada.id))
+
+      expect(filtrado.capacity_vs_demand.map { |row| row[:id] }).to contain_exactly(filtrada.id)
     end
   end
 

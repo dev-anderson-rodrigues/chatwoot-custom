@@ -217,6 +217,20 @@ RSpec.describe V2::Reports::SupervisorBuilder do
       expect(described_class.new(account, params).metrics[:queue_by_team].map { |row| row[:id] })
         .to include(nil)
     end
+
+    # Achado da revisao da fatia 4 (Fila -- Historico, que copiou este mesmo
+    # padrao): enumerar a conta inteira quando ha filtro de team_id mostrava
+    # "0" para toda equipe fora do filtro, indistinguivel de "sem fila agora".
+    it 'so lista a equipe filtrada quando params[:team_id] esta presente' do
+      filtrada = create(:team, account: account)
+      outra = create(:team, account: account)
+      na_fila(inbox: bot_inbox).update!(team: filtrada)
+      na_fila(inbox: bot_inbox).update!(team: outra)
+
+      filtrado = described_class.new(account, params.merge(team_id: filtrada.id))
+
+      expect(filtrado.metrics[:queue_by_team].map { |row| row[:id] }).to contain_exactly(filtrada.id)
+    end
   end
 
   describe '#metrics — desempenho' do

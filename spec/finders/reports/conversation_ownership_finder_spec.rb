@@ -291,6 +291,23 @@ RSpec.describe Reports::ConversationOwnershipFinder do
       expect(finder.resolutions('bot').where(finder.never_first_responded_condition).count).to eq(1)
       expect(humanas_sem_resposta.count).to eq(0)
     end
+
+    # Achado da revisao: sem o "IS NOT NULL" explicito, `event_end_time`
+    # nulo na propria resolucao faz a comparacao <= virar UNKNOWN para toda
+    # candidata, e o NOT EXISTS da verdadeiro por vacuidade -- mesmo havendo
+    # first_response real antes. So acontece com dado legado (o listener
+    # atual sempre grava event_end_time), mas o predicado irmao
+    # `bot_resolution_condition` ja trata esse caso, entao este tambem deve.
+    it 'nao conta como abandono quando o event_end_time da resolucao e nulo, mesmo com first_response real' do
+      conversation = bot_conversation(assignee: agent)
+      message = create(:message, message_type: 'outgoing', sender: agent, account: account,
+                                 inbox: bot_inbox, conversation: conversation, created_at: 2.hours.ago)
+      first_reply!(message)
+      create(:reporting_event, account: account, inbox: bot_inbox, conversation: conversation,
+                               name: 'conversation_resolved', user: agent, event_end_time: nil)
+
+      expect(humanas_sem_resposta.count).to eq(0)
+    end
   end
 
   describe '#bot_conducted e #human_conducted' do
