@@ -19,16 +19,14 @@ const usageBarClass = pct => {
 </script>
 
 <template>
-  <section
-    class="flex flex-col gap-4 m-0.5 px-6 py-5 border rounded-xl border-n-weak bg-n-solid-2"
-  >
-    <div class="flex items-center gap-2">
+  <section class="flex flex-col gap-1">
+    <div class="flex items-center gap-1.5">
       <h3 class="m-0 text-sm font-medium text-n-slate-12">
         {{ t('REPORT.FILA.CAPACITY.TITLE') }}
       </h3>
       <span
+        v-tooltip.right="t('REPORT.FILA.CAPACITY.HINT')"
         class="text-xs i-lucide-info text-n-slate-10"
-        :title="t('REPORT.FILA.CAPACITY.HINT')"
       />
     </div>
 

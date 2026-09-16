@@ -58,9 +58,7 @@ const hasData = computed(() => props.dailyEvolution.length > 0);
 </script>
 
 <template>
-  <section
-    class="flex flex-col gap-4 m-0.5 px-6 py-5 border rounded-xl border-n-weak bg-n-solid-2"
-  >
+  <section class="flex flex-col gap-1">
     <div v-if="hasData" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div class="flex flex-col gap-2">
         <h3 class="m-0 text-sm font-medium text-n-slate-12">
