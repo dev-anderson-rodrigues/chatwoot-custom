@@ -67,7 +67,7 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 2 — Liberar enterprise | ✅ |
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
-| 5 — Relatórios | 🔄 fundação pronta · 4 telas de 6 · **destravada** |
+| 5 — Relatórios | 🔄 fundação pronta · 5 telas de 6 · **destravada** |
 | 4 · 6 · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.
@@ -86,6 +86,8 @@ fatia 0 (fundação) está fechada:
 | — | `a362de8756`, `b7b1227fc8` | `ReportTile` adotado em Cockpit e Robô/humano; teste trava ausência de N+1 no Monitoramento |
 | 3 | `6a7c66ee0e`, `1e190410f4` | Tela **Recebidos e Efetuados** (`/reports/origem`); primeiro consumidor de `customRange` em `useReportPeriod` |
 | — | `157b892443`, `5e3bfa52ce`, `20556a865f` | `Intl.DateTimeFormat` com locale cru (`pt_BR`) derrubava 4 seções da tela; consultas de total/efetuado sem snapshot compartilhado podiam gerar `recebidos` negativo; índice novo para `first_message_table`; mesmo bug de locale corrigido à parte em `ResolutionTrendCard.vue` (Captain, não relacionado a esta onda) |
+| 4 | `cce4ad4dd2`, `36a6b8f721` | Tela **Fila — Histórico** (`/reports/fila`); abandono vira fato histórico (`Reports::ConversationOwnershipFinder`), não `conversations.status` mutável |
+| — | `48bd596d33`, `98b1a2b6d5` | `by_team`/`queue_by_team` ignoravam `params[:team_id]` (mesmo defeito corrigido de passagem em `supervisor_builder`, fatia 2, achado em produção); `event_end_time` nulo classificava abandono errado; cartão assimétrico removido de 2 das 5 seções da tela |
 
 **2026-09-12 — fatia 2 fechada.** Chegou pela metade, deixada por outro agente (Antigravity)
 sem commitar: encanamento certo (rota, endpoint, i18n, menu), mas builder cobrindo uma fração
@@ -102,8 +104,16 @@ revisão de banco também achou uma corrida real (duas consultas sem snapshot co
 podiam gerar contagem negativa) e a falta de índice para o `first_message_table`, ambas
 corrigidas. Detalhe completo na seção "Fatia 3" da Onda 5 em `plano-port-coraxy.md`.
 
-**Faltam duas telas:** Fila — Histórico e Motivos. A ordem e o que cada uma precisa de
-especial estão no `plano-port-coraxy.md`.
+**2026-09-16 — fatia 4 fechada.** Fila — Histórico portada completa, revisada pelos três
+especialistas sobre a implementação final. Achado mais importante: `by_team`/
+`capacity_vs_demand` ignoravam o filtro de equipe da própria tela (enumeravam a conta
+inteira), e o `backend-engineering` confirmou que o mesmo defeito já existia em produção
+desde a fatia 2 (`supervisor_builder#queue_by_team`) — corrigido nos dois builders no mesmo
+commit. A revisão de banco achou um caso de borda real (`event_end_time` nulo classificando
+abandono errado) e a de frontend, um cartão assimétrico em 2 das 5 seções sem justificativa
+registrada. Detalhe completo na seção "Fatia 4" da Onda 5 em `plano-port-coraxy.md`.
+
+**Falta uma tela:** Motivos. O que ela precisa de especial está no `plano-port-coraxy.md`.
 
 **Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
 e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê

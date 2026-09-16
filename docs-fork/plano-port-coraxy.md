@@ -1528,7 +1528,7 @@ relatório por vez, como foi o Cockpit.
 | 1 | **Robô e humano** — resumo por tipo; primeiro consumidor do classificador | ✅ `db76829641` |
 | 2 | **Monitoramento** — traz `active_conversations`; `in_progress` passa a incluir pending | ✅ `699cfc0083` |
 | 3 | **Recebidos e Efetuados** — traz a classificação por conversa; `LATERAL` na primeira mensagem | ✅ `1e190410f4` |
-| 4 | **Fila — Histórico** — mesma população nos três recortes; abandono só por resolução humana | ⏳ |
+| 4 | **Fila — Histórico** — mesma população nos três recortes; abandono só por resolução humana | ✅ `36a6b8f721` |
 | 5 | **Motivos** — mistura as duas granularidades, por isso por último | ⏳ |
 | — | ~~`top_labels_builder`~~ descartado (o 4.17 já resolve) | — |
 
@@ -1726,6 +1726,83 @@ Rubocop e ESLint limpos. Verificação renderizada (Chromium + CDP isolado) em c
 desktop e 375px — as seis seções (tiles, gráfico, origem, equipe, canal, atendente) conferem
 com o dado semeado (39 conversas — 21 recebidos, 18 efetuados) tanto antes quanto depois da
 reescrita do builder, confirmando que a correção de concorrência preserva os números.
+
+##### Fatia 4 — resolvida. Fila — Histórico
+
+A fonte (`fila_historico_builder.rb`) tinha três problemas na definição de abandono e
+população, investigados antes de codificar: reimplementava `bot_only`/`handed_off_conversation_ids`
+localmente (mesmo anti-padrão já corrigido nas fatias 2 e 3); definia abandono como
+`conversations.status == resolved && first_reply_created_at.nil?` — estado mutável, e não
+distingue "o robô resolveu sozinho com sucesso" (não é abandono) de "um humano teve que
+fechar sem nunca responder" (abandono real); e `first_response_events` só restringia por
+`conversations_in(range)` quando o recorte era bot/human, misturando "conversa criada no
+período" com "resposta ocorrida no período" quando o filtro era "Todos" — a causa real por
+trás da nota "mesma população nos três recortes" já registrada neste plano antes de portar.
+
+Três correções, nessa ordem de importância:
+
+- **Recorte Todos/Humanos/IA delega para `Reports::ConversationOwnershipFinder`**, como as
+  fatias 2 e 3 já fazem.
+- **Abandono passa a ser fato histórico**: resolução classificada como HUMANA pelo finder
+  (`ownership_finder.resolutions('human')`) em que nunca houve `first_response` antes do
+  instante da resolução. Pediu um método novo e pequeno no finder,
+  `never_first_responded_condition` (`NOT EXISTS` correlacionado, mesmo formato de
+  `never_handed_off_condition` já existente) — não uma cópia do predicado de robô.
+  `abandoned_count` usa `distinct.count(:conversation_id)` porque uma conversa reaberta e
+  resolvida duas vezes gera duas linhas de `conversation_resolved`.
+- **`first_response_events` sempre intersecta `conversations_in(range)` por subquery**, sem
+  exceção para "Todos".
+
+Duas decisões que reusam precedente já estabelecido na onda em vez de copiar a fonte: KPIs
+devolvem `{current:, previous:}` crus (como `OwnershipSummaryBuilder`, fatia 1), não
+`variation` pré-calculada em Ruby; e `by_team` enumera todas as equipes da conta, como
+`supervisor_builder#queue_by_team` (fatia 2) já fazia, não só as que aparecem no `GROUP BY`
+do período — uma equipe configurada e ociosa deve aparecer com 0%, não desaparecer.
+
+**As três revisões rodaram sobre a implementação final, e a mesma acharam coisa real:**
+
+- **Bloqueante, achado pelo `backend-engineering`:** `by_team` (e por consequência
+  `capacity_vs_demand`, que deriva dele) enumerava `@account.teams` inteira mesmo com
+  `params[:team_id]` presente — o filtro de equipe que a própria tela oferece não filtrava
+  essas duas seções, mostrando "0" para toda equipe fora do filtro, indistinguível de "sem
+  atendimento no período". **O mesmo defeito já existia desde a fatia 2**
+  (`supervisor_builder#queue_by_team`, copiado como precedente ao escrever esta fatia) — os
+  dois builders corrigidos juntos com um `teams_scope` que respeita o filtro. Travado com
+  specs que falham sem a correção (confirmado manualmente antes de fechar) nos dois builders.
+- **Do `database-review`:** `never_first_responded_condition` não tratava `event_end_time`
+  nulo na própria resolução — a comparação `<=` vira `UNKNOWN` e o `NOT EXISTS` dá verdadeiro
+  por vacuidade, contando abandono mesmo com `first_response` real registrado antes. Só
+  afeta dado legado (o listener atual sempre grava `event_end_time`), mas o predicado irmão
+  `bot_resolution_condition` já tratava esse caso — corrigido para simetria, com spec
+  confirmada falhando sem o `IS NOT NULL` explícito.
+- **Do `frontend-design`, achado só na leitura cuidadosa do template:** `FilaDailyEvolutionCharts.vue`
+  e `FilaCapacityBars.vue` eram as únicas 2 das 5 seções da tela com um cartão (borda + fundo)
+  em volta — nenhum componente irmão desta fatia nem da fatia 3 usa esse padrão, sem
+  comentário explicando a escolha. Removido para deixar a tela uniforme. De quebra, o ícone
+  de dica de "Capacidade vs Demanda" usava `:title` cru (só funciona no hover do mouse) —
+  trocado por `v-tooltip`, o mesmo padrão que `CsatMetricCard.vue` já usa para dica com
+  informação real.
+- **Confirmado explicitamente como não-bloqueante:** concorrência em `kpis_for` (duas
+  queries, mas `abandoned` é subconjunto estrutural de `total` via a mesma subquery de
+  `conversations_in`, não duas partições da mesma tabela como o bug da fatia 3 — não pode
+  ficar inconsistente entre as duas leituras); `wait_stats_by` chamado duas vezes (`by_team`/
+  `by_agent` agrupam por dimensões diferentes, não dá para combinar sem complexidade extra);
+  ausência de SQL injection; índices existentes cobrem a subquery nova.
+- **Débito registrado, corrigido de passagem:** `reference_per_agent` recalculava
+  `conversations_in(current_range).count`, que `kpis_for` já tinha calculado — memoizado em
+  `total_conversations_in`.
+
+Depois das correções: 108 exemplos backend (fila_historico_builder + supervisor_builder +
+finder + controller) e 47 no frontend, 0 falhas. Rubocop e ESLint limpos. Verificação
+renderizada (Chromium + CDP isolado) em claro/escuro, desktop e 375px, com dado semeado por
+`qa_setup_fila.rb` (equipe ativa com abandono real, equipe ociosa, resoluções por robô sem
+resposta) — todas as cinco seções conferem, abandono destacado em vermelho, equipe ociosa em
+0%, sem overflow horizontal nem erro de console.
+
+**Achado colateral, corrigido à parte:** ao investigar o bug de `team_id`, o
+`backend-engineering` confirmou o mesmo defeito em `supervisor_builder#queue_by_team` (fatia
+2, código já em produção) — corrigido no mesmo commit desta fatia, com spec de regressão
+própria, em vez de deixar como pendência separada.
 
 
 ---
