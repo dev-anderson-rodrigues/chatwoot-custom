@@ -28,6 +28,7 @@ import RoboHumano from './RoboHumano.vue';
 import MonitoramentoSupervisor from './MonitoramentoSupervisor.vue';
 import RecebidosEfetuados from './RecebidosEfetuados.vue';
 import FilaHistorico from './FilaHistorico.vue';
+import Motivos from './Motivos.vue';
 
 const meta = {
   featureFlag: FEATURE_FLAGS.REPORTS,
@@ -168,6 +169,12 @@ export default {
           name: 'ownership_reports',
           meta,
           component: RoboHumano,
+        },
+        {
+          path: 'motivos',
+          name: 'motivos_reports',
+          meta,
+          component: Motivos,
         },
         {
           path: 'sla',

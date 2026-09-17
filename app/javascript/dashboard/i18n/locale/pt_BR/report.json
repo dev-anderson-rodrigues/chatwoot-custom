@@ -164,6 +164,73 @@
         "SHOW_LESS": "Mostrar menos"
       }
     },
+    "MOTIVOS": {
+      "TITLE": "Motivos",
+      "DESCRIPTION": "Volume, tempo de atendimento e resolução por motivo de contato. Motivo é uma etiqueta que você escolhe — selecione abaixo quais etiquetas contam.",
+      "ERROR": "Não foi possível carregar os dados agora. Tente de novo em alguns segundos.",
+      "TEAM_FILTER": "Time",
+      "ALL_TEAMS": "Todos os times",
+      "INBOX_FILTER": "Caixa de entrada",
+      "ALL_INBOXES": "Todas as caixas",
+      "CRITERION": "A resolução no primeiro contato olha o histórico inteiro da conversa, não só o período selecionado — conversa reaberta e resolvida de novo nunca conta como resolvida de primeira, mesmo que a reabertura tenha ficado fora da janela. \"1º contato\" e \"Resolvido pela IA\" são percentuais sobre as conversas resolvidas; \"Transferido\" é sobre o total, porque transferência também acontece em conversa ainda aberta. A participação do robô usa o mesmo classificador das outras telas desta suíte — e olha o histórico da resolução, enquanto o recorte \"Quem atende\" olha o estado atual da conversa, então dentro do recorte IA os dois podem divergir. Motivo que zerou continua listado para a queda ficar visível.",
+      "NEEDS_SELECTION": {
+        "TITLE": "Escolha quais etiquetas são motivos",
+        "DESCRIPTION": "A conta usa etiqueta para muita coisa — prioridade, canal, campanha. Selecione as que significam \"motivo de contato\" e o relatório se monta."
+      },
+      "LABELS": {
+        "LABEL": "Motivos",
+        "SELECT_ALL": "Selecionar todas",
+        "CLEAR": "Limpar",
+        "NONE_IN_ACCOUNT": "Esta conta ainda não tem etiquetas."
+      },
+      "AGENT_TYPE": {
+        "LABEL": "Quem atende",
+        "ALL": "Todos",
+        "HUMAN": "Humanos",
+        "BOT": "IA"
+      },
+      "DATE_FIELD": {
+        "LABEL": "Contar por",
+        "CREATED": "Abertura",
+        "RESOLVED": "Encerramento"
+      },
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias",
+        "CUSTOM": "Personalizado"
+      },
+      "KPI": {
+        "REASONS_COUNT": "Motivos",
+        "CONVERSATIONS_TOTAL": "Conversas",
+        "TOP_REASON": "Mais comum",
+        "TOP_REASON_DESCRIPTION": "{count} conversas · {pct}% do total",
+        "SLOWEST_REASON": "Mais demorado",
+        "AVG_FCR": "Resolução no 1º contato",
+        "AVG_FCR_DESCRIPTION": "Resolvidas uma vez, sem reabertura."
+      },
+      "CHART": {
+        "TITLE": "Evolução semanal",
+        "HINT": "Volume por semana dos três motivos de maior volume no período.",
+        "EMPTY": "Sem dados neste período."
+      },
+      "TABLE": {
+        "TITLE": "Por motivo",
+        "REASON": "Motivo",
+        "TOTAL": "Conversas",
+        "SHARE": "Participação",
+        "TREND": "vs anterior",
+        "TREND_NEW": "Novo",
+        "TREND_TITLE": "{count} no período anterior",
+        "AVG_HANDLE": "TMA",
+        "RESOLVED": "Resolvidas",
+        "FCR": "1º contato",
+        "BOT_RESOLVED": "Resolvido pela IA",
+        "BOT_HANDOFF": "Transferido",
+        "EMPTY": "Sem dados neste período."
+      }
+    },
     "FILA": {
       "TITLE": "Fila — Histórico",
       "DESCRIPTION": "Tempo de espera, volume e abandono da fila ao longo do tempo. Todas as métricas de espera usam o tempo até a primeira resposta de um agente.",

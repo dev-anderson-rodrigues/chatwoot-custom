@@ -297,6 +297,72 @@ const normalizeFilaHistorico = data => ({
   ),
 });
 
+export const emptyMotivos = () => ({
+  kpis: {
+    reasonsCount: 0,
+    conversationsTotal: 0,
+    topReason: null,
+    slowestReason: null,
+    avgFcr: 0,
+  },
+  reasons: [],
+  weeklyEvolution: { labels: [], series: [] },
+});
+
+// `topReason`/`slowestReason` ficam nulos quando nenhum motivo teve ocorrencia
+// no periodo -- o backend nao elege um motivo zerado, e a tela esconde o
+// cartao em vez de mostrar "motivo mais comum: — (0)".
+const normalizeMotivosKpis = kpis => ({
+  reasonsCount: kpis?.reasons_count ?? 0,
+  conversationsTotal: kpis?.conversations_total ?? 0,
+  topReason: kpis?.top_reason
+    ? {
+        name: kpis.top_reason.name,
+        total: kpis.top_reason.total ?? 0,
+        pct: kpis.top_reason.pct ?? 0,
+      }
+    : null,
+  slowestReason: kpis?.slowest_reason
+    ? {
+        name: kpis.slowest_reason.name,
+        avgHandleSeconds: kpis.slowest_reason.avg_handle_seconds ?? 0,
+      }
+    : null,
+  avgFcr: kpis?.avg_fcr ?? 0,
+});
+
+// `color` nulo = etiqueta sem label correspondente na conta (foi apagado
+// depois de usado); a tela aplica a cor neutra. `fcrPct` nulo = nao houve
+// resolucao no periodo, que e diferente de FCR zero -- por isso nao vira 0.
+// `previousTotal` vem cru: quem decide como mostrar "sem base de comparacao" e
+// a tela, nao o backend.
+const normalizeMotivosReason = row => ({
+  name: row.name,
+  color: row.color ?? null,
+  total: row.total ?? 0,
+  previousTotal: row.previous_total ?? 0,
+  pct: row.pct ?? 0,
+  avgHandleSeconds: row.avg_handle_seconds ?? 0,
+  resolvedCount: row.resolved_count ?? 0,
+  fcrCount: row.fcr_count ?? 0,
+  fcrPct: row.fcr_pct ?? null,
+  botResolvedPct: row.bot_resolved_pct ?? 0,
+  botHandoffPct: row.bot_handoff_pct ?? 0,
+});
+
+const normalizeMotivos = data => ({
+  kpis: normalizeMotivosKpis(data?.kpis),
+  reasons: (data?.reasons || []).map(normalizeMotivosReason),
+  weeklyEvolution: {
+    labels: data?.weekly_evolution?.labels || [],
+    series: (data?.weekly_evolution?.series || []).map(serie => ({
+      name: serie.name,
+      color: serie.color ?? null,
+      data: serie.data || [],
+    })),
+  },
+});
+
 const normalizeTotals = kpis => ({
   agentsTotal: kpis?.agents_total ?? 0,
   agentsOnline: kpis?.agents_online ?? 0,
@@ -418,6 +484,37 @@ class OperationReportsAPI extends ApiClient {
     });
 
     return normalizeFilaHistorico(data);
+  }
+
+  /**
+   * Motivos: volume, tempo e resolucao por etiqueta de contato.
+   *
+   * `labels` e obrigatorio do ponto de vista do produto -- motivo e uma escolha
+   * explicita, nao "toda etiqueta que existe". Sem selecao o backend devolve
+   * estrutura vazia sem consultar o banco, e a tela nem chega a chamar aqui
+   * (ver o guard em useMotivosReport).
+   *
+   * O endpoint tambem aceita `agent_id` e `status`, que a tela de hoje nao
+   * oferece -- nao sao repassados aqui para nao virar parametro morto.
+   */
+  async getMotivos(
+    { from, to, teamId, inboxId, dateField, labels, agentType } = {},
+    { signal } = {}
+  ) {
+    const { data } = await axios.get(`${this.url}/motivos`, {
+      params: {
+        since: from,
+        until: to,
+        team_id: teamId,
+        inbox_id: inboxId,
+        date_field: dateField,
+        labels,
+        agent_type: agentType,
+      },
+      signal,
+    });
+
+    return normalizeMotivos(data);
   }
 }
 

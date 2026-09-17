@@ -360,6 +360,11 @@ const newReportRoutes = () => [
     to: accountScopedRoute('ownership_reports'),
   },
   {
+    name: 'Reports Motivos',
+    label: t('SIDEBAR.REPORTS_MOTIVOS'),
+    to: accountScopedRoute('motivos_reports'),
+  },
+  {
     name: 'Reports Agent',
     label: t('SIDEBAR.REPORTS_AGENT'),
     to: accountScopedRoute('agent_reports_index'),

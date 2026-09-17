@@ -164,6 +164,73 @@
         "SHOW_LESS": "Show less"
       }
     },
+    "MOTIVOS": {
+      "TITLE": "Reasons",
+      "DESCRIPTION": "Volume, handling time and resolution by contact reason. A reason is a label you choose — pick which labels count below.",
+      "ERROR": "Could not load the data. Try again in a few seconds.",
+      "TEAM_FILTER": "Team",
+      "ALL_TEAMS": "All teams",
+      "INBOX_FILTER": "Inbox",
+      "ALL_INBOXES": "All inboxes",
+      "CRITERION": "First-contact resolution looks at the conversation's whole history, not just the selected period — a conversation reopened and resolved again never counts as resolved first time, even if the reopening falls outside the window. \"First-contact\" and \"Solved by AI\" are percentages of resolved conversations; \"Handed off\" is of the total, because a handoff also happens on conversations still open. Bot share uses the same classifier as the other screens in this suite — and looks at the resolution's history, while the \"Who's handling\" split looks at the conversation's current state, so the two can diverge within the AI split. A reason that dropped to zero stays listed so the drop is visible.",
+      "NEEDS_SELECTION": {
+        "TITLE": "Choose which labels are reasons",
+        "DESCRIPTION": "Accounts use labels for many things — priority, channel, campaign. Pick the ones that mean \"reason for contact\" and the report builds itself."
+      },
+      "LABELS": {
+        "LABEL": "Reasons",
+        "SELECT_ALL": "Select all",
+        "CLEAR": "Clear",
+        "NONE_IN_ACCOUNT": "This account has no labels yet."
+      },
+      "AGENT_TYPE": {
+        "LABEL": "Who's handling",
+        "ALL": "All",
+        "HUMAN": "Human",
+        "BOT": "AI"
+      },
+      "DATE_FIELD": {
+        "LABEL": "Count by",
+        "CREATED": "Opened",
+        "RESOLVED": "Closed"
+      },
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days",
+        "CUSTOM": "Custom"
+      },
+      "KPI": {
+        "REASONS_COUNT": "Reasons",
+        "CONVERSATIONS_TOTAL": "Conversations",
+        "TOP_REASON": "Most common",
+        "TOP_REASON_DESCRIPTION": "{count} conversations · {pct}% of the total",
+        "SLOWEST_REASON": "Slowest",
+        "AVG_FCR": "Avg first-contact resolution",
+        "AVG_FCR_DESCRIPTION": "Resolved once, never reopened."
+      },
+      "CHART": {
+        "TITLE": "Weekly trend",
+        "HINT": "Weekly volume of the three highest-volume reasons in the period.",
+        "EMPTY": "No data in this period."
+      },
+      "TABLE": {
+        "TITLE": "By reason",
+        "REASON": "Reason",
+        "TOTAL": "Conversations",
+        "SHARE": "Share",
+        "TREND": "vs previous",
+        "TREND_NEW": "New",
+        "TREND_TITLE": "{count} in the previous period",
+        "AVG_HANDLE": "Avg handling time",
+        "RESOLVED": "Resolved",
+        "FCR": "First-contact",
+        "BOT_RESOLVED": "Solved by AI",
+        "BOT_HANDOFF": "Handed off",
+        "EMPTY": "No data in this period."
+      }
+    },
     "FILA": {
       "TITLE": "Queue — History",
       "DESCRIPTION": "Wait time, volume and abandonment of the queue over time. All wait metrics use the time until an agent's first response.",
