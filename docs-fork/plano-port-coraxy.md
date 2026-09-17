@@ -1529,7 +1529,7 @@ relatório por vez, como foi o Cockpit.
 | 2 | **Monitoramento** — traz `active_conversations`; `in_progress` passa a incluir pending | ✅ `699cfc0083` |
 | 3 | **Recebidos e Efetuados** — traz a classificação por conversa; `LATERAL` na primeira mensagem | ✅ `1e190410f4` |
 | 4 | **Fila — Histórico** — mesma população nos três recortes; abandono só por resolução humana | ✅ `36a6b8f721` |
-| 5 | **Motivos** — mistura as duas granularidades, por isso por último | ⏳ |
+| 5 | **Motivos** — mistura as duas granularidades, por isso por último | ✅ |
 | — | ~~`top_labels_builder`~~ descartado (o 4.17 já resolve) | — |
 
 As correções de performance de agosto **já estão aplicadas na fonte** nesta branch (subquery
@@ -1804,6 +1804,126 @@ resposta) — todas as cinco seções conferem, abandono destacado em vermelho, 
 2, código já em produção) — corrigido no mesmo commit desta fatia, com spec de regressão
 própria, em vez de deixar como pendência separada.
 
+
+##### Fatia 5 — resolvida. Motivos
+
+Última da onda, e a que o fatiamento reservou para o fim por misturar as duas
+granularidades: volume e tendência são **por conversa**, enquanto TMA, FCR e
+participação do robô são **por resolução**.
+
+**A mistura não virou problema porque a população manda.** O
+`Reports::TaggedConversationFinder` (novo) decide quais conversas entram, e as
+resoluções são sempre derivadas dela — mesmo ancoramento de
+`FilaHistoricoBuilder#abandoned_scope`. O evento informa sobre a população; não
+a define.
+
+A fonte (`motivos_builder.rb`, 265 linhas) repetia três anti-padrões já
+corrigidos nesta onda e trazia dois próprios:
+
+- **Recorte robô×humano reimplementado localmente** (`bot_only`, `bot_inbox_ids`,
+  `handed_off_conversation_ids`) — mesmo defeito das fatias 2, 3 e 4. Delegado
+  ao `ConversationOwnershipFinder`.
+- **`date_field: 'resolved'` filtrava por `conversations.updated_at`** — o
+  critério que a revisão de banco da fatia 4 já tinha derrubado: qualquer
+  etiqueta, nota ou reabertura polui, e `(status, updated_at)` não tem índice.
+  Passou a sair do evento `conversation_resolved`.
+- **FCR por `HAVING COUNT(*) = 1` dentro da janela** — chamava de "resolvida de
+  primeira" uma conversa cuja reabertura ficou fora do período olhado.
+  Substituído por `single_resolution_condition` (novo no finder), `NOT EXISTS`
+  correlacionado sobre todo o histórico. Reabertura é fato da conversa, não do
+  recorte.
+- **`pluck(:conversation_id)` em array Ruby** para o FCR — o mesmo defeito que o
+  próprio arquivo condenava num comentário 130 linhas abaixo.
+- **`bot_resolved_pct` pelo evento solto**, que produziria um sexto número para
+  "resolvido pelo robô" — exatamente o que a fatia 1 decidiu evitar. Passou a
+  usar o classificador.
+
+**Decisão de produto do dono: motivo é escolha explícita.** Sem etiqueta
+selecionada não há relatório, e o builder devolve estrutura vazia **sem
+consultar o banco**. A conta usa etiqueta para prioridade, canal e campanha;
+somar tudo produziria um "top motivos" que não responde à pergunta da tela. A
+tela ganhou estado de configuração próprio, diferente de "sem dados".
+
+**O que as revisões acharem sobre a implementação final:**
+
+- **Bloqueante, do `database-review`:** `volume_by_reason` e `resolution_facts`
+  eram duas consultas sem snapshot compartilhado. Bastava um agente etiquetar
+  uma conversa entre elas para a linha sair com `resolved_count` maior que
+  `total` — percentual acima de 100% na tela, mesma classe do `recebidos`
+  negativo da fatia 3. Corrigido com **uma leitura só**: um `LEFT JOIN` de
+  `reporting_events` dentro do finder, com as seis métricas saindo de uma
+  agregação condicional. `resolved_count <= total` passou a valer por
+  construção, travado em spec.
+- **Do `database-review`, sem ação:** os índices existentes cobrem
+  `conversations → taggings → tags` e as subqueries correlacionadas — esta foi a
+  primeira fatia da onda que **não** precisou de migration. Fica registrado como
+  não verificado o `EXPLAIN ANALYZE` contra volume real, especialmente porque
+  com `date_field=created` o `LEFT JOIN` não limita `reporting_events.created_at`.
+- **Do `backend-security`, sem achado:** a fronteira multi-tenant se sustenta.
+  Vale registrar o porquê, que não era óbvio: **`tags` é tabela global no
+  acts_as_taggable** — não tem `account_id`, e `index_tags_on_name` é único no
+  nome inteiro, então duas contas que usem "financeiro" compartilham a mesma
+  linha. O isolamento vem inteiro de todo escopo partir de
+  `@account.conversations`. Há spec provando que conversa de outra conta não
+  vaza.
+- **Da verificação visual, dois achados que teste nenhum pegaria:** o gráfico
+  tinha três séries coloridas **sem legenda** (as telas irmãs têm uma série só,
+  então o wrapper do `LineChart` nunca precisou expor uma — legenda própria
+  adicionada); e a linha de um motivo zerado mostrava "0 Sec" e "0%" em colunas
+  onde não houve medida nenhuma, sugerindo dado real — passou a mostrar "—",
+  como o FCR já fazia.
+
+**Denominadores diferentes, de propósito e escritos na tela:** "1º contato" e
+"Resolvido pela IA" dividem pelas **resolvidas** (as duas respondem "das que
+fecharam, quantas..."), enquanto "Transferido" divide pelo **total**, porque
+transferência acontece em conversa ainda aberta. Um motivo com muita conversa
+aberta mostraria participação do robô artificialmente baixa se o denominador
+fosse o total.
+
+**Motivo que zerou continua na tabela**, com `previous_total` cru e variação de
+-100% — sumir da lista tornaria "caiu para zero" indistinguível de "nunca
+existiu". Mesmo raciocínio do `by_team` da fatia 4, com uma divergência
+deliberada: **não** enumera toda etiqueta selecionada, só a união dos dois
+períodos, porque etiqueta sem ocorrência em nenhum dos dois não é informação de
+gestão. Os KPIs excluem os zerados — "motivo mais comum: X (0 conversas)" seria
+pior que cartão nenhum.
+
+Verificado renderizado com dado semeado por `qa_setup_motivos.rb` (não
+versionado): 4 motivos ativos e 1 zerado, FCR 100% no que resolveu de primeira e
+50% no que foi reaberto, robô com 100% onde fechou sozinho, transferência
+isolada em outro motivo — todos batendo com o seed. Claro/escuro, desktop e
+375px, sem overflow horizontal e sem erro de console novo (os dois 404 do
+service worker são pré-existentes, aparecem igual na tela da Fila).
+
+**Armadilha de seed, que custou uma investigação:** `conversation.update!(status:
+:resolved)` num script de QA dispara o dispatcher real do Chatwoot, que enfileira
+`conversation.resolved` no Sidekiq e grava um **segundo** `conversation_resolved`
+minutos depois do seed terminar. O relatório então via 2 resoluções por conversa
+e zerava o FCR — artefato do seed, não do builder. `qa_setup_motivos.rb` usa
+`update_columns`. Os seeds das fatias anteriores têm o mesmo padrão e
+provavelmente o mesmo artefato.
+
+**Débito registrado, e ele não é desta fatia:** o recorte Todos/Humanos/IA usa o
+predicado por **estado atual** (`bot_conducted`), enquanto a participação do robô
+usa o classificador por **resolução**. No recorte "IA" os dois podem divergir —
+uma conversa sem assignee e sem handoff entra no recorte, mas se um humano a
+resolver sem passar por atribuição formal, a resolução conta como humana e
+`bot_resolved_pct` cai abaixo de 100% numa tela que diz "só IA". O
+`backend-engineering` confirmou que **a fatia 4 tem a mesma tensão em produção**
+(`abandoned_scope` cruza `resolutions('human')` com população filtrada por
+`bot_conducted`), e que corrigir só aqui criaria divergência entre a fatia 5 e as
+fatias 3/4 — pior que o estado atual. A saída escolhida foi escrever a divergência
+na nota de critério da tela; a reconciliação das três fatias fica como item
+próprio, fora do escopo desta.
+
+**O que a revisão de arquitetura mudou:** `agent_id` e `status` saíram do
+`motivos_params` e do finder. Vieram da fonte, nenhuma tela os envia, o endpoint
+nasceu nesta onda (sem consumidor externo a preservar) e `status` inválido caía
+num `where` que devolve zero em silêncio — estado inconsistente sem aviso, que o
+próprio `backend.mdc` proíbe. Voltam com validação quando alguma tela precisar.
+
+Depois das correções: 186 exemplos da onda inteira (os 6 builders + finder +
+controller), 0 falhas. Rubocop e ESLint limpos.
 
 ---
 

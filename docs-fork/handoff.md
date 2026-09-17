@@ -1,13 +1,15 @@
-# Handoff — estado em 2026-09-16
+# Handoff — estado em 2026-09-17
 
 Documento de retomada. Leia antes de tocar em qualquer coisa: **o repositório mudou de
 lugar** e o ambiente foi reconstruído.
 
-**2026-09-16 — branch enviada ao remote.** `feature/port-coraxy` tem push feito para
-`origin` (`dev-anderson-rodrigues/chatwoot-custom`, branch nova, sem PR aberto ainda) — os 5
-commits da fatia 4 (ver seção 4) estão lá. Working tree local limpa (só os `qa_setup_*.rb` e
-arquivos de ambiente não versionados de sempre). Próxima sessão pode seguir direto para a
-fatia 5 (Motivos), a única que falta na Onda 5.
+**2026-09-17 — Onda 5 fechada.** A fatia 5 (Motivos) foi portada, revisada pelos três
+especialistas sobre a implementação final e verificada na tela. **A suíte de relatórios está
+completa: 5 telas de 5.** Os arquivos da fatia ainda **não foram commitados** — a working
+tree tem o builder, o finder novo, a tela, os componentes, o composable, o service, as rotas,
+o i18n e as specs. Ver seção 4 para o que exatamente mudou.
+
+Próximo passo natural: commitar a fatia 5 e seguir para a Onda 4, 6 ou 3, todas pendentes.
 
 ---
 
@@ -73,7 +75,7 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 2 — Liberar enterprise | ✅ |
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
-| 5 — Relatórios | 🔄 fundação pronta · 5 telas de 6 · **destravada** |
+| 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) |
 | 4 · 6 · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.
@@ -119,7 +121,37 @@ commit. A revisão de banco achou um caso de borda real (`event_end_time` nulo c
 abandono errado) e a de frontend, um cartão assimétrico em 2 das 5 seções sem justificativa
 registrada. Detalhe completo na seção "Fatia 4" da Onda 5 em `plano-port-coraxy.md`.
 
-**Falta uma tela:** Motivos. O que ela precisa de especial está no `plano-port-coraxy.md`.
+**2026-09-17 — fatia 5 fechada, e com ela a Onda 5.** Motivos portada completa, revisada
+pelos três especialistas sobre a implementação final. **Ainda não commitada** — está na
+working tree.
+
+Arquivos novos: `app/builders/v2/reports/motivos_builder.rb`,
+`app/finders/reports/tagged_conversation_finder.rb`,
+`.../reports/Motivos.vue`, `.../reports/components/motivos/` (4 componentes),
+`.../composables/useMotivosReport.js`, `spec/builders/v2/reports/motivos_builder_spec.rb`.
+Alterados: `conversation_ownership_finder.rb` (dois predicados novos no fim,
+`handed_off_condition` e `single_resolution_condition` — o resto intocado),
+`operation_reports_controller.rb`, `config/routes.rb`, `operationReports.js`,
+`reports.routes.js`, `Sidebar.vue`, os 4 arquivos de i18n e o spec do controller.
+
+Três achados que valem lembrar:
+
+- **Bloqueante achado pela revisão de banco:** volume e resolução saíam de duas consultas sem
+  snapshot compartilhado; etiquetar uma conversa no meio da requisição fazia `resolved_count`
+  passar `total` e o percentual estourar 100%. Virou **uma leitura só** com `LEFT JOIN`.
+- **`tags` é tabela GLOBAL** no acts_as_taggable — sem `account_id`, com índice único no nome.
+  Contas diferentes compartilham a linha da etiqueta "financeiro". O isolamento vem inteiro de
+  todo escopo partir de `@account.conversations`. A revisão de segurança confirmou que se
+  sustenta; há spec provando. **Quem mexer em relatório por etiqueta precisa saber disso.**
+- **Armadilha de seed:** `conversation.update!(status: :resolved)` num script de QA dispara o
+  dispatcher real, que grava um SEGUNDO `conversation_resolved` pelo Sidekiq minutos depois —
+  o relatório então via 2 resoluções e zerava o FCR. `qa_setup_motivos.rb` usa
+  `update_columns` por isso. **Os seeds das fatias anteriores têm o mesmo padrão e
+  provavelmente o mesmo artefato** — se um número de QA antigo parecer errado, é o primeiro
+  lugar a olhar.
+
+**Decisão de produto registrada:** motivo é escolha explícita. Sem etiqueta selecionada não há
+relatório (e nenhuma consulta é feita); a tela mostra estado de configuração, não "sem dados".
 
 **Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
 e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê
