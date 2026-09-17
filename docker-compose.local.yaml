@@ -1,0 +1,17 @@
+# Override local do docker-compose.production.yaml.
+# O compose de producao fixa POSTGRES_PASSWORD vazio no servico postgres;
+# aqui ele passa a vir do .env, alinhado com o que rails/sidekiq usam.
+#
+# Uso:
+#   docker compose -f docker-compose.production.yaml -f docker-compose.local.yaml up -d
+
+services:
+  postgres:
+    environment:
+      - POSTGRES_DB=chatwoot_production
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    # Ja existe um Postgres no host ocupando a 5432; publica em 5433.
+    # Nao afeta o rails/sidekiq, que falam com o postgres pela rede do compose.
+    ports: !override
+      - '127.0.0.1:5433:5432'

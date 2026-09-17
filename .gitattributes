@@ -1,0 +1,45 @@
+# [FORK] Nao existe .gitattributes no upstream. Este arquivo foi adicionado porque o
+# projeto e desenvolvido no Windows mas executa em containers Linux.
+#
+# Sem isso, com core.autocrlf=true o git converte LF -> CRLF no checkout. Como o compose
+# de desenvolvimento monta o codigo do host dentro do container, o shebang vira
+# "#!/bin/sh\r" e o Linux tenta executar o interpretador "/bin/sh\r", que nao existe.
+# O sintoma e enganoso:
+#
+#   exec docker/entrypoints/rails.sh: no such file or directory
+#
+# ...num arquivo que existe. O stack de producao nao sofre disso porque a imagem tem os
+# arquivos embutidos, gerados num build Linux.
+
+# Padrao: o git decide, mas normaliza para LF no repositorio.
+* text=auto eol=lf
+
+# Executados dentro de containers Linux — nunca podem ter CRLF.
+*.sh              text eol=lf
+*.rb              text eol=lf
+*.erb             text eol=lf
+*.rake            text eol=lf
+Dockerfile        text eol=lf
+*.Dockerfile      text eol=lf
+Gemfile           text eol=lf
+Rakefile          text eol=lf
+*.yml             text eol=lf
+*.yaml            text eol=lf
+docker/entrypoints/*  text eol=lf
+bin/*             text eol=lf
+
+# Binarios: nunca converter.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary
+*.ttf     binary
+*.eot     binary
+*.pdf     binary
+*.zip     binary
+*.gz      binary
+*.mp3     binary
+*.mp4     binary
