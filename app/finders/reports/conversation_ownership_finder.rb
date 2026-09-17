@@ -135,6 +135,45 @@ class Reports::ConversationOwnershipFinder
     SQL
   end
 
+  # [Onda 5 / fatia 5] Houve transferencia do robo para humano nesta conversa.
+  #
+  # NAO e classificacao de dono, e de proposito: uma conversa transferida pode
+  # voltar e ser resolvida pelo robo, e continua tendo havido transferencia. Por
+  # isso Motivos a usa como metrica propria ("quanto o robo passou adiante"), ao
+  # lado da participacao do robo, que essa sim sai de `bot_resolution_condition`.
+  #
+  # Alias proprio (`handoff`), diferente do `never_handed_off_condition` abaixo,
+  # que referencia `reporting_events` sem alias. Aquele so pode ser usado sobre
+  # um escopo de `conversations`; este entra dentro de um FILTER de agregacao
+  # sobre `reporting_events`, onde o nome sem alias seria ambiguo.
+  def handed_off_condition
+    Arel.sql(<<~SQL.squish)
+      EXISTS (
+        SELECT 1 FROM reporting_events handoff
+        WHERE handoff.conversation_id = conversations.id
+          AND handoff.name = 'conversation_bot_handoff')
+    SQL
+  end
+
+  # [Onda 5 / fatia 5] Esta conversa foi resolvida uma unica vez em todo o seu
+  # historico -- nunca reaberta e resolvida de novo (FCR).
+  #
+  # Correlacionado por `conversation_id` e sem recorte de janela de proposito: a
+  # fonte agrupava por conversa com `HAVING COUNT(*) = 1` DENTRO do periodo, o
+  # que contava como "primeira resolucao" uma conversa resolvida em janeiro,
+  # reaberta, e resolvida de novo em fevereiro -- olhando so fevereiro ela
+  # parecia resolvida de primeira. Reabertura e fato do historico da conversa,
+  # nao do recorte que se esta olhando.
+  def single_resolution_condition
+    Arel.sql(<<~SQL.squish)
+      NOT EXISTS (
+        SELECT 1 FROM reporting_events other_resolution
+        WHERE other_resolution.conversation_id = reporting_events.conversation_id
+          AND other_resolution.name = 'conversation_resolved'
+          AND other_resolution.id <> reporting_events.id)
+    SQL
+  end
+
   private
 
   def quoted_human_evidence_events

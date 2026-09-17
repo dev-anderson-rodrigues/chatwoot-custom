@@ -552,6 +552,7 @@ Rails.application.routes.draw do
               get :supervisor, to: 'operation_reports#supervisor'
               get :origem, to: 'operation_reports#origem'
               get :fila_historico, to: 'operation_reports#fila_historico'
+              get :motivos, to: 'operation_reports#motivos'
               get :inbox_label_matrix
               get :first_response_time_distribution
               get :outgoing_messages_count

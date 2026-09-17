@@ -295,4 +295,60 @@ RSpec.describe Api::V2::Accounts::OperationReportsController, type: :request do
       end
     end
   end
+
+  describe 'GET /api/v2/accounts/{account.id}/reports/motivos' do
+    let(:path) { "/api/v2/accounts/#{account.id}/reports/motivos" }
+
+    context 'when authenticated as an agent without report permission' do
+      it 'returns unauthorized' do
+        get path, params: window, headers: agent.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when authenticated as an administrator' do
+      it 'returns the three sections' do
+        get path, params: window.merge(labels: ['financeiro']), headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.keys).to contain_exactly('kpis', 'reasons', 'weekly_evolution')
+      end
+
+      it 'refuses a request without a time window' do
+        get path, params: { labels: ['financeiro'] }, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+
+      # Sem etiqueta escolhida a resposta e valida e vazia, nao um erro: a
+      # selecao e estado da tela, nao contrato quebrado.
+      it 'returns an empty report when no label was selected' do
+        get path, params: window, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body['reasons']).to be_empty
+      end
+
+      it 'accepts the label list and the analysis filters' do
+        inbox = create(:inbox, account: account)
+        team = create(:team, account: account)
+
+        get path, params: window.merge(labels: %w[financeiro suporte], team_id: team.id, inbox_id: inbox.id,
+                                       date_field: 'resolved', agent_type: 'human'),
+                  headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+      end
+
+      it 'refuses a window longer than six months' do
+        get path,
+            params: { since: 400.days.ago.to_i.to_s, until: Time.current.to_i.to_s, labels: ['financeiro'] },
+            headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to eq(I18n.t('errors.reports.date_range_too_long'))
+      end
+    end
+  end
 end

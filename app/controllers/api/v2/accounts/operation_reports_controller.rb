@@ -49,6 +49,11 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
     render json: builder.metrics
   end
 
+  def motivos
+    builder = V2::Reports::MotivosBuilder.new(Current.account, motivos_params)
+    render json: builder.metrics
+  end
+
   private
 
   # Mesma autorizacao do ReportsController: relatorio e coisa de administrador.
@@ -90,5 +95,20 @@ class Api::V2::Accounts::OperationReportsController < Api::V1::Accounts::BaseCon
 
   def fila_historico_params
     params.permit(:since, :until, :team_id, :agent_type).to_h.symbolize_keys
+  end
+
+  # A unica acao da onda com filtro de lista (`labels`), e a unica que oferece
+  # caixa -- Motivos e a tela de analise, nao de acompanhamento. `labels: []` por
+  # ultimo porque `permit` exige os escalares antes do hash de colecao.
+  #
+  # A fonte tambem filtrava por atendente e por status, e os dois foram
+  # deixados de fora: nenhuma tela os envia, e `status` invalido cairia num
+  # `where` que devolve zero em silencio -- estado inconsistente sem aviso, que
+  # e justamente o que o backend.mdc manda nao fazer. O endpoint nasceu nesta
+  # onda e nao tem consumidor externo, entao nao ha compatibilidade a preservar:
+  # quando alguma tela precisar de um dos dois, ele volta com validacao.
+  def motivos_params
+    params.permit(:since, :until, :team_id, :inbox_id, :date_field, :agent_type, labels: [])
+          .to_h.symbolize_keys
   end
 end
