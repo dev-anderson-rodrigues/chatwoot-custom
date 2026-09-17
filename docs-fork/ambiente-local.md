@@ -110,20 +110,14 @@ Detalhes que valem entender:
 - **Não mate o Postgres do host** para "liberar" a 5432. Ele é usado por outras coisas
   nesta máquina.
 
-### O override local não está no repositório
+### O override local está no repositório
 
-Hoje o `docker-compose.local.yaml` aparece como **untracked** no `git status` — não está
-commitado nem no `.gitignore`. Consequência prática: quem clonar o repo não recebe o
-arquivo e o `up` vai falhar sem explicação óbvia.
-
-Duas saídas, e vale decidir antes de mais alguém entrar no projeto:
-
-- **Commitar** — se os ajustes valem para todo mundo (a senha vinda do `.env` vale; a porta
-  5433 é específica desta máquina).
-- **Ignorar** — adicionar ao `.gitignore` e versionar um `docker-compose.local.example.yaml`
-  no lugar, seguindo o padrão do `.env` / `.env.example`.
-
-Enquanto não for decidido, quem clonar precisa recriar o arquivo a partir desta página.
+`docker-compose.local.yaml` e `docker-compose.dev.local.yaml` são commitados
+(`a14c821848`) — os ajustes que carregam (senha vinda do `.env`, `restart: unless-stopped`)
+valem para qualquer máquina. A única parte específica desta máquina são as portas de
+publicação (5433/5434/5436/6380/6381 etc., escolhidas para não colidir com serviços já
+rodando aqui) — se colidir na sua, ajuste as portas localmente e não commite essa mudança
+por cima, para não empurrar o conflito para quem já está com o ambiente de pé.
 
 ---
 
