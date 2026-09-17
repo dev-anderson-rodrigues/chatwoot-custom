@@ -109,8 +109,8 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 2 — Liberar enterprise | ✅ concluída e verificada |
 | 1 — Backend (macros, dashboard apps, my_teams_only) | ✅ concluída e revisada |
 | 1 — Frontend | ✅ as 8 fatias feitas e revisadas |
-| 5 — Relatórios | 🔄 cockpit completo (builder + tela) · atribuição robô×humano **decidida e implementada** · 5 relatórios a portar |
-| 4 · 6 · 3 | pendentes |
+| 5 — Relatórios | ✅ concluída · 5 telas de 5 (a 6ª descartada com motivo) |
+| 3 · 4 · 6 | pendentes |
 
 #### Fatias do frontend da Onda 1
 
