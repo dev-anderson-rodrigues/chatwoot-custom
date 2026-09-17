@@ -1,7 +1,13 @@
-# Handoff — estado em 2026-09-10
+# Handoff — estado em 2026-09-16
 
 Documento de retomada. Leia antes de tocar em qualquer coisa: **o repositório mudou de
 lugar** e o ambiente foi reconstruído.
+
+**2026-09-16 — branch enviada ao remote.** `feature/port-coraxy` tem push feito para
+`origin` (`dev-anderson-rodrigues/chatwoot-custom`, branch nova, sem PR aberto ainda) — os 5
+commits da fatia 4 (ver seção 4) estão lá. Working tree local limpa (só os `qa_setup_*.rb` e
+arquivos de ambiente não versionados de sempre). Próxima sessão pode seguir direto para a
+fatia 5 (Motivos), a única que falta na Onda 5.
 
 ---
 
