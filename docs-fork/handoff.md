@@ -3,13 +3,18 @@
 Documento de retomada. Leia antes de tocar em qualquer coisa: **o repositório mudou de
 lugar** e o ambiente foi reconstruído.
 
-**2026-09-17 — Onda 5 fechada.** A fatia 5 (Motivos) foi portada, revisada pelos três
-especialistas sobre a implementação final e verificada na tela. **A suíte de relatórios está
-completa: 5 telas de 5.** Os arquivos da fatia ainda **não foram commitados** — a working
-tree tem o builder, o finder novo, a tela, os componentes, o composable, o service, as rotas,
-o i18n e as specs. Ver seção 4 para o que exatamente mudou.
+**2026-09-17 — Onda 5 fechada e enviada ao remote.** A fatia 5 (Motivos) foi portada,
+revisada pelos três especialistas e verificada na tela. Suíte de relatórios completa: 5
+telas de 5. Commitado e com push feito para `origin/feature/port-coraxy`.
 
-Próximo passo natural: commitar a fatia 5 e seguir para a Onda 4, 6 ou 3, todas pendentes.
+**2026-09-17 — Onda 6a em andamento (fatia 1 pronta, ainda não commitada).** Favicon e
+manifest.json dinâmicos (liam sempre o logo/nome do Chatwoot, agora leem `LOGO_THUMBNAIL`/
+`INSTALLATION_NAME`/`BRAND_NAME`). Ver seção 4a. Working tree tem o controller novo, as
+rotas, o layout alterado, 24 arquivos estáticos removidos de `public/`, `.rubocop.yml` e as
+specs — nada disso foi commitado ainda.
+
+Próximo passo natural: commitar a fatia 1 da Onda 6a, decidir se a fatia 2 (cor de destaque)
+entra na mesma sessão ou fica para depois, e seguir a ordem do plano (Onda 4 depois de 6a).
 
 ---
 
@@ -75,8 +80,9 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 2 — Liberar enterprise | ✅ |
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
-| 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) |
-| 4 · 6 · 3 | pendentes |
+| 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) · push feito |
+| 6a — Marca no super admin | 🔄 fatia 1 pronta (favicon/manifest), não commitada · fatia 2 (cor de destaque) pendente |
+| 4 · 6b · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.
 
@@ -152,6 +158,41 @@ Três achados que valem lembrar:
 
 **Decisão de produto registrada:** motivo é escolha explícita. Sem etiqueta selecionada não há
 relatório (e nenhuma consulta é feita); a tela mostra estado de configuração, não "sem dados".
+
+**2026-09-17 — Onda 6a, fatia 1 pronta (favicon/manifest dinâmicos), ainda não commitada.**
+`manifest.json` e os ícones `apple-touch-icon*` liam sempre o logo/nome do Chatwoot, hardcoded
+— agora leem `LOGO_THUMBNAIL`/`INSTALLATION_NAME`/`BRAND_NAME` da config, sem restart.
+
+Arquivo novo: `app/controllers/manifests_controller.rb` (rota pública, sem sessão — mesmo
+padrão de `widgets_controller.rb`). Alterados: `config/routes.rb`, `app/views/layouts/
+vueapp.html.erb`, `.rubocop.yml` (exceção nova), `spec/controllers/dashboard_controller_spec.rb`.
+Novo: `spec/controllers/manifests_controller_spec.rb`. **24 arquivos PNG/JSON removidos de
+`public/`** (confirmado via grep no repo inteiro que nada mais os referenciava).
+
+Achado técnico que vale lembrar: **`config.public_file_server.enabled` roda antes do
+router** — com `public/manifest.json` existindo, uma rota Rails para `/manifest.json` nunca
+seria alcançada. Precisou remover o arquivo estático para a rota funcionar. Mesma lógica para
+`apple-touch-icon.png`/`apple-touch-icon-precomposed.png` (convenção do Safari/iOS, path fixo
+sem `<link>`).
+
+Achado que **derrubou uma hipótese minha**: achei que `DISPLAY_MANIFEST` não tinha seed
+padrão (banco de teste "limpo" devolvia nil). O `backend-engineering` achou a causa real —
+`db:migrate` roda `ConfigLoader.new.process` via `db_enhancements.rake`, populando toda
+config ausente com o default do YAML, em qualquer instalação real. O "banco limpo" é só como
+o RSpec prepara o schema de teste (via `schema.rb`, que pula esse hook) — padrão já conhecido
+no projeto, não dívida nova. **Lição: não generalizar do banco de teste para produção sem
+checar o mecanismo de seed real.**
+
+Bug real que a revisão achou (corrigido): `icon_mime_type` quebrava com query string na URL
+(`logo.svg?v=2` virava mime `image/png` em vez de `svg+xml`) — comum em qualquer CDN com
+cache-busting. E um edge case (corrigido): `LOGO_THUMBNAIL` vazio faria o redirect do
+apple-touch-icon virar loop; agora devolve 404.
+
+Não tocado, de propósito: o mecanismo de favicon com "badge" de notificação
+(`faviconHelper.js`), que depende de 3 pares de arquivo fixo e não pode virar dinâmico sem
+composição de imagem real — fora do escopo desta fatia.
+
+Detalhe completo na seção "Fatia 1" da Onda 6a em `plano-port-coraxy.md`.
 
 **Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
 e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê

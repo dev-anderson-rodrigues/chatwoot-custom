@@ -1941,14 +1941,111 @@ Ele está atrás de `ChatwootHub.pricing_plan != 'community'` → **a Onda 2 já
 
 #### O que falta construir
 
-- [ ] Validar a aba `custom_branding` renderizada após a Onda 2 (é código enterprise pouco exercitado em self-hosted)
-- [ ] **Favicon e manifest**: hoje o conjunto em `public/` é estático. Para marca trocável, servir a partir de `LOGO_THUMBNAIL` em vez dos arquivos fixos — é a maior lacuna real
+- [x] Validar a aba `custom_branding` renderizada após a Onda 2 — ver fatia 1
+- [x] **Favicon e manifest**: hoje o conjunto em `public/` é estático. Para marca trocável, servir a partir de `LOGO_THUMBNAIL` em vez dos arquivos fixos — ver fatia 1
 - [ ] **Estender `custom_branding_options`** com o que o produto precisa e ainda não é config: cor de destaque da marca, wallpaper do chat, mascote do loader
-- [ ] Trocar os assets hardcoded que a Coraxy adicionou (`crow-loader.gif`, `chat-pattern*.png`) por referências a config, para não amarrar o produto a uma marca
-- [ ] Conferir `RESTART_REQUIRED_CONFIG_KEYS`: parte das chaves de marca exige restart — a UI já avisa, mas confirmar quais entram nesse conjunto
+- [ ] Trocar os assets hardcoded que a Coraxy adicionou (`crow-loader.gif`, `chat-pattern*.png`) por referências a config — **N/A por enquanto**: esses arquivos são da Onda 4 (ainda não portada), não existem neste repo hoje; revisitar quando a Onda 4 os introduzir
+- [x] Conferir `RESTART_REQUIRED_CONFIG_KEYS`: nenhuma das 10 chaves de `custom_branding` está na lista (`app/models/installation_config.rb`) — toda mudança de marca já é imediata, sem restart
 - [ ] `theme/colors.js`, `theme/icons.js` — decidir o que é tema do produto (código) e o que é marca do cliente (config)
 
 > Vale separar desde já dois conceitos que vão se confundir: **tema do produto** (design system, fixo no código) e **marca da instalação** (logo, nome, URLs, cor de destaque — em config). Misturar os dois é o que obriga a rebuild a cada cliente.
+
+##### Fatiamento
+
+| # | Fatia | Estado |
+|---|---|---|
+| 1 | Favicon e manifest dinâmicos | ✅ |
+| 2 | Cor de destaque em `custom_branding_options` (consumida no manifest) | ⏳ |
+
+##### Fatia 1 — resolvida. Favicon e manifest dinâmicos
+
+O `<head>` do dashboard citava ~24 arquivos PNG e um `manifest.json`, todos
+estáticos e com o logo/nome do **Chatwoot**, dentro de um bloco condicional
+`<% if @global_config['DISPLAY_MANIFEST'] %>`. Numa instalação com marca
+customizada — o objetivo inteiro desta onda —, esses ícones nunca refletiam a
+marca configurada. Um `<link rel="icon" sizes="512x512">` fora desse bloco já
+lia de `LOGO_THUMBNAIL` dinamicamente (pré-existente); o resto, não.
+
+**Achado que muda a abordagem: `config.public_file_server.enabled` roda antes
+do router.** Com `public/manifest.json` existindo, uma rota Rails para
+`/manifest.json` nunca seria alcançada — o middleware de arquivo estático
+intercepta a requisição primeiro. O mesmo vale para `apple-touch-icon.png` e
+`apple-touch-icon-precomposed.png`, os dois caminhos de convenção que
+Safari/iOS buscam sem nenhuma tag `<link>`, cujos arquivos existiam em
+`public/` como stubs de 0 bytes. Tornar isso dinâmico exigiu remover os
+arquivos estáticos e responder por controller.
+
+**Descoberta lateral, fora do escopo desta fatia.** `faviconHelper.js` troca o
+favicon por uma versão com "badge" (bolinha de notificação) quando há mensagem
+não lida, usando 3 pares de arquivo fixo (`favicon-{16,32,96}px` +
+`favicon-badge-{16,32,96}px`). Esse mecanismo **não foi tocado**: reproduzir o
+badge dinamicamente sobre um logo arbitrário exige composição de imagem real,
+que não existe no projeto. Efeito colateral pré-existente, não introduzido
+aqui: com `DISPLAY_MANIFEST` desligado (opção que uma instalação white-label
+provavelmente escolhe, para não mostrar "metadado padrão do Chatwoot"), o
+seletor `.favicon` não encontra nenhum elemento e o badge de notificação vira
+no-op silencioso. Registrado para quem tocar em favicon de novo — não é
+regressão desta fatia.
+
+**Decisões de implementação:**
+- `ManifestsController` (público, sem sessão — mesmo padrão de
+  `widgets_controller.rb`, adicionado à mesma exceção em
+  `.rubocop.yml#Rails/ApplicationController`) responde `/manifest.json` e
+  redireciona (302, não proxy) os dois caminhos de `apple-touch-icon*` para
+  `LOGO_THUMBNAIL`.
+- `LOGO_THUMBNAIL` é campo de texto livre (URL), sem upload nem processamento
+  de imagem no servidor — o manifest declara dois tamanhos (`192x192` e
+  `512x512`, o mínimo para elegibilidade de instalação PWA no Chrome) apontando
+  para a mesma URL, em vez de inventar tamanhos que a config não tem.
+- Os 9 `<link rel="apple-touch-icon" sizes="NxN">` (nove arquivos Chatwoot)
+  viraram 1 só, sem `sizes` — Safari aceita um ícone sem `sizes` como fallback
+  universal, e declarar nove tamanhos que a imagem não tem seria inventar
+  metadado.
+- 24 arquivos estáticos removidos de `public/` (confirmado, via grep no repo
+  inteiro, que nenhum outro código os referenciava antes de apagar).
+
+**O que a revisão do `backend-engineering` mudou:**
+- **Bug real, corrigido:** `icon_mime_type` extraía a extensão da URL crua —
+  um CDN com cache-busting (`logo.svg?v=2`, comum em qualquer setup com
+  invalidação de cache) devolvia `.svg?v=2`, não batia com nenhum `when`, e o
+  manifest anunciava um SVG como `image/png`. Corrigido extraindo o `path` via
+  `URI.parse` antes do `File.extname`.
+- **Edge case real, corrigido:** `LOGO_THUMBNAIL` vazio faria
+  `redirect_to("")` resolver para a própria rota — loop de redirect que só o
+  navegador corta depois de várias voltas. `apple_touch_icon` agora devolve
+  404 nesse caso; o manifest devolve `icons: []` em vez de uma entrada com
+  `src` em branco.
+- **Confirmado como correto, não achado:** o redirect com `allow_other_host:
+  true` para uma URL de config não é abertura de redirect — `LOGO_THUMBNAIL`
+  só é editável por super admin, e o próprio código já trata esse nível de
+  confiança sem validação de host em outro lugar (`BRAND_URL` vira `href`
+  direto em `_footer.html.erb`, dois lugares, sem checagem de host).
+- **Hipótese minha, derrubada com evidência:** eu tinha achado que
+  `DISPLAY_MANIFEST` não tinha seed padrão (banco de teste "limpo" devolvia
+  nil). O revisor achou a causa real em `lib/tasks/db_enhancements.rake`:
+  `db:migrate` é `enhance`d para rodar `ConfigLoader.new.process`, que cria
+  toda `InstallationConfig` ausente com o default do YAML — isso roda em toda
+  instalação real (`db:chatwoot_prepare` chama `db:seed` numa instalação
+  nova). O "banco limpo" que eu vi é particularidade de como o RSpec prepara o
+  schema de teste (via `schema.rb`, que pula esse hook), **um padrão já
+  conhecido e documentado no projeto** (`spec/models/user_spec.rb` já chama
+  `ConfigLoader.new.process` manualmente quando precisa). Não é dívida nova,
+  não precisou mexer em seeds — só os specs precisam popular a config que
+  usam, o que já faziam.
+- **Registrado, não corrigido (limitação de plataforma, não bug):** o padrão
+  de instalação de `LOGO_THUMBNAIL` é um `.svg`, e historicamente Safari/iOS
+  não renderiza SVG como `apple-touch-icon` (espera PNG). Numa instalação sem
+  logo customizado, "Adicionar à Tela de Início" no iPhone provavelmente cai
+  no ícone genérico do iOS. Pré-existente à config atual, não uma regressão
+  desta fatia — mas vale que quem abrir um ticket sobre isso saiba que é
+  limitação conhecida, não bug novo.
+
+Verificado contra o servidor real (curl e navegador): trocar
+`INSTALLATION_NAME`/`BRAND_NAME`/`LOGO_THUMBNAIL` no banco reflete no
+`<title>`, na descrição, no manifest e nos ícones **sem restart**; com
+`DISPLAY_MANIFEST` desligado, só sobra o ícone dinâmico de 512px, nenhuma
+referência morta. 16 exemplos (specs novos + `dashboard_controller_spec.rb`),
+0 falhas. Rubocop limpo.
 
 #### Infra e i18n (independentes da marca)
 
