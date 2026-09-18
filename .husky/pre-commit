@@ -1,11 +1,28 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
+# [FORK] Neste projeto as dependencias vivem no container, nao no host: o
+# node_modules/ do host fica vazio e o bundler pode nem existir aqui. O hook
+# original chamava `npx --no-install lint-staged`, que em npm recente tenta
+# instalar mesmo assim e aborta o commit com "missing packages".
+#
+# Os linters passam a ser melhor esforco: rodam quando a ferramenta esta
+# instalada e sao pulados quando nao esta, em vez de bloquear o commit. O CI
+# continua sendo a barreira que vale.
+
 # lint js and vue files
-npx --no-install lint-staged
+if [ -x node_modules/.bin/lint-staged ]; then
+  node_modules/.bin/lint-staged
+else
+  echo "pre-commit: lint-staged nao instalado no host, pulando lint de JS/Vue"
+fi
 
 # lint only staged ruby files that still exist (not deleted)
-git diff --name-only --cached | xargs -I {} sh -c 'test -f "{}" && echo "{}"' | grep '\.rb$' | xargs -I {} bundle exec rubocop --force-exclusion -a "{}" || true
+if bundle exec rubocop --version >/dev/null 2>&1; then
+  git diff --name-only --cached | xargs -I {} sh -c 'test -f "{}" && echo "{}"' | grep '\.rb$' | xargs -I {} bundle exec rubocop --force-exclusion -a "{}" || true
 
-# stage rubocop changes to files
-git diff --name-only --cached | xargs -I {} sh -c 'test -f "{}" && git add "{}"' || true
+  # stage rubocop changes to files
+  git diff --name-only --cached | xargs -I {} sh -c 'test -f "{}" && git add "{}"' || true
+else
+  echo "pre-commit: rubocop nao disponivel no host, pulando lint de Ruby"
+fi

@@ -90,7 +90,7 @@ const showDivider = index => {
         ]"
         @click="selectTab(index)"
       >
-        {{ tab.label }} {{ tab.count ? `(${tab.count})` : '' }}
+        {{ tab.label }} {{ tab.count !== undefined ? `(${tab.count})` : '' }}
       </button>
       <div
         v-if="index < tabs.length - 1"

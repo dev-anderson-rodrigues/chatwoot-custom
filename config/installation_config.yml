@@ -55,6 +55,10 @@
   display_title: 'Chatwoot Metadata'
   description: 'Display default Chatwoot metadata like favicons and upgrade warnings'
   type: boolean
+- name: BRAND_ACCENT_COLOR
+  value: '#2781F6'
+  display_title: 'Brand Accent Color'
+  description: 'Hex color (e.g. #2781F6) used as the theme color for the installable app manifest and mobile browser chrome'
 # ------- End of Branding Related Config ------- #
 
 # ------- Signup & Account Related Config ------- #
@@ -327,12 +331,17 @@
 # ------- End of Chatwoot Internal Config for Cloud ----#
 
 # ------- Chatwoot Internal Config for Self Hosted ----#
+# [FORK] Este fork opera como enterprise. O plano e uma configuracao local: o
+# Custom::Internal::CheckNewVersionsJob impede que a resposta do hub sobrescreva
+# estas duas chaves. Sao os defaults de instalacao nova -- o ConfigLoader roda
+# com reconcile_only_new e nao mexe em instalacao que ja existe (para essas, usar
+# `rake dev:variant_toggle` ou editar no super admin).
 - name: INSTALLATION_PRICING_PLAN
-  value: 'community'
-  description: 'The pricing plan for the installation, retrieved from the billing API'
+  value: 'enterprise'
+  description: 'The pricing plan for the installation'
 - name: INSTALLATION_PRICING_PLAN_QUANTITY
-  value: 0
-  description: 'The number of licenses purchased for the installation, retrieved from the billing API'
+  value: 100000
+  description: 'The number of licenses available for the installation'
 - name: CHATWOOT_SUPPORT_WEBSITE_TOKEN
   value:
   description: 'The Chatwoot website token, used to identify the Chatwoot inbox and display the "Contact Support" option on the billing page'

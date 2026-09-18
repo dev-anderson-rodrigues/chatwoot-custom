@@ -30,6 +30,7 @@ module Enterprise::SuperAdmin::AppConfigsController
       TERMS_URL
       PRIVACY_URL
       DISPLAY_MANIFEST
+      BRAND_ACCENT_COLOR
     ]
   end
 

@@ -210,6 +210,7 @@ useEventListener(document, 'mouseup', onResizeEnd);
 useEventListener(document, 'touchmove', onResizeMove, { passive: false });
 useEventListener(document, 'touchend', onResizeEnd);
 
+const dashboardApps = useMapGetter('dashboardApps/getRecords');
 const inboxes = useMapGetter('inboxes/getInboxes');
 const labels = useMapGetter('labels/getLabelsOnSidebar');
 const allUnreadCount = useMapGetter(
@@ -253,6 +254,7 @@ onMounted(() => {
   store.dispatch('attributes/get');
   store.dispatch('customViews/get', 'conversation');
   store.dispatch('customViews/get', 'contact');
+  store.dispatch('dashboardApps/get');
 });
 
 watch([accountId, hasConversationUnreadCounts], fetchConversationUnreadCounts, {
@@ -333,6 +335,36 @@ const closeMobileSidebar = () => {
 
 const newReportRoutes = () => [
   {
+    name: 'Reports Supervisor',
+    label: t('SIDEBAR.REPORTS_SUPERVISOR'),
+    to: accountScopedRoute('supervisor_reports'),
+  },
+  {
+    name: 'Reports Origem',
+    label: t('SIDEBAR.REPORTS_ORIGEM'),
+    to: accountScopedRoute('origem_reports'),
+  },
+  {
+    name: 'Reports Fila',
+    label: t('SIDEBAR.REPORTS_FILA'),
+    to: accountScopedRoute('fila_historico_reports'),
+  },
+  {
+    name: 'Reports Cockpit',
+    label: t('SIDEBAR.REPORTS_COCKPIT'),
+    to: accountScopedRoute('cockpit_atendentes_reports'),
+  },
+  {
+    name: 'Reports Ownership',
+    label: t('SIDEBAR.REPORTS_OWNERSHIP'),
+    to: accountScopedRoute('ownership_reports'),
+  },
+  {
+    name: 'Reports Motivos',
+    label: t('SIDEBAR.REPORTS_MOTIVOS'),
+    to: accountScopedRoute('motivos_reports'),
+  },
+  {
     name: 'Reports Agent',
     label: t('SIDEBAR.REPORTS_AGENT'),
     to: accountScopedRoute('agent_reports_index'),
@@ -358,6 +390,37 @@ const newReportRoutes = () => [
 ];
 
 const reportRoutes = computed(() => newReportRoutes());
+
+// [Fatia 8] Dashboard app so aparece na barra lateral quando o admin marcou
+// `show_in_sidebar`. Marcando tambem `pin_to_sidebar`, ele sobe de item dentro
+// do grupo "Apps" para entrada de primeiro nivel, ao lado de Relatorios e
+// Campanhas -- o caso do app que a operacao usa o dia inteiro.
+const dashboardAppMenuItems = computed(() => {
+  const sidebarApps = dashboardApps.value.filter(app => app.show_in_sidebar);
+  const pinned = sidebarApps.filter(app => app.pin_to_sidebar);
+  const grouped = sidebarApps.filter(app => !app.pin_to_sidebar);
+
+  const appLeaf = app => ({
+    name: `dashboard-app-${app.id}`,
+    label: app.title,
+    icon: 'i-lucide-layout-grid',
+    to: accountScopedRoute('dashboard_app_page', { appId: app.id }),
+  });
+
+  return [
+    ...pinned.map(appLeaf),
+    ...(grouped.length
+      ? [
+          {
+            name: 'Apps',
+            label: t('SIDEBAR.APPS'),
+            icon: 'i-lucide-layout-grid',
+            children: grouped.map(appLeaf),
+          },
+        ]
+      : []),
+  ];
+});
 
 const menuItems = computed(() => {
   return [
@@ -724,6 +787,7 @@ const menuItems = computed(() => {
         },
       ],
     },
+    ...dashboardAppMenuItems.value,
     {
       name: 'Portals',
       label: t('SIDEBAR.HELP_CENTER.TITLE'),

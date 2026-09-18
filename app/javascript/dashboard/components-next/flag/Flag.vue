@@ -19,6 +19,18 @@ const renderFlag = () => {
   <component :is="renderFlag" />
 </template>
 
-<style>
-@import 'flag-icons/css/flag-icons.min.css';
-</style>
+<!--
+  [FORK] O `@import 'flag-icons/css/flag-icons.min.css'` que ficava aqui foi
+  movido para uma tag <link> em app/views/layouts/vueapp.html.erb, apontando
+  para public/flag-icons/.
+
+  Motivo: esse CSS tem 540 `url()` para SVGs, e cada uma vira uma resolucao de
+  asset individual no Vite. Em dev, sobre o bind mount 9p do Docker Desktop no
+  Windows, esse modulo simplesmente nunca terminava de compilar (medido: 765s e
+  1062s sem completar) -- e como Flag.vue esta no grafo do entrypoint do
+  dashboard, ele travava a aplicacao inteira em tela branca. Para comparacao, os
+  outros 3.582 modulos do dashboard carregam em 122s sem uma falha.
+
+  Servido como asset estatico o CSS sai do pipeline do Vite: as bandeiras
+  continuam identicas, e o build de producao ainda economiza as 540 resolucoes.
+-->

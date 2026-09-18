@@ -1,0 +1,147 @@
+# Frontend Architecture & Clean Architecture Rules
+
+## 1) Arquitetura de domínio do frontend
+
+O frontend deste projeto é um monólito Vue 3 com múltiplos entrypoints e um sistema compartilhado de design. A regra central é manter a camada de interface “densa” em apresentação e empurrar regra de negócio e estado complexo para composables, stores e serviços.
+
+### Camadas principais
+
+#### 1.1 Camada de visualização / UI
+- `app/javascript/dashboard/`: dashboards e telas operacionais.
+- `app/javascript/portal/`: portal do cliente.
+- `app/javascript/widget/`: widget embutido para chat.
+- `app/javascript/sdk/`: SDK e integrações de runtime.
+- `app/javascript/superadmin_pages/`: telas administrativas.
+- `app/javascript/design-system/`: componentes compartilhados do design system.
+- `app/javascript/v3/`: padrões novos e migração de interfaces.
+- `app/javascript/components-next/`: componentes mais modernos e preferidos para conteúdo de mensagens.
+
+#### 1.2 Camada de estado e domínio do cliente
+- `stores/` e Pinia: estado global da aplicação, sessão, cache, fluxo de UI e dados de domínio.
+- `composables/`: lógica reusável, validação, composição de estados reativos, fetch e regras do cliente.
+- `services/`: cliente HTTP, adaptação de API, normalização e orchestration de dados.
+- `utils/`: helpers puros e funções compartilhadas.
+
+#### 1.3 Camada de dados e integração
+- O componente não deve conhecer detalhes da API.
+- O serviço adapta dados brutos e centraliza contratos.
+- A camada de apresentação recebe dados já normalizados.
+
+### Direção das dependências
+- Componente depende de stores/composables/serviços.
+- Composable não deve depender de DOM/estrutura visual.
+- Store não deve conter regras de estilo ou markup.
+- Serviço não deve conhecer detalhes de renderização.
+
+## 2) Padrões de agentes / serviços no frontend
+
+### Regra base
+Toda lógica de negócio, carga de dados, transformação de payload e validação complexa deve ficar fora do template.
+
+### Padrão recomendado
+- `Component`: renderização e interação leve.
+- `Composable`: lógica reutilizável, estado reativo e fluxo funcional.
+- `Store`: estado compartilhado e orchestration de ação de feature.
+- `Service`: comunicação com API, mapping e encapsulamento de contrato.
+- `Utils`: funções puras e independentes.
+
+### Quando usar cada um
+- Usar composable para filtros, formulários, debounce, carregamento de dados, watchers reativos e regras de negócio do cliente.
+- Usar store para dados globais e estados compartilhados entre telas.
+- Usar service para qualquer integração com backend, payload mapping e tratamento de resposta.
+- Usar utils para lógica pura, sem estado e sem dependência de framework.
+
+### Regras de agente/serviço
+- Componentes não fazem fetch diretamente quando isso pode ser centralizado.
+- Serviços devem mapear a resposta do backend para formato de domínio do frontend.
+- Composables devem ser reutilizáveis e não acoplados a uma tela específica.
+- Store não deve virar “sujeira de UI”; ele deve coordenar dados e ações de forma clara.
+- Evitar funções gigantes em component; quebrar em composables e helpers.
+
+## 3) Regras para PRs e revisão de código no frontend
+
+### Critérios de PR
+- O PR deve focar em uma feature ou correção clara.
+- A mudança deve respeitar design system e padrões existentes.
+- O código deve evitar duplicação de lógica de estado, fetch e regras de validação.
+- Componentes grandes e monolíticos devem ser quebrados em partes menores e reutilizáveis.
+- Visual e comportamento devem ser validados em tela, não só pela leitura do código.
+
+### Checklist de revisão de frontend
+- O componente está apresentando apenas UI e eventos?
+- A regra de negócio foi movida para composable/store/service?
+- A API está centralizada e não espalhada por tela?
+- O código respeita Tailwind e design system?
+- Há acessibilidade mínima (focus, labels, semântica, keyboard)?
+- Há loading/empty/error states quando necessário?
+- Houve duplicação de estilos ou CSS custom sem necessidade?
+- A mudança preserva responsividade e consistência visual?
+
+### Regras de revisão de código
+- Revisar arquitetura antes de estética superficial.
+- Não aprovar component que coloca fetch, regra de negócio e manipulação de DOM no mesmo bloco.
+- Exigir reutilização do design system e dos composables existentes.
+- Priorizar hierarquia, usabilidade e consistência em vez de “look fancy”.
+- Exigir que strings visíveis fiquem em i18n e que branding/white-label sejam respeitados.
+
+### PR conventions
+- Descrever a mudança em termos de produto e UX.
+- Explicar impacto real da feature, não somente técnica.
+- Separar feature, fix e refactor quando houver.
+- Evitar PRs que misturam mudança visual, regra de negócio e refactor sem necessidade.
+
+## 4) Regras de estilo e UX
+- Sempre usar Tailwind.
+- Não escrever CSS customizado quando o projeto já tem utilitários para isso.
+- Não usar CSS scoped.
+- Não usar inline styles para decisões de layout/estrutura.
+- Preferir tokens e utilitários do design system.
+- Usar lógica RTL (`ms`, `me`, `start`, `end`) onde necessário.
+- Usar `rem` para dimensões arbitrárias quando necessário.
+- Usar a nova arquitetura de interface e componentes do projeto, especialmente em áreas de mensagem e chat.
+
+## 5) i18n e conteúdo
+- Nenhuma string visível deve ficar hardcoded em template.
+- Usar `vue-i18n` e arquivos de locale existentes.
+- Evitar copiar textos de marca em UI quando o projeto já oferece branding helpers.
+- Preservar identificadores de máquina, OAuth scopes e valores de API.
+
+## 6) Estado, dados e transição de tela
+- Estado da aplicação deve ser explícito e previsível.
+- Dados assíncronos devem ter loading, empty e error state.
+- Normalizar payloads antes de renderizar ou persistir localmente.
+- Separar dados vindos da API do estado de UI.
+- Evitar mutação direta de resposta em componente.
+
+## 7) Anti-patterns a evitar
+- Fetch direto em componentes.
+- Regra de negócio em template.
+- Mutação de dados em view.
+- CSS custom e hacks de layout sem padrão existente.
+- Lógica duplicada em várias páginas.
+- Componente monolítico com muitos estados e responsabilidades.
+- Strings hardcoded, branch de produto sem i18n.
+- PRs grandes e sem isolamento funcional.
+
+## 8) Chatwoot-specific guidance
+- Preferir design system e padrões atuais do projeto antes de criar componentes novos.
+- Verificar se o comportamento afeta versões enterprise, dashboard, portal, widget ou SDK.
+- Manter compatibilidade de contratos entre áreas da aplicação.
+- Respeitar white-labeling e branding em textos visíveis.
+
+## 9) Testes e validação
+- Testar comportamento real do usuário, não detalhes de implementação.
+- Priorizr testes de componente e integração.
+- Validar estado de UI e transição de dados, não apenas mocks.
+- Usar Vitest + Vue Test Utils.
+- Rodar lint/testes relevantes antes de concluir.
+
+## 10) Instrução padrão para o Claude
+Ao implementar frontend:
+1. Reusar design system e padrões locais antes de criar componentes novos.
+2. Manter componentes focados em apresentação e eventos.
+3. Mover regra de negócio para composables, stores e serviços.
+4. Respeitar Tailwind-only, i18n e acessibilidade.
+5. Não esconder lógica de API em template ou component.
+6. Validar visualmente e com testes relevantes antes de concluir.
+7. Revisar o PR como revisão de arquitetura de UX e frontend, não apenas de código.

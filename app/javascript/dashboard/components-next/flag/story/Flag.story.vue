@@ -3,6 +3,18 @@ import { ref } from 'vue';
 import Flag from '../Flag.vue';
 import countries from 'shared/constants/countries';
 
+// [FORK] O CSS do flag-icons e carregado pelo layout do dashboard
+// (app/views/layouts/vueapp.html.erb), que nao existe no Histoire. Sem isto as
+// bandeiras apareceriam em branco aqui. Ver o comentario no Flag.vue para o
+// motivo de o CSS ter saido do pipeline do Vite.
+const FLAG_ICONS_CSS = '/flag-icons/css/flag-icons.min.css';
+if (!document.querySelector(`link[href="${FLAG_ICONS_CSS}"]`)) {
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = FLAG_ICONS_CSS;
+  document.head.appendChild(link);
+}
+
 const BasicTemplate = {
   components: { Flag },
   props: {

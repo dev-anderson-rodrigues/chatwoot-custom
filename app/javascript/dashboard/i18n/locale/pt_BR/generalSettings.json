@@ -259,7 +259,8 @@
     }
   },
   "DASHBOARD_APPS": {
-    "LOADING_MESSAGE": "Carregando Aplicativo..."
+    "LOADING_MESSAGE": "Carregando Aplicativo...",
+    "NOT_FOUND": "Este aplicativo não está mais disponível."
   },
   "COMMON": {
     "OR": "Ou",

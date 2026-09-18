@@ -1,5 +1,365 @@
 {
   "REPORT": {
+    "OWNERSHIP": {
+      "TITLE": "Bot and human",
+      "DESCRIPTION": "How much the bot closed on its own, how much reached the team, and how long each side took.",
+      "ERROR": "Could not load the report. Try again.",
+      "EMPTY": "No conversation was closed in this period.",
+      "VARIATION": "Compared to the previous period of the same length",
+      "CRITERION": "A conversation counts as the bot's when it was closed without ever being opened or assigned to someone. The Bots report uses a different rule, so the numbers there will not match.",
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days"
+      },
+      "KPI": {
+        "BOT_RESOLUTIONS": "Closed by the bot",
+        "HUMAN_RESOLUTIONS": "Closed by people",
+        "BOT_SHARE": "Bot share",
+        "HANDOFFS": "Handed to people",
+        "BOT_AVG_RESOLUTION": "Bot handling time",
+        "HUMAN_AVG_RESOLUTION": "Human handling time",
+        "FIRST_RESPONSE": "First response"
+      }
+    },
+    "SUPERVISOR": {
+      "TITLE": "Live monitoring (Supervisor)",
+      "DESCRIPTION": "Real-time view of active conversations across the operation.",
+      "ERROR": "Could not load the report. Try again.",
+      "AUTO_REFRESH": "Refreshes every 30s",
+      "TEAM_FILTER": "Team",
+      "ALL_TEAMS": "All teams",
+      "CRITERION": "\"Who's handling\" reflects who is conducting each conversation right now, not who eventually resolves it. It can change from one refresh to the next.",
+      "AGENT_TYPE": {
+        "LABEL": "Who's handling",
+        "ALL": "All",
+        "HUMAN": "Human",
+        "BOT": "AI"
+      },
+      "KPI": {
+        "IN_PROGRESS": "In progress",
+        "IN_PROGRESS_NOTE": "Counts every open conversation with an agent. The table below shows {tableCount} because it only marks \"In progress\" once there's been a reply.",
+        "IN_QUEUE": "In queue",
+        "LONGEST_WAIT": "Longest wait",
+        "STALE_IN_QUEUE": "{count} older than {days}d, not counted above",
+        "AGENTS_ONLINE": "Agents online",
+        "AVG_LOAD": "Avg load per agent"
+      },
+      "QUEUE_BY_TEAM": {
+        "TITLE": "Queue by team",
+        "EMPTY": "No team has a conversation in queue or in progress.",
+        "NO_TEAM": "No team",
+        "IN_QUEUE": "In queue",
+        "IN_PROGRESS": "In progress",
+        "AGENTS_ONLINE": "Online"
+      },
+      "TABLE": {
+        "TITLE": "Active conversations",
+        "EMPTY": "No conversation matches the current filters.",
+        "STATUS": "Status",
+        "STATUS_FILTER": {
+          "ALL": "All",
+          "NA_FILA": "In queue",
+          "ATENDENDO": "In progress",
+          "AGUARDANDO": "Waiting"
+        },
+        "CONTACT": "Contact",
+        "AGENT": "Agent",
+        "NO_AGENT": "Unassigned",
+        "INBOX": "Inbox",
+        "PRIORITY": "Priority",
+        "DURATION": "Duration",
+        "LAST_MESSAGE": "Last message"
+      },
+      "AGENTS_PANEL": {
+        "TITLE": "Agents",
+        "EMPTY": "No agent in this account yet.",
+        "STATUS": {
+          "ONLINE": "Online",
+          "BUSY": "Busy",
+          "OFFLINE": "Offline"
+        },
+        "LOAD": "{count} active"
+      },
+      "ALERTS": {
+        "TITLE": "Waiting too long",
+        "EMPTY": "No conversation waiting past the alert threshold.",
+        "MINUTES": "{duration} waiting"
+      }
+    },
+    "ORIGEM": {
+      "TITLE": "Received and Made",
+      "DESCRIPTION": "How many conversations the customer opened and how many the company opened, broken down by team, channel and agent.",
+      "ERROR": "Could not load the data. Try again in a few seconds.",
+      "TEAM_FILTER": "Team",
+      "ALL_TEAMS": "All teams",
+      "RECEBIDOS": "Received",
+      "EFETUADOS": "Made",
+      "CRITERION": "\"Who's handling\" reflects conversations conducted by the AI or by a human, the same live split the Live monitoring screen uses.",
+      "AGENT_TYPE": {
+        "LABEL": "Who's handling",
+        "ALL": "All",
+        "HUMAN": "Human",
+        "BOT": "AI"
+      },
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days",
+        "CUSTOM": "Custom"
+      },
+      "SUMMARY": {
+        "TOTAL": "Total in period",
+        "TOTAL_DESC": "{count} conversations opened",
+        "RECEBIDOS_DESC": "{pct}% · customer reached out",
+        "EFETUADOS_DESC": "{pct}% · company reached out"
+      },
+      "CHART": {
+        "TITLE": "Daily evolution",
+        "HINT": "Isolated spikes in Made are usually automation — a drip campaign or bulk send running in batch.",
+        "EMPTY": "No data in this period."
+      },
+      "ORIGIN": {
+        "TITLE": "Where each made contact comes from",
+        "DESCRIPTION": "{count} conversations opened by the company in the period.",
+        "EMPTY": "No conversation opened by the company in this period.",
+        "KEY": {
+          "CAMPAIGN": "Campaign / bulk send",
+          "BOT": "Bot / proactive AI",
+          "TEMPLATE": "Agent template",
+          "AGENT_DIRECT": "Agent (direct message)",
+          "OTHER": "Other"
+        },
+        "KIND": {
+          "AUTOMATION": "automation",
+          "HUMAN": "human"
+        }
+      },
+      "TEAM": {
+        "TITLE": "By team",
+        "HINT": "Teams with more Made than Received usually work by outreach.",
+        "NO_TEAM": "No team",
+        "EMPTY": "No data",
+        "SHOW_ALL": "Show all ({count})"
+      },
+      "INBOX": {
+        "TITLE": "By channel",
+        "HINT": "Only channels that allow the company to start a conversation show up on both sides.",
+        "EMPTY": "No data"
+      },
+      "AGENT": {
+        "TITLE": "By agent",
+        "DESCRIPTION": "Groups conversations by the assigned agent. Conversations without an agent show up as \"Unassigned\".",
+        "NO_AGENT": "Unassigned",
+        "EMPTY": "No data",
+        "TABLE": {
+          "AGENT": "Agent",
+          "RECEBIDOS": "Received",
+          "EFETUADOS": "Made",
+          "TOTAL": "Total"
+        },
+        "SHOW_ALL": "Show all ({count})",
+        "SHOW_LESS": "Show less"
+      }
+    },
+    "MOTIVOS": {
+      "TITLE": "Reasons",
+      "DESCRIPTION": "Volume, handling time and resolution by contact reason. A reason is a label you choose — pick which labels count below.",
+      "ERROR": "Could not load the data. Try again in a few seconds.",
+      "TEAM_FILTER": "Team",
+      "ALL_TEAMS": "All teams",
+      "INBOX_FILTER": "Inbox",
+      "ALL_INBOXES": "All inboxes",
+      "CRITERION": "First-contact resolution looks at the conversation's whole history, not just the selected period — a conversation reopened and resolved again never counts as resolved first time, even if the reopening falls outside the window. \"First-contact\" and \"Solved by AI\" are percentages of resolved conversations; \"Handed off\" is of the total, because a handoff also happens on conversations still open. Bot share uses the same classifier as the other screens in this suite — and looks at the resolution's history, while the \"Who's handling\" split looks at the conversation's current state, so the two can diverge within the AI split. A reason that dropped to zero stays listed so the drop is visible.",
+      "NEEDS_SELECTION": {
+        "TITLE": "Choose which labels are reasons",
+        "DESCRIPTION": "Accounts use labels for many things — priority, channel, campaign. Pick the ones that mean \"reason for contact\" and the report builds itself."
+      },
+      "LABELS": {
+        "LABEL": "Reasons",
+        "SELECT_ALL": "Select all",
+        "CLEAR": "Clear",
+        "NONE_IN_ACCOUNT": "This account has no labels yet."
+      },
+      "AGENT_TYPE": {
+        "LABEL": "Who's handling",
+        "ALL": "All",
+        "HUMAN": "Human",
+        "BOT": "AI"
+      },
+      "DATE_FIELD": {
+        "LABEL": "Count by",
+        "CREATED": "Opened",
+        "RESOLVED": "Closed"
+      },
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days",
+        "CUSTOM": "Custom"
+      },
+      "KPI": {
+        "REASONS_COUNT": "Reasons",
+        "CONVERSATIONS_TOTAL": "Conversations",
+        "TOP_REASON": "Most common",
+        "TOP_REASON_DESCRIPTION": "{count} conversations · {pct}% of the total",
+        "SLOWEST_REASON": "Slowest",
+        "AVG_FCR": "Avg first-contact resolution",
+        "AVG_FCR_DESCRIPTION": "Resolved once, never reopened."
+      },
+      "CHART": {
+        "TITLE": "Weekly trend",
+        "HINT": "Weekly volume of the three highest-volume reasons in the period.",
+        "EMPTY": "No data in this period."
+      },
+      "TABLE": {
+        "TITLE": "By reason",
+        "REASON": "Reason",
+        "TOTAL": "Conversations",
+        "SHARE": "Share",
+        "TREND": "vs previous",
+        "TREND_NEW": "New",
+        "TREND_TITLE": "{count} in the previous period",
+        "AVG_HANDLE": "Avg handling time",
+        "RESOLVED": "Resolved",
+        "FCR": "First-contact",
+        "BOT_RESOLVED": "Solved by AI",
+        "BOT_HANDOFF": "Handed off",
+        "EMPTY": "No data in this period."
+      }
+    },
+    "FILA": {
+      "TITLE": "Queue — History",
+      "DESCRIPTION": "Wait time, volume and abandonment of the queue over time. All wait metrics use the time until an agent's first response.",
+      "ERROR": "Could not load the data. Try again in a few seconds.",
+      "TEAM_FILTER": "Team",
+      "ALL_TEAMS": "All teams",
+      "CRITERION": "\"Who's handling\" reflects conversations conducted by the AI or by a human, the same live split the Live monitoring screen uses. Abandonment only counts a human resolution with no response at all — a bot resolution never counts as abandonment.",
+      "AGENT_TYPE": {
+        "LABEL": "Who's handling",
+        "ALL": "All",
+        "HUMAN": "Human",
+        "BOT": "AI"
+      },
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days",
+        "CUSTOM": "Custom"
+      },
+      "VARIATION": "vs previous period",
+      "KPI": {
+        "TOTAL": "Total in queue",
+        "TOTAL_DESC": "Conversations opened in the selected period, considering the filtered team.",
+        "AVG_WAIT": "Avg wait time",
+        "AVG_WAIT_DESC": "Average time between a conversation opening and an agent's first response.",
+        "MAX_WAIT": "Longest wait",
+        "MAX_WAIT_DESC": "Longest time recorded between a conversation opening and its first response in the period.",
+        "ABANDON_RATE": "Abandon rate",
+        "ABANDON_RATE_DESC": "Percentage of conversations resolved by a human with no agent response at all. {count} conversation(s) in the period."
+      },
+      "CHART": {
+        "VOLUME_TITLE": "Conversation volume",
+        "VOLUME_HINT": "Number of conversations opened per day in the period.",
+        "WAIT_TITLE": "Average wait time (min)",
+        "WAIT_HINT": "Daily average of the time between a conversation opening and the agent's first response.",
+        "EMPTY": "No data in this period."
+      },
+      "TEAM": {
+        "TITLE": "By team",
+        "NO_TEAM": "No team",
+        "EMPTY": "No data in this period.",
+        "TABLE": {
+          "TEAM": "Team",
+          "TOTAL": "Total",
+          "AVG_WAIT": "Avg wait",
+          "MAX_WAIT": "Longest wait",
+          "ABANDONED": "Abandoned"
+        }
+      },
+      "CAPACITY": {
+        "TITLE": "Capacity vs Demand",
+        "HINT": "Estimate: capacity is calculated from the number of agents on the team multiplied by the average handling volume per agent in the period. There's no capacity configured per team in the system.",
+        "EMPTY": "No data in this period.",
+        "AGENTS": "{count} agent(s)"
+      },
+      "AGENT": {
+        "TITLE": "By agent",
+        "DESCRIPTION": "Groups conversations by the assigned agent.",
+        "BOT_HINT": "The AI split considers conversations without an assigned agent, so this panel tends to stay empty.",
+        "NO_AGENT": "Unassigned",
+        "EMPTY": "No data in this period.",
+        "TABLE": {
+          "AGENT": "Agent",
+          "TOTAL": "Handled",
+          "AVG_WAIT": "Avg wait",
+          "MAX_WAIT": "Longest wait",
+          "LOAD_PCT": "% Load"
+        },
+        "SHOW_ALL": "Show all ({count})",
+        "SHOW_LESS": "Show less"
+      }
+    },
+    "COCKPIT": {
+      "TITLE": "Agent cockpit",
+      "DESCRIPTION": "Volume, handling times and satisfaction per agent in the selected period.",
+      "SEARCH_LABEL": "Search",
+      "SEARCH_PLACEHOLDER": "Search by name or email",
+      "CLEAR_SEARCH": "Clear search",
+      "LOADING": "Loading the cockpit...",
+      "ERROR": "Could not load the cockpit. Try again.",
+      "EMPTY": "No agent matches the current filters.",
+      "PERIOD": {
+        "LABEL": "Period",
+        "7D": "7 days",
+        "30D": "30 days",
+        "90D": "90 days",
+        "CUSTOM": "Custom"
+      },
+      "DATE_FIELD": {
+        "LABEL": "Count by",
+        "CREATED": "Opened",
+        "RESOLVED": "Resolved"
+      },
+      "TEAM": {
+        "LABEL": "Team",
+        "ALL": "All teams"
+      },
+      "STATUS": {
+        "LABEL": "Status",
+        "ALL": "All",
+        "ONLINE": "Online",
+        "BUSY": "Busy",
+        "OFFLINE": "Offline"
+      },
+      "KPI": {
+        "AGENTS": "Agents",
+        "ONLINE": "Online",
+        "BUSY": "Busy",
+        "OFFLINE": "Offline",
+        "CONVERSATIONS": "Conversations",
+        "AVG_HANDLE": "Avg handling time",
+        "AVG_CSAT": "Avg CSAT"
+      },
+      "TABLE": {
+        "RANK": "#",
+        "AGENT": "Agent",
+        "TEAM": "Team",
+        "STATUS": "Status",
+        "CONVERSATIONS": "Conversations",
+        "RESOLUTIONS": "Resolved",
+        "AVG_HANDLE": "Handling time",
+        "FIRST_RESPONSE": "First response",
+        "REPLY_TIME": "Reply time",
+        "CSAT": "CSAT",
+        "NO_TEAM": "No team",
+        "NO_CSAT": "No responses"
+      }
+    },
     "HEADER": "Conversations",
     "LOADING_CHART": "Loading chart data...",
     "NO_ENOUGH_DATA": "We've not received enough data points to generate report, Please try again later.",

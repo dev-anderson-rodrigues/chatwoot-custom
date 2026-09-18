@@ -197,6 +197,7 @@ pt_BR:
       no_payment_method: Nenhum método de pagamento encontrado. Por favor, adicione um método de pagamento antes de realizar uma compra.
     reports:
       date_range_too_long: O intervalo de datas não pode exceder 6 meses
+      invalid_time_window: Informe since e until como timestamps Unix, com since anterior a until
   profile:
     mfa:
       enabled: MFA habilitado com sucesso

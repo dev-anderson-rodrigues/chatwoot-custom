@@ -23,6 +23,12 @@ import CsatResponses from './CsatResponses.vue';
 import BotReports from './BotReports.vue';
 import LiveReports from './LiveReports.vue';
 import SLAReports from './SLAReports.vue';
+import CockpitAtendentes from './CockpitAtendentes.vue';
+import RoboHumano from './RoboHumano.vue';
+import MonitoramentoSupervisor from './MonitoramentoSupervisor.vue';
+import RecebidosEfetuados from './RecebidosEfetuados.vue';
+import FilaHistorico from './FilaHistorico.vue';
+import Motivos from './Motivos.vue';
 
 const meta = {
   featureFlag: FEATURE_FLAGS.REPORTS,
@@ -134,6 +140,42 @@ export default {
         },
         ...oldReportRoutes,
         ...revisedReportRoutes,
+        {
+          path: 'cockpit',
+          name: 'cockpit_atendentes_reports',
+          meta,
+          component: CockpitAtendentes,
+        },
+        {
+          path: 'supervisor',
+          name: 'supervisor_reports',
+          meta,
+          component: MonitoramentoSupervisor,
+        },
+        {
+          path: 'origem',
+          name: 'origem_reports',
+          meta,
+          component: RecebidosEfetuados,
+        },
+        {
+          path: 'fila',
+          name: 'fila_historico_reports',
+          meta,
+          component: FilaHistorico,
+        },
+        {
+          path: 'ownership',
+          name: 'ownership_reports',
+          meta,
+          component: RoboHumano,
+        },
+        {
+          path: 'motivos',
+          name: 'motivos_reports',
+          meta,
+          component: Motivos,
+        },
         {
           path: 'sla',
           name: 'sla_reports',

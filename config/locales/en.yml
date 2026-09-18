@@ -215,6 +215,7 @@ en:
       no_payment_method: No payment methods found. Please add a payment method before making a purchase.
     reports:
       date_range_too_long: Date range cannot exceed 6 months
+      invalid_time_window: Provide since and until as Unix timestamps, with since before until
   profile:
     mfa:
       enabled: MFA enabled successfully

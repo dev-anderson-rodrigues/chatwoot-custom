@@ -21,6 +21,105 @@ RSpec.describe Macro do
     end
   end
 
+  describe 'input_fields validation' do
+    def build_macro(input_fields)
+      FactoryBot.build(:macro, account: account, created_by: admin, updated_by: admin, actions: [], input_fields: input_fields)
+    end
+
+    def errors_for(input_fields)
+      macro = build_macro(input_fields)
+      macro.valid?
+      macro.errors[:input_fields]
+    end
+
+    it 'accepts an empty list' do
+      expect(build_macro([])).to be_valid
+    end
+
+    it 'accepts a well formed field' do
+      expect(build_macro([{ 'key' => 'cpf', 'label' => 'CPF', 'type' => 'cpf' }])).to be_valid
+    end
+
+    it 'rejects a non-array' do
+      expect(errors_for('nope')).to include('must be an array')
+    end
+
+    it 'rejects an entry that is not an object' do
+      expect(errors_for(['nope'])).to include('input_fields[0] must be an object')
+    end
+
+    it 'requires a key' do
+      expect(errors_for([{ 'label' => 'X', 'type' => 'text' }])).to include('input_fields[0].key is required')
+    end
+
+    it 'requires the key to be snake_case' do
+      expect(errors_for([{ 'key' => 'CPF Cliente', 'label' => 'X', 'type' => 'text' }]))
+        .to include('input_fields[0].key must be snake_case (lowercase, digits, underscore)')
+    end
+
+    it 'rejects duplicated keys' do
+      fields = [
+        { 'key' => 'cpf', 'label' => 'A', 'type' => 'text' },
+        { 'key' => 'cpf', 'label' => 'B', 'type' => 'text' }
+      ]
+      expect(errors_for(fields)).to include("input_fields[1].key 'cpf' is duplicated")
+    end
+
+    it 'requires a label' do
+      expect(errors_for([{ 'key' => 'cpf', 'label' => '  ', 'type' => 'text' }]))
+        .to include('input_fields[0].label is required')
+    end
+
+    it 'rejects an unsupported type' do
+      expect(errors_for([{ 'key' => 'cpf', 'label' => 'X', 'type' => 'sql' }]))
+        .to include("input_fields[0].type 'sql' is not supported")
+    end
+
+    context 'with a select field' do
+      it 'requires options' do
+        expect(errors_for([{ 'key' => 'motivo', 'label' => 'Motivo', 'type' => 'select' }]))
+          .to include('input_fields[0].options is required for select fields')
+      end
+
+      it 'accepts a field with options' do
+        fields = [{ 'key' => 'motivo', 'label' => 'Motivo', 'type' => 'select',
+                    'options' => [{ 'value' => '1', 'label' => 'Um' }] }]
+        expect(build_macro(fields)).to be_valid
+      end
+    end
+
+    context 'with a lookup field' do
+      let(:base) { { 'key' => 'contrato', 'label' => 'Contrato', 'type' => 'lookup', 'depends_on' => ['cpf'] } }
+
+      it 'requires a lookup_url' do
+        expect(errors_for([base])).to include('input_fields[0].lookup_url is required for lookup fields')
+      end
+
+      it 'requires depends_on to list at least one key' do
+        fields = [base.merge('lookup_url' => 'https://api.example.com/x').except('depends_on')]
+        expect(errors_for(fields)).to include('input_fields[0].depends_on must list at least one key')
+      end
+
+      it 'rejects a non http(s) url' do
+        fields = [base.merge('lookup_url' => 'ftp://api.example.com/x')]
+        expect(errors_for(fields)).to include('input_fields[0].lookup_url must be a valid http(s) URL')
+      end
+
+      it 'accepts a public url' do
+        expect(build_macro([base.merge('lookup_url' => 'https://api.example.com/x')])).to be_valid
+      end
+
+      # Decisao da fatia 5: quem busca e o navegador do agente (MacroExecuteModal),
+      # nao o servidor -- por isso um host interno, so alcancavel pela VPN do
+      # cliente, e um caso de uso valido e nao pode ser bloqueado aqui. A guarda
+      # de SSRF continua valendo para o send_webhook_event, que e quem o servidor
+      # de fato aciona (ver execution_service_spec.rb).
+      it 'accepts a url pointing at a private host, unlike the webhook action guard' do
+        expect(build_macro([base.merge('lookup_url' => 'http://192.168.1.10/contratos')])).to be_valid
+      end
+    end
+  end
+
   describe '#set_visibility' do
     let(:agent) { create(:user, account: account, role: :agent) }
     let(:macro) { create(:macro, account: account, created_by: admin, updated_by: admin, actions: []) }

@@ -17,12 +17,26 @@ const resolvesConversation = macro =>
       (name === 'change_status' && RESOLVED_STATUSES.includes(params?.[0]))
   );
 
+// [FORK] Portoes de pre-execucao, na ordem em que o agente os encontra.
+export const INPUT_FIELDS_GATE = 'input_fields';
+export const ATTRIBUTES_GATE = 'attributes';
+
+const inputFieldsOf = macro => macro.input_fields || [];
+
 /**
- * Runs a macro against a conversation, holding back the ones that resolve it until
- * the required custom attributes are filled in.
+ * Runs a macro against a conversation, holding it back until everything it needs
+ * is filled in.
  *
- * `execute` returns the attributes to prompt for when the caller has to open the
- * modal first, and null once the macro has been handed off.
+ * [FORK] Sao dois portoes, nao um. Primeiro os `input_fields` da macro (o que o
+ * agente digita), depois os atributos obrigatorios da conversa (exigidos quando
+ * a macro resolve). Eles vivem aqui, e nao no componente que chama, porque o
+ * segundo so pode ser avaliado depois que o primeiro passa -- espalhar isso em
+ * `if` soltos no chamador faria cada tela reimplementar a ordem.
+ *
+ * `execute` devolve `null` quando a macro ja foi despachada, ou um descritor
+ * `{ kind, ... }` dizendo qual modal abrir. `submitInputs` continua o fluxo e
+ * devolve no mesmo formato, porque preencher os campos pode esbarrar no portao
+ * seguinte.
  */
 export function useMacroExecution() {
   const store = useStore();
@@ -38,7 +52,7 @@ export function useMacroExecution() {
     conversationById.value(conversationId)?.custom_attributes || {};
 
   const runMacro = async (
-    { macro, conversationId },
+    { macro, conversationId, inputs = {} },
     skippedResolve = false
   ) => {
     try {
@@ -46,6 +60,7 @@ export function useMacroExecution() {
       await store.dispatch('macros/execute', {
         macroId: macro.id,
         conversationIds: [conversationId],
+        inputs,
       });
       useTrack(CONVERSATION_EVENTS.EXECUTED_A_MACRO);
       useAlert(
@@ -60,15 +75,15 @@ export function useMacroExecution() {
     }
   };
 
-  const execute = (macro, conversationId) => {
-    const execution = { macro, conversationId };
-
-    if (!resolvesConversation(macro)) {
+  // Segundo portao. Isolado porque duas entradas chegam nele: uma macro sem
+  // campos de entrada, e uma que acabou de ter os campos preenchidos.
+  const checkRequiredAttributes = execution => {
+    if (!resolvesConversation(execution.macro)) {
       runMacro(execution);
       return null;
     }
 
-    const customAttributes = customAttributesFor(conversationId);
+    const customAttributes = customAttributesFor(execution.conversationId);
     const { hasMissing, missing } = checkMissingAttributes(customAttributes);
     if (!hasMissing) {
       runMacro(execution);
@@ -76,7 +91,35 @@ export function useMacroExecution() {
     }
 
     pendingExecution.value = execution;
-    return { missing, customAttributes };
+    return { kind: ATTRIBUTES_GATE, missing, customAttributes };
+  };
+
+  const execute = (macro, conversationId) => {
+    const execution = { macro, conversationId, inputs: {} };
+
+    const fields = inputFieldsOf(macro);
+    if (fields.length) {
+      pendingExecution.value = execution;
+      return { kind: INPUT_FIELDS_GATE, macro, fields };
+    }
+
+    return checkRequiredAttributes(execution);
+  };
+
+  // Preencher os campos nao executa a macro: ela ainda pode esbarrar no portao
+  // dos atributos, entao o retorno tem o mesmo formato do `execute`.
+  const submitInputs = inputs => {
+    const execution = pendingExecution.value;
+    if (!execution) return null;
+
+    pendingExecution.value = null;
+    return checkRequiredAttributes({ ...execution, inputs });
+  };
+
+  // Fechar o modal de campos aborta: sem os valores a macro nao tem o que
+  // substituir, diferente do modal de atributos, que segue sem resolver.
+  const cancelInputs = () => {
+    pendingExecution.value = null;
   };
 
   const submitPendingAttributes = async ({ attributes }) => {
@@ -111,6 +154,8 @@ export function useMacroExecution() {
   return {
     executingMacroId,
     execute,
+    submitInputs,
+    cancelInputs,
     submitPendingAttributes,
     dismissPendingAttributes,
   };

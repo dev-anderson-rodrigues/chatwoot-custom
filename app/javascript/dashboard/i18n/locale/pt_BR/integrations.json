@@ -266,7 +266,11 @@
         "TITLE_ERROR": "É necessário um nome para o aplicativo",
         "URL_LABEL": "Endpoint",
         "URL_PLACEHOLDER": "Digite a URL do endpoint onde seu aplicativo está hospedado",
-        "URL_ERROR": "É necessário uma URL válida"
+        "URL_ERROR": "É necessário uma URL válida",
+        "URL_VARIABLES_HINT": "Você pode usar estas variáveis na URL: {variables}",
+        "SHOW_IN_SIDEBAR": "Exibir na barra lateral",
+        "PIN_TO_SIDEBAR": "Fixar como item principal",
+        "PIN_TO_SIDEBAR_HINT": "disponível quando o aplicativo estiver na barra lateral"
       },
       "CREATE": {
         "HEADER": "Adicionar um novo aplicativo",

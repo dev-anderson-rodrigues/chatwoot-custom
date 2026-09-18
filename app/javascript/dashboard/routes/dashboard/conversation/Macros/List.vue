@@ -2,7 +2,10 @@
 import { onMounted, ref } from 'vue';
 import { useStore, useMapGetter } from 'dashboard/composables/store';
 import { useAccount } from 'dashboard/composables/useAccount';
-import { useMacroExecution } from 'dashboard/composables/useMacroExecution';
+import {
+  useMacroExecution,
+  INPUT_FIELDS_GATE,
+} from 'dashboard/composables/useMacroExecution';
 import { useOrderedMacros } from 'dashboard/composables/useOrderedMacros';
 
 import Draggable from 'vuedraggable';
@@ -10,6 +13,7 @@ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import MacroItem from './MacroItem.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import ConversationResolveAttributesModal from 'dashboard/components-next/ConversationWorkflow/ConversationResolveAttributesModal.vue';
+import MacroExecuteModal from 'dashboard/components-next/Macros/MacroExecuteModal.vue';
 
 const props = defineProps({
   conversationId: {
@@ -24,12 +28,15 @@ const { orderedMacros } = useOrderedMacros();
 const {
   executingMacroId,
   execute,
+  submitInputs,
+  cancelInputs,
   submitPendingAttributes,
   dismissPendingAttributes,
 } = useMacroExecution();
 
 const dragging = ref(false);
 const resolveAttributesModalRef = ref(null);
+const executeModalRef = ref(null);
 
 const macros = useMapGetter('macros/getMacros');
 const uiFlags = useMapGetter('macros/getUIFlags');
@@ -38,15 +45,27 @@ const onDragEnd = () => {
   dragging.value = false;
 };
 
-const onExecuteMacro = macro => {
-  const pending = execute(macro, props.conversationId);
-  if (pending) {
-    resolveAttributesModalRef.value?.open(
-      pending.missing,
-      pending.customAttributes
-    );
+// O composable diz qual portao barrou; aqui so abrimos o modal correspondente.
+// Preencher os campos pode esbarrar no portao seguinte, por isso o retorno de
+// `submitInputs` passa pelo mesmo roteamento.
+const openPendingGate = pending => {
+  if (!pending) return;
+
+  if (pending.kind === INPUT_FIELDS_GATE) {
+    executeModalRef.value?.open(pending.macro, pending.fields);
+    return;
   }
+
+  resolveAttributesModalRef.value?.open(
+    pending.missing,
+    pending.customAttributes
+  );
 };
+
+const onExecuteMacro = macro =>
+  openPendingGate(execute(macro, props.conversationId));
+
+const onInputsSubmitted = inputs => openPendingGate(submitInputs(inputs));
 
 onMounted(() => {
   store.dispatch('macros/get');
@@ -96,6 +115,11 @@ onMounted(() => {
         />
       </template>
     </Draggable>
+    <MacroExecuteModal
+      ref="executeModalRef"
+      @submit="onInputsSubmitted"
+      @close="cancelInputs"
+    />
     <ConversationResolveAttributesModal
       ref="resolveAttributesModalRef"
       @submit="submitPendingAttributes"

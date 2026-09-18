@@ -52,6 +52,34 @@ module Chatwoot
     enterprise_initializers = Rails.root.join('enterprise/config/initializers')
     Dir[enterprise_initializers.join('**/*.rb')].each { |f| require f } if enterprise_initializers.exist?
 
+    # [FORK] Camada de customizacao deste fork.
+    #
+    # ChatwootApp.extensions ja devolve ['enterprise', 'custom'] quando a pasta
+    # custom/ existe, e o prepend_mod_with (config/initializers/01_inject_...)
+    # carrega Custom:: DEPOIS de Enterprise:: -- ou seja, um modulo Custom:: fica
+    # na frente dos dois na cadeia de ancestrais e o `super` dele cai no
+    # Enterprise. O upstream nunca ligou os paths dessa camada, entao ela ficava
+    # inerte; o bloco abaixo espelha o que ja e feito para enterprise/ acima.
+    #
+    # A regra do fork: override de Ruby mora em custom/, nao editando o arquivo
+    # original. Assim `git diff` contra o upstream fica limpo e o merge de versao
+    # nova nao conflita. Ver docs-fork/plano-port-coraxy.md.
+    # Nao usar ChatwootApp.custom? aqui: o lib/chatwoot_app.rb ainda nao foi carregado
+    # neste ponto do boot (as linhas de enterprise/ acima nao o referenciam, por isso
+    # o upstream nunca esbarrou nisso). A checagem abaixo e a mesma que o
+    # ChatwootApp.custom? faz -- a pasta existir --, so que sem depender da constante.
+    if Rails.root.join('custom').exist?
+      custom_lib = Rails.root.join('custom/lib')
+      config.eager_load_paths << custom_lib if custom_lib.exist?
+      # rubocop:disable Rails/FilePath
+      config.eager_load_paths += Dir["#{Rails.root}/custom/app/**"]
+      # rubocop:enable Rails/FilePath
+      config.paths['app/views'].unshift('custom/app/views') if Rails.root.join('custom/app/views').exist?
+
+      custom_initializers = Rails.root.join('custom/config/initializers')
+      Dir[custom_initializers.join('**/*.rb')].each { |f| require f } if custom_initializers.exist?
+    end
+
     # Settings in config/environments/* take precedence over those specified here.
     # Application configuration can go into files in config/initializers
     # -- all .rb files in that directory are automatically loaded after loading

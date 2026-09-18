@@ -58,7 +58,18 @@ Rails.application.configure do
 
   # Use an evented file watcher to asynchronously detect changes in source code,
   # routes, locales, etc. This feature depends on the listen gem.
-  config.file_watcher = ActiveSupport::EventedFileUpdateChecker
+  #
+  # [FORK] O watcher evented depende de inotify, e o Docker Desktop no Windows nao
+  # propaga eventos de filesystem do host para o container atraves de bind mount.
+  # Com ele, editar um arquivo .rb nao recarrega nada e o hot reload fica morto.
+  # O FileUpdateChecker compara mtime a cada request: um pouco mais lento, mas
+  # funciona atravessando a fronteira Windows/Linux.
+  # Ver docs-fork/ambiente-local.md.
+  config.file_watcher = if ENV['FORCE_POLLING_FILE_WATCHER'] == 'true'
+                          ActiveSupport::FileUpdateChecker
+                        else
+                          ActiveSupport::EventedFileUpdateChecker
+                        end
 
   # Disable host check during development
   config.hosts = nil

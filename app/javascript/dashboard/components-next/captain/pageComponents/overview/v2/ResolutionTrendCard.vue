@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { useToggle } from '@vueuse/core';
 import { useI18n } from 'vue-i18n';
+import { useLocale } from 'shared/composables/useLocale';
 import { vOnClickOutside } from '@vueuse/components';
 import { BarChart, LineChart } from '@chatwoot/viz';
 import Button from 'dashboard/components-next/button/Button.vue';
@@ -13,19 +14,22 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
 });
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { resolvedLocale } = useLocale();
 const [showDropdown, toggleDropdown] = useToggle();
 
 const selectedMeasure = ref('conversation_count');
 
+// `locale.value` cru (ex.: "pt_BR") derruba o Intl com RangeError -- ver
+// origem/OrigemDailyEvolutionChart.vue, mesmo bug, mesma correcao.
 const formatDate = value =>
-  new Intl.DateTimeFormat(locale.value, {
+  new Intl.DateTimeFormat(resolvedLocale.value, {
     month: 'short',
     day: '2-digit',
   }).format(new Date(`${value}T00:00:00`));
 
 const formatDay = value =>
-  new Intl.DateTimeFormat(locale.value, {
+  new Intl.DateTimeFormat(resolvedLocale.value, {
     day: '2-digit',
   }).format(new Date(`${value}T00:00:00`));
 

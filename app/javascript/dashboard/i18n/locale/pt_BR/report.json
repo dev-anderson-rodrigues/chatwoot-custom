@@ -1,5 +1,365 @@
 {
   "REPORT": {
+    "OWNERSHIP": {
+      "TITLE": "Robô e humano",
+      "DESCRIPTION": "Quanto o robô encerrou sozinho, quanto chegou ao time, e quanto cada lado demorou.",
+      "ERROR": "Não foi possível carregar o relatório. Tente de novo.",
+      "EMPTY": "Nenhuma conversa foi encerrada neste período.",
+      "VARIATION": "Comparado ao período anterior de mesmo tamanho",
+      "CRITERION": "A conversa conta como do robô quando foi encerrada sem nunca ter sido aberta nem atribuída a alguém. O relatório de Robôs usa outra regra, então os números de lá não batem com estes.",
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias"
+      },
+      "KPI": {
+        "BOT_RESOLUTIONS": "Encerradas pelo robô",
+        "HUMAN_RESOLUTIONS": "Encerradas por gente",
+        "BOT_SHARE": "Fatia do robô",
+        "HANDOFFS": "Passadas para gente",
+        "BOT_AVG_RESOLUTION": "Tempo do robô",
+        "HUMAN_AVG_RESOLUTION": "Tempo humano",
+        "FIRST_RESPONSE": "Primeira resposta"
+      }
+    },
+    "SUPERVISOR": {
+      "TITLE": "Monitoramento (Supervisor)",
+      "DESCRIPTION": "Visão em tempo real das conversas ativas na operação.",
+      "ERROR": "Não foi possível carregar o relatório. Tente de novo.",
+      "AUTO_REFRESH": "Atualiza a cada 30s",
+      "TEAM_FILTER": "Time",
+      "ALL_TEAMS": "Todos os times",
+      "CRITERION": "\"Quem atende\" mostra quem está conduzindo cada conversa agora, não quem vai resolvê-la. Pode mudar de uma atualização para outra.",
+      "AGENT_TYPE": {
+        "LABEL": "Quem atende",
+        "ALL": "Todos",
+        "HUMAN": "Humanos",
+        "BOT": "IA"
+      },
+      "KPI": {
+        "IN_PROGRESS": "Em atendimento",
+        "IN_PROGRESS_NOTE": "Conta toda conversa aberta com agente. A tabela abaixo mostra {tableCount} porque só marca \"Em atendimento\" quem já recebeu resposta.",
+        "IN_QUEUE": "Na fila",
+        "LONGEST_WAIT": "Maior espera",
+        "STALE_IN_QUEUE": "{count} com mais de {days}d, fora da conta acima",
+        "AGENTS_ONLINE": "Agentes online",
+        "AVG_LOAD": "Carga média por agente"
+      },
+      "QUEUE_BY_TEAM": {
+        "TITLE": "Fila por equipe",
+        "EMPTY": "Nenhuma equipe tem conversa na fila ou em atendimento.",
+        "NO_TEAM": "Sem equipe",
+        "IN_QUEUE": "Na fila",
+        "IN_PROGRESS": "Em atendimento",
+        "AGENTS_ONLINE": "Online"
+      },
+      "TABLE": {
+        "TITLE": "Conversas ativas",
+        "EMPTY": "Nenhuma conversa corresponde aos filtros atuais.",
+        "STATUS": "Status",
+        "STATUS_FILTER": {
+          "ALL": "Todas",
+          "NA_FILA": "Na fila",
+          "ATENDENDO": "Em atendimento",
+          "AGUARDANDO": "Aguardando"
+        },
+        "CONTACT": "Contato",
+        "AGENT": "Agente",
+        "NO_AGENT": "Sem atribuição",
+        "INBOX": "Caixa",
+        "PRIORITY": "Prioridade",
+        "DURATION": "Duração",
+        "LAST_MESSAGE": "Última mensagem"
+      },
+      "AGENTS_PANEL": {
+        "TITLE": "Agentes",
+        "EMPTY": "Ainda não há agente nesta conta.",
+        "STATUS": {
+          "ONLINE": "Online",
+          "BUSY": "Ocupado",
+          "OFFLINE": "Offline"
+        },
+        "LOAD": "{count} ativas"
+      },
+      "ALERTS": {
+        "TITLE": "Esperando demais",
+        "EMPTY": "Nenhuma conversa passou do limite de espera.",
+        "MINUTES": "{duration} esperando"
+      }
+    },
+    "ORIGEM": {
+      "TITLE": "Recebidos e Efetuados",
+      "DESCRIPTION": "Quantos atendimentos o cliente abriu e quantos a empresa abriu, com quebra por equipe, canal e atendente.",
+      "ERROR": "Não foi possível carregar os dados agora. Tente de novo em alguns segundos.",
+      "TEAM_FILTER": "Time",
+      "ALL_TEAMS": "Todos os times",
+      "RECEBIDOS": "Recebidos",
+      "EFETUADOS": "Efetuados",
+      "CRITERION": "\"Quem atende\" mostra conversas conduzidas pela IA ou por humanos, o mesmo recorte ao vivo que a tela de Monitoramento usa.",
+      "AGENT_TYPE": {
+        "LABEL": "Quem atende",
+        "ALL": "Todos",
+        "HUMAN": "Humanos",
+        "BOT": "IA"
+      },
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias",
+        "CUSTOM": "Personalizado"
+      },
+      "SUMMARY": {
+        "TOTAL": "Total no período",
+        "TOTAL_DESC": "{count} conversas abertas",
+        "RECEBIDOS_DESC": "{pct}% · cliente procurou a empresa",
+        "EFETUADOS_DESC": "{pct}% · empresa procurou o cliente"
+      },
+      "CHART": {
+        "TITLE": "Evolução diária",
+        "HINT": "Picos isolados de Efetuados costumam ser automação — régua ou campanha rodando em lote.",
+        "EMPTY": "Sem dados neste período."
+      },
+      "ORIGIN": {
+        "TITLE": "De onde vem cada atendimento efetuado",
+        "DESCRIPTION": "{count} conversas abertas pela empresa no período.",
+        "EMPTY": "Nenhuma conversa aberta pela empresa neste período.",
+        "KEY": {
+          "CAMPAIGN": "Campanha / envio em massa",
+          "BOT": "Bot / IA proativo",
+          "TEMPLATE": "Template do atendente",
+          "AGENT_DIRECT": "Atendente (mensagem direta)",
+          "OTHER": "Outros"
+        },
+        "KIND": {
+          "AUTOMATION": "automação",
+          "HUMAN": "humano"
+        }
+      },
+      "TEAM": {
+        "TITLE": "Por equipe",
+        "HINT": "Times com mais Efetuados que Recebidos costumam trabalhar por régua.",
+        "NO_TEAM": "Sem equipe",
+        "EMPTY": "Sem dados",
+        "SHOW_ALL": "Mostrar todos ({count})"
+      },
+      "INBOX": {
+        "TITLE": "Por canal",
+        "HINT": "Só os canais que permitem a empresa iniciar aparecem dos dois lados.",
+        "EMPTY": "Sem dados"
+      },
+      "AGENT": {
+        "TITLE": "Por atendente",
+        "DESCRIPTION": "Agrupa as conversas pelo agente atribuído. Conversas sem agente aparecem como \"Sem atribuição\".",
+        "NO_AGENT": "Sem atribuição",
+        "EMPTY": "Sem dados",
+        "TABLE": {
+          "AGENT": "Atendente",
+          "RECEBIDOS": "Recebidos",
+          "EFETUADOS": "Efetuados",
+          "TOTAL": "Total"
+        },
+        "SHOW_ALL": "Mostrar todos ({count})",
+        "SHOW_LESS": "Mostrar menos"
+      }
+    },
+    "MOTIVOS": {
+      "TITLE": "Motivos",
+      "DESCRIPTION": "Volume, tempo de atendimento e resolução por motivo de contato. Motivo é uma etiqueta que você escolhe — selecione abaixo quais etiquetas contam.",
+      "ERROR": "Não foi possível carregar os dados agora. Tente de novo em alguns segundos.",
+      "TEAM_FILTER": "Time",
+      "ALL_TEAMS": "Todos os times",
+      "INBOX_FILTER": "Caixa de entrada",
+      "ALL_INBOXES": "Todas as caixas",
+      "CRITERION": "A resolução no primeiro contato olha o histórico inteiro da conversa, não só o período selecionado — conversa reaberta e resolvida de novo nunca conta como resolvida de primeira, mesmo que a reabertura tenha ficado fora da janela. \"1º contato\" e \"Resolvido pela IA\" são percentuais sobre as conversas resolvidas; \"Transferido\" é sobre o total, porque transferência também acontece em conversa ainda aberta. A participação do robô usa o mesmo classificador das outras telas desta suíte — e olha o histórico da resolução, enquanto o recorte \"Quem atende\" olha o estado atual da conversa, então dentro do recorte IA os dois podem divergir. Motivo que zerou continua listado para a queda ficar visível.",
+      "NEEDS_SELECTION": {
+        "TITLE": "Escolha quais etiquetas são motivos",
+        "DESCRIPTION": "A conta usa etiqueta para muita coisa — prioridade, canal, campanha. Selecione as que significam \"motivo de contato\" e o relatório se monta."
+      },
+      "LABELS": {
+        "LABEL": "Motivos",
+        "SELECT_ALL": "Selecionar todas",
+        "CLEAR": "Limpar",
+        "NONE_IN_ACCOUNT": "Esta conta ainda não tem etiquetas."
+      },
+      "AGENT_TYPE": {
+        "LABEL": "Quem atende",
+        "ALL": "Todos",
+        "HUMAN": "Humanos",
+        "BOT": "IA"
+      },
+      "DATE_FIELD": {
+        "LABEL": "Contar por",
+        "CREATED": "Abertura",
+        "RESOLVED": "Encerramento"
+      },
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias",
+        "CUSTOM": "Personalizado"
+      },
+      "KPI": {
+        "REASONS_COUNT": "Motivos",
+        "CONVERSATIONS_TOTAL": "Conversas",
+        "TOP_REASON": "Mais comum",
+        "TOP_REASON_DESCRIPTION": "{count} conversas · {pct}% do total",
+        "SLOWEST_REASON": "Mais demorado",
+        "AVG_FCR": "Resolução no 1º contato",
+        "AVG_FCR_DESCRIPTION": "Resolvidas uma vez, sem reabertura."
+      },
+      "CHART": {
+        "TITLE": "Evolução semanal",
+        "HINT": "Volume por semana dos três motivos de maior volume no período.",
+        "EMPTY": "Sem dados neste período."
+      },
+      "TABLE": {
+        "TITLE": "Por motivo",
+        "REASON": "Motivo",
+        "TOTAL": "Conversas",
+        "SHARE": "Participação",
+        "TREND": "vs anterior",
+        "TREND_NEW": "Novo",
+        "TREND_TITLE": "{count} no período anterior",
+        "AVG_HANDLE": "TMA",
+        "RESOLVED": "Resolvidas",
+        "FCR": "1º contato",
+        "BOT_RESOLVED": "Resolvido pela IA",
+        "BOT_HANDOFF": "Transferido",
+        "EMPTY": "Sem dados neste período."
+      }
+    },
+    "FILA": {
+      "TITLE": "Fila — Histórico",
+      "DESCRIPTION": "Tempo de espera, volume e abandono da fila ao longo do tempo. Todas as métricas de espera usam o tempo até a primeira resposta de um agente.",
+      "ERROR": "Não foi possível carregar os dados agora. Tente de novo em alguns segundos.",
+      "TEAM_FILTER": "Time",
+      "ALL_TEAMS": "Todos os times",
+      "CRITERION": "\"Quem atende\" mostra conversas conduzidas pela IA ou por humanos, o mesmo recorte ao vivo que a tela de Monitoramento usa. Abandono só conta resolução humana sem nenhuma resposta — resolução do robô nunca conta como abandono.",
+      "AGENT_TYPE": {
+        "LABEL": "Quem atende",
+        "ALL": "Todos",
+        "HUMAN": "Humanos",
+        "BOT": "IA"
+      },
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias",
+        "CUSTOM": "Personalizado"
+      },
+      "VARIATION": "vs período anterior",
+      "KPI": {
+        "TOTAL": "Total na fila",
+        "TOTAL_DESC": "Conversas abertas no período selecionado, considerando a equipe filtrada.",
+        "AVG_WAIT": "TME médio",
+        "AVG_WAIT_DESC": "Tempo Médio de Espera: média do tempo entre a abertura da conversa e a primeira resposta de um agente.",
+        "MAX_WAIT": "Maior espera",
+        "MAX_WAIT_DESC": "Maior tempo registrado entre a abertura de uma conversa e a primeira resposta no período.",
+        "ABANDON_RATE": "Taxa de abandono",
+        "ABANDON_RATE_DESC": "Percentual de conversas resolvidas por um humano sem nenhuma resposta de agente. {count} conversa(s) no período."
+      },
+      "CHART": {
+        "VOLUME_TITLE": "Volume de conversas",
+        "VOLUME_HINT": "Quantidade de conversas abertas por dia no período.",
+        "WAIT_TITLE": "Tempo médio de espera (min)",
+        "WAIT_HINT": "Média diária do tempo entre a abertura da conversa e a primeira resposta do agente.",
+        "EMPTY": "Sem dados neste período."
+      },
+      "TEAM": {
+        "TITLE": "Por equipe",
+        "NO_TEAM": "Sem equipe",
+        "EMPTY": "Sem dados no período.",
+        "TABLE": {
+          "TEAM": "Equipe",
+          "TOTAL": "Total",
+          "AVG_WAIT": "TME",
+          "MAX_WAIT": "Maior espera",
+          "ABANDONED": "Abandonos"
+        }
+      },
+      "CAPACITY": {
+        "TITLE": "Capacidade vs Demanda",
+        "HINT": "Estimativa: a capacidade é calculada a partir do número de agentes da equipe multiplicado pela média de atendimentos por agente no período. Não há capacidade configurada por equipe no sistema.",
+        "EMPTY": "Sem dados no período.",
+        "AGENTS": "{count} ag."
+      },
+      "AGENT": {
+        "TITLE": "Por agente",
+        "DESCRIPTION": "Agrupa as conversas pelo agente atribuído.",
+        "BOT_HINT": "O recorte de IA considera conversas sem agente atribuído, então este painel tende a ficar vazio.",
+        "NO_AGENT": "Sem atribuição",
+        "EMPTY": "Sem dados no período.",
+        "TABLE": {
+          "AGENT": "Agente",
+          "TOTAL": "Atendimentos",
+          "AVG_WAIT": "TME",
+          "MAX_WAIT": "Maior espera",
+          "LOAD_PCT": "% Carga"
+        },
+        "SHOW_ALL": "Mostrar todos ({count})",
+        "SHOW_LESS": "Mostrar menos"
+      }
+    },
+    "COCKPIT": {
+      "TITLE": "Cockpit de atendentes",
+      "DESCRIPTION": "Volume, tempos de atendimento e satisfação por atendente no período escolhido.",
+      "SEARCH_LABEL": "Buscar",
+      "SEARCH_PLACEHOLDER": "Buscar por nome ou e-mail",
+      "CLEAR_SEARCH": "Limpar busca",
+      "LOADING": "Carregando o cockpit...",
+      "ERROR": "Não foi possível carregar o cockpit. Tente de novo.",
+      "EMPTY": "Nenhum atendente corresponde aos filtros atuais.",
+      "PERIOD": {
+        "LABEL": "Período",
+        "7D": "7 dias",
+        "30D": "30 dias",
+        "90D": "90 dias",
+        "CUSTOM": "Personalizado"
+      },
+      "DATE_FIELD": {
+        "LABEL": "Contar por",
+        "CREATED": "Abertura",
+        "RESOLVED": "Encerramento"
+      },
+      "TEAM": {
+        "LABEL": "Time",
+        "ALL": "Todos os times"
+      },
+      "STATUS": {
+        "LABEL": "Status",
+        "ALL": "Todos",
+        "ONLINE": "Online",
+        "BUSY": "Ocupado",
+        "OFFLINE": "Offline"
+      },
+      "KPI": {
+        "AGENTS": "Atendentes",
+        "ONLINE": "Online",
+        "BUSY": "Ocupados",
+        "OFFLINE": "Offline",
+        "CONVERSATIONS": "Conversas",
+        "AVG_HANDLE": "Tempo médio de atendimento",
+        "AVG_CSAT": "CSAT médio"
+      },
+      "TABLE": {
+        "RANK": "#",
+        "AGENT": "Atendente",
+        "TEAM": "Time",
+        "STATUS": "Status",
+        "CONVERSATIONS": "Conversas",
+        "RESOLUTIONS": "Encerradas",
+        "AVG_HANDLE": "Tempo de atendimento",
+        "FIRST_RESPONSE": "Primeira resposta",
+        "REPLY_TIME": "Tempo de resposta",
+        "CSAT": "CSAT",
+        "NO_TEAM": "Sem time",
+        "NO_CSAT": "Sem respostas"
+      }
+    },
     "HEADER": "Conversas",
     "LOADING_CHART": "Carregando dados do gráfico...",
     "NO_ENOUGH_DATA": "Não existem dados suficientes para gerar o relatório. Tente novamente mais tarde.",

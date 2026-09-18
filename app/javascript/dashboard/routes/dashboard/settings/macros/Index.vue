@@ -2,6 +2,7 @@
 import { useAlert } from 'dashboard/composables';
 import { picoSearch } from '@chatwoot/pico-search';
 import MacrosTableRow from './MacrosTableRow.vue';
+import MacrosStatsPanel from './MacrosStatsPanel.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import SettingsLayout from '../SettingsLayout.vue';
 import { computed, onMounted, ref } from 'vue';
@@ -97,6 +98,12 @@ const tableHeaders = computed(() => {
           </router-link>
         </template>
       </BaseSettingsHeader>
+    </template>
+    <!-- `preBody` fica fora do corpo, entao o painel sobrevive ao estado de
+         carregamento e ao "nenhuma macro" do SettingsLayout. Sem macro
+         cadastrada nao ha metrica nenhuma para mostrar, dai o v-if. -->
+    <template #preBody>
+      <MacrosStatsPanel v-if="records.length" />
     </template>
     <template #body>
       <BaseTable

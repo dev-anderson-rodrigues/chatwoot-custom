@@ -12,6 +12,8 @@ import { useBulkActionsHotKeys } from 'dashboard/composables/commands/useBulkAct
 import { useConversationHotKeys } from 'dashboard/composables/commands/useConversationHotKeys';
 import { useMacroHotKeys } from 'dashboard/composables/commands/useMacroHotKeys';
 import ConversationResolveAttributesModal from 'dashboard/components-next/ConversationWorkflow/ConversationResolveAttributesModal.vue';
+import MacroExecuteModal from 'dashboard/components-next/Macros/MacroExecuteModal.vue';
+import { INPUT_FIELDS_GATE } from 'dashboard/composables/useMacroExecution';
 import wootConstants from 'dashboard/constants/globals';
 import {
   GENERAL_EVENTS,
@@ -39,6 +41,7 @@ const { resolvedLocale } = useLocale();
 
 const ninjakeys = ref(null);
 const resolveAttributesModalRef = ref(null);
+const macroExecuteModalRef = ref(null);
 
 // Added selectedSnoozeType to track the selected snooze type
 // So if the selected snooze type is "custom snooze" then we set selectedSnoozeType with the CMD action id
@@ -54,18 +57,28 @@ const { bulkActionsHotKeys } = useBulkActionsHotKeys();
 const { conversationHotKeys } = useConversationHotKeys();
 const {
   macroHotKeys,
-  pendingAttributes,
+  pendingGate,
+  submitMacroInputs,
+  cancelMacroInputs,
   submitPendingAttributes,
   dismissPendingAttributes,
 } = useMacroHotKeys();
 
-watch(pendingAttributes, pending => {
-  if (pending) {
-    resolveAttributesModalRef.value?.open(
-      pending.missing,
-      pending.customAttributes
-    );
+// O composable diz qual portao barrou a macro; aqui so abrimos o modal
+// correspondente. Preencher os campos pode esbarrar no portao seguinte, e o
+// proprio ref muda de novo, reentrando neste watch.
+watch(pendingGate, pending => {
+  if (!pending) return;
+
+  if (pending.kind === INPUT_FIELDS_GATE) {
+    macroExecuteModalRef.value?.open(pending.macro, pending.fields);
+    return;
   }
+
+  resolveAttributesModalRef.value?.open(
+    pending.missing,
+    pending.customAttributes
+  );
 });
 
 const SNOOZE_PARENT_IDS = [
@@ -259,6 +272,11 @@ onMounted(() => {
     @change="onCommandBarChange"
     @selected="onSelected"
     @closed="onClosed"
+  />
+  <MacroExecuteModal
+    ref="macroExecuteModalRef"
+    @submit="submitMacroInputs"
+    @close="cancelMacroInputs"
   />
   <ConversationResolveAttributesModal
     ref="resolveAttributesModalRef"

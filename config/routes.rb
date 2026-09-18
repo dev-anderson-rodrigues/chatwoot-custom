@@ -36,6 +36,13 @@ Rails.application.routes.draw do
       resources :responses, only: [:show]
     end
     resource :slack_uploads, only: [:show]
+
+    # [Onda 6a] manifest.json e os icones de convencao (apple-touch-icon*)
+    # precisam ser dinamicos para refletir a marca configurada -- ver o
+    # comentario de topo de app/controllers/manifests_controller.rb.
+    get 'manifest.json', to: 'manifests#show'
+    get 'apple-touch-icon.png', to: 'manifests#apple_touch_icon'
+    get 'apple-touch-icon-precomposed.png', to: 'manifests#apple_touch_icon'
   end
 
   get '/health', to: 'health#show'
@@ -137,7 +144,11 @@ Rails.application.routes.draw do
             post :clone
           end
           resources :macros, only: [:index, :create, :show, :update, :destroy] do
+            collection do
+              get :stats
+            end
             post :execute, on: :member
+            resources :executions, only: [:index, :show], controller: 'macro_executions'
           end
           resources :sla_policies, only: [:index, :create, :show, :update, :destroy]
           resources :custom_roles, only: [:index, :create, :show, :update, :destroy]
@@ -543,6 +554,12 @@ Rails.application.routes.draw do
               get :conversation_traffic
               get :drilldown
               get :bot_metrics
+              get :cockpit_atendentes, to: 'operation_reports#cockpit_atendentes'
+              get :ownership_summary, to: 'operation_reports#ownership_summary'
+              get :supervisor, to: 'operation_reports#supervisor'
+              get :origem, to: 'operation_reports#origem'
+              get :fila_historico, to: 'operation_reports#fila_historico'
+              get :motivos, to: 'operation_reports#motivos'
               get :inbox_label_matrix
               get :first_response_time_distribution
               get :outgoing_messages_count

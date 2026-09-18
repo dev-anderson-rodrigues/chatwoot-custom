@@ -35,7 +35,7 @@ const hotKeySources = {
   macroHotKeys: [{ id: 'execute_a_macro' }],
 };
 
-const pendingAttributes = ref(null);
+const pendingGate = ref(null);
 
 vi.mock('dashboard/composables/commands/useAppearanceHotKeys', () => ({
   useAppearanceHotKeys: () => ({
@@ -72,7 +72,9 @@ vi.mock('dashboard/composables/commands/useConversationHotKeys', () => ({
 vi.mock('dashboard/composables/commands/useMacroHotKeys', () => ({
   useMacroHotKeys: () => ({
     macroHotKeys: ref(hotKeySources.macroHotKeys),
-    pendingAttributes,
+    pendingGate,
+    submitMacroInputs: vi.fn(),
+    cancelMacroInputs: vi.fn(),
     submitPendingAttributes: vi.fn(),
     dismissPendingAttributes: vi.fn(),
   }),
@@ -114,7 +116,12 @@ describe('commandbar', () => {
   const mountCommandBar = async (props = {}) => {
     wrapper = mount(CommandBar, {
       props,
-      global: { stubs: { ConversationResolveAttributesModal: true } },
+      global: {
+        stubs: {
+          ConversationResolveAttributesModal: true,
+          MacroExecuteModal: true,
+        },
+      },
     });
     await flushPromises();
     element = wrapper.find('ninja-keys').element;

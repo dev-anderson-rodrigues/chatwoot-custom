@@ -2,14 +2,19 @@
 import { provide } from 'vue';
 import MacroNodes from './MacroNodes.vue';
 import MacroProperties from './MacroProperties.vue';
+import MacroInputFieldsBuilder from './MacroInputFieldsBuilder.vue';
 import { required } from '@vuelidate/validators';
 import { useVuelidate } from '@vuelidate/core';
-import { validateActions } from 'dashboard/helper/validations';
+import {
+  validateActions,
+  validateMacroInputFields,
+} from 'dashboard/helper/validations';
 
 export default {
   components: {
     MacroNodes,
     MacroProperties,
+    MacroInputFieldsBuilder,
   },
   props: {
     macroData: {
@@ -54,6 +59,8 @@ export default {
     macroData: {
       handler() {
         this.macro = this.macroData;
+        // Macro criada antes desta feature volta da API sem input_fields.
+        if (!this.macro.input_fields) this.macro.input_fields = [];
       },
       immediate: true,
     },
@@ -92,8 +99,24 @@ export default {
       this.errors = this.removeObjectProperty(this.errors, `action_${index}`);
       this.macro.actions.splice(index, 1);
     },
+    updateInputFields(value) {
+      this.macro.input_fields = value;
+      // Limpa os erros dos campos para o agente ver o efeito da correcao sem
+      // ter que salvar de novo; a validacao roda inteira no proximo submit.
+      this.errors = this.removeInputFieldErrors(this.errors);
+    },
+    removeInputFieldErrors(errors) {
+      return Object.fromEntries(
+        Object.entries(errors).filter(
+          ([key]) => !key.startsWith('input_field_')
+        )
+      );
+    },
     submit() {
-      this.errors = validateActions(this.macro.actions);
+      this.errors = {
+        ...validateActions(this.macro.actions),
+        ...validateMacroInputFields(this.macro.input_fields),
+      };
       if (Object.keys(this.errors).length !== 0) return;
 
       this.v$.$touch();
@@ -121,6 +144,17 @@ export default {
       class="flex-1 w-full h-full max-h-full ltr:pl-12 ltr:pr-6 rtl:pl-6 rtl:pr-12 py-4 overflow-y-auto lg:w-auto macro-gradient-radial dark:macro-dark-gradient-radial macro-gradient-radial-size"
     >
       <div :inert="readOnly" :class="{ 'opacity-75': readOnly }">
+        <!-- Os campos vem ANTES do fluxo porque e essa a ordem em que a coisa
+             acontece: o agente preenche os campos, e so entao as acoes rodam.
+             Ficando depois do "Fim do Fluxo" o bloco contradizia o proprio
+             titulo ("Campos pedidos antes de executar"). -->
+        <MacroInputFieldsBuilder
+          :model-value="macro.input_fields || []"
+          :errors="errors"
+          :read-only="readOnly"
+          class="mb-6 ltr:mr-6 rtl:ml-6"
+          @update:model-value="updateInputFields"
+        />
         <MacroNodes
           v-model="macro.actions"
           :files="files"

@@ -1,5 +1,6 @@
 <script>
 import LoadingState from 'dashboard/components/widgets/LoadingState.vue';
+import { interpolateDashboardAppConfig } from 'dashboard/helper/dashboardAppHelper';
 
 export default {
   components: {
@@ -35,10 +36,25 @@ export default {
         conversation: this.currentChat,
         contact: this.$store.getters['contacts/getContact'](this.contactId),
         currentAgent: this.currentAgent,
+        account: this.account,
       };
     },
     contactId() {
       return this.currentChat?.meta?.sender?.id;
+    },
+    account() {
+      return { id: this.$store.getters.getCurrentAccountId };
+    },
+    // O `access_token` vai na URL quando o app pede `{user_token}` (decisao
+    // registrada no helper), mas nao entra no `dashboardAppContext`: este objeto
+    // sai por postMessage com destino '*', que qualquer origem assumida pelo
+    // iframe recebe -- inclusive depois de um redirect para fora do host
+    // cadastrado. Credencial ali chegaria mais longe do que o admin configurou.
+    interpolatedConfig() {
+      return interpolateDashboardAppConfig(this.config, {
+        accountId: this.$store.getters.getCurrentAccountId,
+        user: this.$store.getters.getCurrentUser,
+      });
     },
     currentAgent() {
       const { id, name, email } = this.$store.getters.getCurrentUser;
@@ -85,7 +101,7 @@ export default {
 <template>
   <div v-if="hasOpenedAtleastOnce" class="dashboard-app--container">
     <div
-      v-for="(configItem, index) in config"
+      v-for="(configItem, index) in interpolatedConfig"
       :key="index"
       class="dashboard-app--list"
     >

@@ -1,0 +1,179 @@
+# Override local do docker-compose.yaml (ambiente de DESENVOLVIMENTO).
+#
+# Diferente do stack de producao, este compila a imagem a partir de docker/Dockerfile
+# e monta o codigo local em /app — ou seja, ELE RODA O CODIGO DESTE REPOSITORIO.
+#
+# Uso (sempre com -p chatwoot-dev para nao colidir com o stack de producao):
+#   docker compose -p chatwoot-dev -f docker-compose.yaml -f docker-compose.dev.local.yaml up -d
+#
+# Ver docs-fork/ambiente-local.md para o passo a passo completo.
+
+services:
+  postgres:
+    environment:
+      # O docker-compose.yaml versionado fixa POSTGRES_PASSWORD vazio; sem senha o
+      # rails nao conecta. Vem do .env, igual ao que rails/sidekiq usam.
+      - POSTGRES_DB=chatwoot_dev
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    # 5432 = Postgres nativo do host; 5433 = stack de producao. Dev fica na 5434.
+    ports: !override
+      - '127.0.0.1:5436:5432'
+    # O compose do upstream monta o volume em /data/postgres, que NAO e o PGDATA da
+    # imagem (/var/lib/postgresql/data). Do jeito dele os dados ficam na camada do
+    # container e somem no primeiro `down`. Corrigido aqui.
+    volumes: !override
+      - postgres_dev_data:/var/lib/postgresql/data
+
+  redis:
+    # Mesmo problema de volume do postgres: o upstream monta em /data/redis,
+    # mas o PWD do redis:alpine e /data.
+    volumes: !override
+      - redis_dev_data:/data
+    ports: !override
+      - '127.0.0.1:6381:6379'
+
+  rails:
+    # Sem isto, um desligamento da distro WSL deixa o container no chao e o
+    # navegador ve "conexao recusada" -- o postgres/redis voltavam (restart:
+    # always no compose de cima) e estes nao. Diagnosticado em 2026-09-10.
+    restart: unless-stopped
+    environment:
+      # O compose do upstream define VITE_DEV_SERVER_HOST, mas NINGUEM le essa
+      # variavel -- nem o vite_ruby, nem o vite.config, nem os entrypoints. Sem
+      # VITE_RUBY_HOST o vite_ruby procura o dev server em localhost:3036 dentro
+      # do proprio container do rails, nao acha, e o autoBuild do
+      # config/vite.json faz o Rails compilar todo o front a cada request.
+      # Sintoma: "Building with Vite" no log e a pagina levando minutos.
+      - VITE_RUBY_HOST=vite
+      - VITE_DEV_SERVER_HOST=vite
+      # Em dev o Vite nao empacota: cada modulo e uma requisicao HTTP separada,
+      # e TODAS passam pelo proxy do vite_ruby dentro do Rails. Medido numa
+      # carga da tela de macros: 3.590 a 7.108 requisicoes. Cada uma ocupa uma
+      # thread do Puma bloqueada num Net::HTTP ate o Vite responder, e o padrao
+      # sao 5 threads -- o TTFB do proprio documento chegava a 21s porque o
+      # Puma estava saturado servindo assets.
+      #
+      # Threads sao baratas aqui: elas passam o tempo esperando I/O, entao
+      # liberam a GVL. Vale so em dev; em producao os assets sao pre-compilados
+      # e servidos estaticamente, sem proxy nenhum.
+      - RAILS_MAX_THREADS=32
+      - NODE_ENV=development
+      - RAILS_ENV=development
+      # O .env aponta para o banco de producao; em dev usamos um banco separado.
+      - POSTGRES_DATABASE=chatwoot_dev
+      # Sem isso o hot reload do Rails nao funciona no Windows: o watcher evented
+      # depende de inotify, que o Docker Desktop nao propaga via bind mount.
+      # Ver config/environments/development.rb e docs-fork/ambiente-local.md.
+      - FORCE_POLLING_FILE_WATCHER=true
+    # /app/tmp fora do bind mount. No Docker Desktop para Windows o bind mount e
+    # servido por 9p, que e ordens de grandeza mais lento que o filesystem do
+    # container. O Rails martela essa pasta: cache do bootsnap e, em RAILS_ENV=test,
+    # os blobs do ActiveStorage (config/storage.yml aponta test -> tmp/storage).
+    # Sem este volume a suite de testes fica praticamente parada -- o processo
+    # trava em p9_client_rpc e o throughput cai ~20x.
+    volumes:
+      - rails_tmp:/app/tmp
+    ports: !override
+      - '127.0.0.1:3000:3000'
+
+  sidekiq:
+    # Sem isto, um desligamento da distro WSL deixa o container no chao e o
+    # navegador ve "conexao recusada" -- o postgres/redis voltavam (restart:
+    # always no compose de cima) e estes nao. Diagnosticado em 2026-09-10.
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - RAILS_ENV=development
+      - POSTGRES_DATABASE=chatwoot_dev
+      - FORCE_POLLING_FILE_WATCHER=true
+
+  vite:
+    # Sem isto, um desligamento da distro WSL deixa o container no chao e o
+    # navegador ve "conexao recusada" -- o postgres/redis voltavam (restart:
+    # always no compose de cima) e estes nao. Diagnosticado em 2026-09-10.
+    restart: unless-stopped
+    environment:
+      # Mesma historia do rails: sem VITE_RUBY_HOST o dev server sobe ligado a
+      # localhost dentro do container e o rails nao alcanca ele pela rede do
+      # compose. Precisa de 0.0.0.0 dos dois lados da conversa.
+      - VITE_RUBY_HOST=0.0.0.0
+      - VITE_DEV_SERVER_HOST=0.0.0.0
+      # `vite` e o nome do servico na rede do compose, que e o Host que o proxy
+      # do vite_ruby manda. Sem isso o Vite 6 devolve 403 e a aplicacao carrega
+      # sem nenhum asset. Ver vite.config.ts.
+      - VITE_ALLOWED_HOSTS=vite,localhost,127.0.0.1
+      - NODE_ENV=development
+      - RAILS_ENV=development
+      - POSTGRES_DATABASE=chatwoot_dev
+      # Mesmo motivo do rails: sem polling o HMR do front nao dispara no Windows.
+      - FORCE_POLLING_FILE_WATCHER=true
+      # O polling e o que quase inviabilizou este ambiente, e a razao e sutil:
+      # o chokidar cria UM fs.watchFile por arquivo -- 5.921 pollers para os
+      # 5.122 arquivos de app/javascript. Todos os stat() desses pollers passam
+      # pelo threadpool do libuv, que por padrao tem 4 threads. A conta nao
+      # fecha: 5.122 stats x 2,05ms (custo real no 9p) = 10,5s de trabalho por
+      # ciclo, contra 1s disponivel. A fila cresce sem limite e TODA operacao
+      # de filesystem do Vite passa a esperar nela.
+      #
+      # Medido: um fs.stat dentro do Vite saturado custava 3.445ms; num
+      # processo node limpo no mesmo container, 0,20ms. Com o pool em 64, um
+      # CSS que antes nao compilava em 230s passou a levar 243ms.
+      - UV_THREADPOOL_SIZE=64
+      # Menos ciclos de polling = menos pressao na fila. 3s continua confortavel
+      # para HMR (ver vite.config.ts).
+      - VITE_POLL_INTERVAL=3000
+      # Opt-in para limpar o cache do Vite no start (ver entrypoint abaixo).
+      - VITE_CLEAR_CACHE=${VITE_CLEAR_CACHE:-false}
+    # O entrypoint do upstream (docker/entrypoints/vite.sh) roda
+    # `pnpm store prune` + `pnpm install --force` a CADA start. O prune apaga o
+    # cache, entao o --force rebaixa os 1131 pacotes toda vez: ~8 minutos so
+    # para o ambiente subir. Aqui a instalacao vira condicional -- so roda
+    # quando o volume node_modules esta vazio ou o lockfile mudou.
+    # Para forcar: docker compose run --rm --entrypoint sh vite -c 'pnpm install --force'
+    entrypoint:
+      - sh
+      - -c
+      - |
+        rm -rf /app/tmp/pids/server.pid
+        # O cache do Vite as vezes corrompe: o descriptor cache do plugin do Vue
+        # sobrevive ao restart e passa a servir o bloco errado do .vue -- o
+        # PostCSS recebe o <script> onde esperava o <style> e devolve
+        # "Unknown word computed" com 500 em todo CSS, dando tela branca.
+        #
+        # A limpeza resolve isso, mas NAO pode ser incondicional: sem o cache,
+        # todo start forca recompilacao a frio dos <style> mais pesados
+        # (Flag.vue com as 540 url() do flag-icons, App.vue com a arvore SCSS
+        # inteira). Sobre o bind mount 9p do Windows isso passa dos 60s e o
+        # proxy do vite_ruby corta a conexao -- de novo tela branca, so que por
+        # outro motivo. Ver config/initializers/vite_dev_server_proxy_timeout.rb.
+        #
+        # Entao fica opt-in. Para limpar:
+        #   VITE_CLEAR_CACHE=true docker compose -p chatwoot-dev ... up -d vite
+        if [ "$$VITE_CLEAR_CACHE" = "true" ]; then
+          echo "VITE_CLEAR_CACHE=true: limpando cache do Vite"
+          rm -rf /app/node_modules/.vite /app/tmp/cache/vite
+        fi
+        if [ ! -d /app/node_modules/vite ] || [ /app/pnpm-lock.yaml -nt /app/node_modules/.pnpm-lock-stamp ]; then
+          pnpm install
+          touch /app/node_modules/.pnpm-lock-stamp
+        else
+          echo "node_modules ja instalado, pulando pnpm install"
+        fi
+        exec "$0" "$@"
+    ports: !override
+      - '127.0.0.1:3036:3036'
+
+  mailhog:
+    # Sem isto, um desligamento da distro WSL deixa o container no chao e o
+    # navegador ve "conexao recusada" -- o postgres/redis voltavam (restart:
+    # always no compose de cima) e estes nao. Diagnosticado em 2026-09-10.
+    restart: unless-stopped
+    ports: !override
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+  rails_tmp:
