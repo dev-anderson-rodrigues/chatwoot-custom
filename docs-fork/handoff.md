@@ -7,14 +7,13 @@ lugar** e o ambiente foi reconstruído.
 revisada pelos três especialistas e verificada na tela. Suíte de relatórios completa: 5
 telas de 5. Commitado e com push feito para `origin/feature/port-coraxy`.
 
-**2026-09-17 — Onda 6a em andamento (fatia 1 pronta, ainda não commitada).** Favicon e
-manifest.json dinâmicos (liam sempre o logo/nome do Chatwoot, agora leem `LOGO_THUMBNAIL`/
-`INSTALLATION_NAME`/`BRAND_NAME`). Ver seção 4a. Working tree tem o controller novo, as
-rotas, o layout alterado, 24 arquivos estáticos removidos de `public/`, `.rubocop.yml` e as
-specs — nada disso foi commitado ainda.
+**2026-09-17 — Onda 6a fechada.** Fatia 1 (favicon/manifest dinâmicos) commitada
+(`b12ed32631`, `712d4e4db3`). Fatia 2 (cor de destaque da marca) pronta, revisada e
+verificada — **ainda não commitada**, está na working tree. Ver seção 4a para as duas.
 
-Próximo passo natural: commitar a fatia 1 da Onda 6a, decidir se a fatia 2 (cor de destaque)
-entra na mesma sessão ou fica para depois, e seguir a ordem do plano (Onda 4 depois de 6a).
+Próximo passo natural: commitar a fatia 2 e seguir a ordem do plano — Onda 4 (UI/UX do chat)
+é a próxima depois de 6a, e a Onda 6b (infra/i18n) e a Onda 3 (fluxo IA, deliberadamente por
+último) seguem pendentes.
 
 ---
 
@@ -81,7 +80,7 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
 | 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) · push feito |
-| 6a — Marca no super admin | 🔄 fatia 1 pronta (favicon/manifest), não commitada · fatia 2 (cor de destaque) pendente |
+| 6a — Marca no super admin | ✅ completa · fatia 1 commitada, fatia 2 (cor de destaque) pronta e não commitada |
 | 4 · 6b · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.
@@ -193,6 +192,27 @@ Não tocado, de propósito: o mecanismo de favicon com "badge" de notificação
 composição de imagem real — fora do escopo desta fatia.
 
 Detalhe completo na seção "Fatia 1" da Onda 6a em `plano-port-coraxy.md`.
+
+**2026-09-17 — Onda 6a, fatia 2 pronta (cor de destaque da marca), ainda não commitada.**
+`manifest.json` e as meta tags `theme-color`/`msapplication-TileColor` tinham `#2781F6` fixo
+— agora leem `BRAND_ACCENT_COLOR`, nova opção de marca no super admin.
+
+Alterados: `app/models/installation_config.rb` (validação de formato hex, mesma regex que
+`Portal#color` já usa), `config/installation_config.yml`, `enterprise/.../app_configs_controller.rb`,
+`app/controllers/manifests_controller.rb`, `app/controllers/dashboard_controller.rb`,
+`app/views/layouts/vueapp.html.erb`. Specs novos/alterados em `installation_config_spec.rb`,
+`manifests_controller_spec.rb`, `dashboard_controller_spec.rb`.
+
+Achado da revisão que vale lembrar: diferente do `LOGO_THUMBNAIL` (fatia 1), aqui o
+`ManifestsController` e o `vueapp.html.erb` precisam concordar no **mesmo valor exato** de
+fallback (`#2781F6`), não só na mesma lógica — imagem ausente vira array vazio, cor ausente
+precisa de uma cor de verdade. O ERB agora referencia `ManifestsController::DEFAULT_ACCENT_COLOR`
+em vez de repetir o literal, para não ter duas fontes de verdade divergindo em silêncio.
+
+Verificado: busca no repo inteiro por `update_column`/`insert`/`upsert` sobre
+`InstallationConfig` fora de specs não achou nada — os dois únicos caminhos de escrita (form
+do super admin, seed via `ConfigLoader`) rodam validação. 29 exemplos, 0 falhas. Rubocop
+limpo. Testado contra o servidor real e no navegador.
 
 **Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
 e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê

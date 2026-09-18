@@ -1943,7 +1943,7 @@ Ele está atrás de `ChatwootHub.pricing_plan != 'community'` → **a Onda 2 já
 
 - [x] Validar a aba `custom_branding` renderizada após a Onda 2 — ver fatia 1
 - [x] **Favicon e manifest**: hoje o conjunto em `public/` é estático. Para marca trocável, servir a partir de `LOGO_THUMBNAIL` em vez dos arquivos fixos — ver fatia 1
-- [ ] **Estender `custom_branding_options`** com o que o produto precisa e ainda não é config: cor de destaque da marca, wallpaper do chat, mascote do loader
+- [x] **Estender `custom_branding_options`** com cor de destaque da marca — ver fatia 2. Wallpaper do chat e mascote do loader ficam para a Onda 4 (são elementos de tela que ainda não existem neste repo)
 - [ ] Trocar os assets hardcoded que a Coraxy adicionou (`crow-loader.gif`, `chat-pattern*.png`) por referências a config — **N/A por enquanto**: esses arquivos são da Onda 4 (ainda não portada), não existem neste repo hoje; revisitar quando a Onda 4 os introduzir
 - [x] Conferir `RESTART_REQUIRED_CONFIG_KEYS`: nenhuma das 10 chaves de `custom_branding` está na lista (`app/models/installation_config.rb`) — toda mudança de marca já é imediata, sem restart
 - [ ] `theme/colors.js`, `theme/icons.js` — decidir o que é tema do produto (código) e o que é marca do cliente (config)
@@ -1955,7 +1955,7 @@ Ele está atrás de `ChatwootHub.pricing_plan != 'community'` → **a Onda 2 já
 | # | Fatia | Estado |
 |---|---|---|
 | 1 | Favicon e manifest dinâmicos | ✅ |
-| 2 | Cor de destaque em `custom_branding_options` (consumida no manifest) | ⏳ |
+| 2 | Cor de destaque em `custom_branding_options` (consumida no manifest) | ✅ |
 
 ##### Fatia 1 — resolvida. Favicon e manifest dinâmicos
 
@@ -2046,6 +2046,45 @@ Verificado contra o servidor real (curl e navegador): trocar
 `DISPLAY_MANIFEST` desligado, só sobra o ícone dinâmico de 512px, nenhuma
 referência morta. 16 exemplos (specs novos + `dashboard_controller_spec.rb`),
 0 falhas. Rubocop limpo.
+
+##### Fatia 2 — resolvida. Cor de destaque da marca
+
+`manifest.json` e duas meta tags (`theme-color`, `msapplication-TileColor`)
+tinham `#2781F6` (azul do Chatwoot) fixo no código. Esta fatia adiciona
+`BRAND_ACCENT_COLOR` a `custom_branding_options` e a usa nos três lugares —
+mesmo padrão da fatia 1, agora para cor em vez de ícone/nome.
+
+**Decisões:**
+- Validação de formato hex (`/\A#(?:\h{3}|\h{6})\z/`, mesma regex que
+  `Portal#color` já usa) em `InstallationConfig`, condicional por
+  `name == 'BRAND_ACCENT_COLOR'` — mesmo padrão já usado ali para
+  `ENABLE_SAML_SSO_LOGIN`. `allow_blank`: limpar o campo no super admin é
+  voltar ao padrão, não um valor inválido.
+- A UI do super admin não precisou de trabalho: o form genérico renderiza
+  qualquer chave sem `type` especial como `text_field` simples, mesmo
+  tratamento que `LOGO`/`BRAND_URL`/etc. já recebem.
+- Fallback centralizado em `ManifestsController::DEFAULT_ACCENT_COLOR`; o ERB
+  referencia essa constante em vez de repetir o literal. Diferença notada
+  pela revisão: ao contrário de `LOGO_THUMBNAIL` (onde JSON e ERB nunca
+  precisaram do mesmo literal — imagem ausente vira array vazio, não um
+  valor substituto), aqui as duas camadas precisam concordar no *mesmo*
+  valor exato de cor, não só na mesma lógica. Duas fontes de verdade
+  divergiriam em silêncio na primeira instalação sem a config setada.
+
+**Verificação de que a validação não tem furo:** busca no repo inteiro por
+`update_column`/`insert`/`upsert` sobre `InstallationConfig` fora de specs não
+achou nada. Os dois únicos caminhos de escrita em código de aplicação — o
+formulário do super admin (`AppConfigsController#create`, via `i.save`) e o
+seed (`ConfigLoader#save_as_new_config`, via `config.save!`) — rodam
+validação. Confirmado lendo `lib/config_loader.rb` inteiro.
+
+Verificado contra o servidor real e no navegador: trocar `BRAND_ACCENT_COLOR`
+reflete no `manifest.json` e nas duas meta tags sem restart; valor fora do
+formato hex é rejeitado na escrita (`ActiveRecord::RecordInvalid`); em branco
+cai no azul padrão nos três lugares. 29 exemplos (specs novos em
+`installation_config_spec.rb`, `manifests_controller_spec.rb` e
+`dashboard_controller_spec.rb`, incluindo os já existentes da fatia 1 sobre os
+mesmos dois arquivos — sem regressão), 0 falhas. Rubocop limpo.
 
 #### Infra e i18n (independentes da marca)
 
