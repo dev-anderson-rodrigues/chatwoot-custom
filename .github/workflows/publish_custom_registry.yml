@@ -3,12 +3,12 @@ name: Build & Push to Custom Registry
 on:
   push:
     branches:
-      - main
+      - develop
   pull_request:
     types:
       - closed
     branches:
-      - main
+      - develop
 
 env:
   REGISTRY: registry.kernohub.cloud
@@ -53,3 +53,4 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
