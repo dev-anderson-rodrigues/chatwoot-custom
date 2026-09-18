@@ -39,11 +39,13 @@ describe '/app/login', type: :request do
     end
 
     it 'o icone de 512px e o apple-touch-icon usam LOGO_THUMBNAIL' do
-      # Num banco novo, sem nenhum registro, DISPLAY_MANIFEST vem nil (falso) --
-      # o valor do installation_config.yml so vira linha real quando o super
-      # admin salva a tela de marca pelo menos uma vez. O apple-touch-icon fica
-      # dentro do bloco `if DISPLAY_MANIFEST`, entao o teste precisa garantir
-      # que ele esta ligado, senao testaria um bloco que nunca renderiza.
+      # O schema de teste do RSpec pula o hook que db:migrate tem em producao
+      # (ConfigLoader.new.process via db_enhancements.rake), entao um banco de
+      # teste "limpo" nao tem nenhuma InstallationConfig -- DISPLAY_MANIFEST
+      # vem nil (falso). Numa instalacao real isso ja vem seedado. O
+      # apple-touch-icon fica dentro do bloco `if DISPLAY_MANIFEST`, entao o
+      # teste precisa garantir que ele esta ligado, senao testaria um bloco
+      # que nunca renderiza.
       InstallationConfig.find_or_create_by(name: 'DISPLAY_MANIFEST') { |c| c.value = true }.update!(value: true)
       config = InstallationConfig.find_or_create_by(name: 'LOGO_THUMBNAIL') { |c| c.value = '/brand-assets/logo_thumbnail.svg' }
       config.update!(value: 'https://cdn.example.com/logo.png')
@@ -65,6 +67,27 @@ describe '/app/login', type: :request do
       expect(response.body).not_to include('rel="manifest"')
       expect(response.body).not_to include('apple-touch-icon')
       expect(response.body).to include('sizes="512x512"')
+    end
+
+    # [Onda 6a / fatia 2]
+    it 'usa BRAND_ACCENT_COLOR no theme-color e no msapplication-TileColor' do
+      InstallationConfig.find_or_create_by(name: 'DISPLAY_MANIFEST') { |c| c.value = true }.update!(value: true)
+      InstallationConfig.find_or_create_by(name: 'BRAND_ACCENT_COLOR') { |c| c.value = '#2781F6' }.update!(value: '#FF5733')
+      GlobalConfig.clear_cache
+
+      get '/app/login'
+
+      expect(response.body).to include('<meta name="theme-color" content="#FF5733">')
+      expect(response.body).to include('<meta name="msapplication-TileColor" content="#FF5733">')
+    end
+
+    it 'cai no azul padrao quando BRAND_ACCENT_COLOR nao esta configurado' do
+      InstallationConfig.find_or_create_by(name: 'DISPLAY_MANIFEST') { |c| c.value = true }.update!(value: true)
+      GlobalConfig.clear_cache
+
+      get '/app/login'
+
+      expect(response.body).to include('<meta name="theme-color" content="#2781F6">')
     end
   end
 

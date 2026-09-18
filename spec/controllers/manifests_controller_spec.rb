@@ -82,6 +82,25 @@ describe ManifestsController, type: :request do
       expect(manifest_body['icons']).to eq([])
     end
 
+    # [Onda 6a / fatia 2]
+    it 'usa BRAND_ACCENT_COLOR para theme_color e background_color' do
+      set_config('BRAND_ACCENT_COLOR', '#FF5733')
+
+      get '/manifest.json'
+
+      expect(manifest_body['theme_color']).to eq('#FF5733')
+      expect(manifest_body['background_color']).to eq('#FF5733')
+    end
+
+    it 'cai no azul padrao quando BRAND_ACCENT_COLOR nao esta configurado' do
+      set_config('BRAND_ACCENT_COLOR', '')
+
+      get '/manifest.json'
+
+      expect(manifest_body['theme_color']).to eq('#2781F6')
+      expect(manifest_body['background_color']).to eq('#2781F6')
+    end
+
     it 'nao exige sessao' do
       get '/manifest.json'
       expect(response).to be_successful

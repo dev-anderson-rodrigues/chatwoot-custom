@@ -4,6 +4,11 @@
 # ANTES do router, entao os arquivos estaticos equivalentes tiveram que sair de
 # public/ para estas rotas serem alcancadas.
 class ManifestsController < ActionController::Base
+  # [Onda 6a / fatia 2] Mesmo valor que estava fixo aqui antes de
+  # BRAND_ACCENT_COLOR existir -- config ausente ou vazia (campo limpo no
+  # super admin, ou banco sem seed, ver nota de fatia 1) cai neste padrao em
+  # vez de gerar `theme_color: nil` no manifest.
+  DEFAULT_ACCENT_COLOR = '#2781F6'.freeze
   # apple-touch-icon.png / apple-touch-icon-precomposed.png: convencao do
   # Safari/iOS, descoberta por caminho fixo sem nenhuma tag <link> -- nao tem
   # como apontar para a config de outra forma que nao seja responder aqui.
@@ -27,11 +32,18 @@ class ManifestsController < ActionController::Base
   private
 
   def global_config
-    @global_config ||= GlobalConfig.get('INSTALLATION_NAME', 'BRAND_NAME', 'LOGO_THUMBNAIL')
+    @global_config ||= GlobalConfig.get('INSTALLATION_NAME', 'BRAND_NAME', 'LOGO_THUMBNAIL', 'BRAND_ACCENT_COLOR')
   end
 
   def logo_thumbnail
     global_config['LOGO_THUMBNAIL']
+  end
+
+  # O formato hex ja e validado na escrita (InstallationConfig#brand_accent_color_format);
+  # aqui so cobre a ausencia -- campo nunca configurado, limpo no super admin,
+  # ou banco de teste sem seed (ver nota de fatia 1) -- sem repetir a validacao.
+  def accent_color
+    global_config['BRAND_ACCENT_COLOR'].presence || DEFAULT_ACCENT_COLOR
   end
 
   # Duas entradas para a MESMA imagem, tamanhos diferentes declarados: sem
@@ -50,8 +62,8 @@ class ManifestsController < ActionController::Base
       icons: icons,
       start_url: '/',
       display: 'standalone',
-      background_color: '#2781F6',
-      theme_color: '#2781F6'
+      background_color: accent_color,
+      theme_color: accent_color
     }
   end
 

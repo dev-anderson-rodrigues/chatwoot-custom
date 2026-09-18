@@ -28,6 +28,9 @@ class InstallationConfig < ApplicationRecord
     OTEL_PROVIDER
   ]).freeze
 
+  # [Onda 6a / fatia 2] Mesmo formato que Portal#color ja valida.
+  HEX_COLOR_FORMAT = /\A#(?:\h{3}|\h{6})\z/
+
   # https://stackoverflow.com/questions/72970170/upgrading-to-rails-6-1-6-1-causes-psychdisallowedclass-tried-to-load-unspecif
   # https://discuss.rubyonrails.org/t/cve-2022-32224-possible-rce-escalation-bug-with-serialized-columns-in-active-record/81017
   # FIX ME : fixes breakage of installation config. we need to migrate.
@@ -37,6 +40,7 @@ class InstallationConfig < ApplicationRecord
   before_validation :set_lock
   validates :name, presence: true
   validate :saml_sso_users_check, if: -> { name == 'ENABLE_SAML_SSO_LOGIN' }
+  validate :brand_accent_color_format, if: -> { name == 'BRAND_ACCENT_COLOR' }
 
   # TODO: Get rid of default scope
   # https://stackoverflow.com/a/1834250/939299
@@ -70,5 +74,15 @@ class InstallationConfig < ApplicationRecord
     return unless User.exists?(provider: 'saml')
 
     errors.add(:base, 'Cannot disable SAML SSO login while users are using SAML authentication')
+  end
+
+  # `allow_blank`: limpar o campo no super admin e uma forma valida de voltar
+  # ao padrao do manifest/tema (ManifestsController cai de volta pro #2781F6
+  # quando a config vem vazia) -- nao e um valor invalido, e ausencia de valor.
+  def brand_accent_color_format
+    return if value.blank?
+    return if value.to_s.match?(HEX_COLOR_FORMAT)
+
+    errors.add(:base, 'BRAND_ACCENT_COLOR must be a hex color, e.g. #2781F6')
   end
 end

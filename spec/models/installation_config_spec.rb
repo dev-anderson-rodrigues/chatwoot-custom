@@ -16,4 +16,40 @@ RSpec.describe InstallationConfig do
       expect(installation_config.value).to be_nil
     end
   end
+
+  # [Onda 6a / fatia 2]
+  describe 'BRAND_ACCENT_COLOR format' do
+    subject(:config) { described_class.new(name: 'BRAND_ACCENT_COLOR') }
+
+    it 'aceita cor hex de 6 digitos' do
+      config.value = '#2781F6'
+      expect(config).to be_valid
+    end
+
+    it 'aceita cor hex de 3 digitos' do
+      config.value = '#FFF'
+      expect(config).to be_valid
+    end
+
+    it 'aceita em branco -- e o super admin voltando ao padrao, nao um valor invalido' do
+      config.value = ''
+      expect(config).to be_valid
+    end
+
+    it 'rejeita valor que nao e cor hex' do
+      config.value = 'blue'
+      expect(config).not_to be_valid
+      expect(config.errors[:base]).to include(/hex color/)
+    end
+
+    it 'rejeita hex sem o #' do
+      config.value = '2781F6'
+      expect(config).not_to be_valid
+    end
+
+    it 'nao valida o formato de outras chaves' do
+      other = described_class.new(name: 'BRAND_NAME', value: 'nao e uma cor e tudo bem')
+      expect(other).to be_valid
+    end
+  end
 end

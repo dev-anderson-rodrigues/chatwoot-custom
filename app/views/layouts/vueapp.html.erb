@@ -6,9 +6,15 @@
     </title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=0"/>
     <% if @global_config['DISPLAY_MANIFEST'] %>
-      <meta name="msapplication-TileColor" content="#2781F6">
+      <%# `.presence ||`: config vazia ou nunca setada (campo limpo no super
+          admin, ou banco de teste sem seed, ver a nota da fatia 1) cai no
+          mesmo azul que estava fixo aqui antes de BRAND_ACCENT_COLOR existir.
+          Referencia a constante do controller (nao repete o literal): o
+          manifest.json e este layout tem que concordar no MESMO valor, nao so
+          na mesma logica -- achado da revisao desta fatia. %>
+      <meta name="msapplication-TileColor" content="<%= @global_config['BRAND_ACCENT_COLOR'].presence || ManifestsController::DEFAULT_ACCENT_COLOR %>">
       <meta name="msapplication-TileImage" content="<%= @global_config['LOGO_THUMBNAIL'] %>">
-      <meta name="theme-color" content="#2781F6">
+      <meta name="theme-color" content="<%= @global_config['BRAND_ACCENT_COLOR'].presence || ManifestsController::DEFAULT_ACCENT_COLOR %>">
       <meta name="description" content="<%= @global_config['INSTALLATION_NAME'] %> is a customer support solution that helps companies engage customers over Messenger, Twitter, Telegram, WeChat, Whatsapp. Simply connect your channels and converse with your customers from a single place. Easily add new agents to your system and have them own and resolve conversations with customers. <%= @global_config['INSTALLATION_NAME'] %> also gives you real-time reports to measure your team's performance, canned responses to easily respond to frequently asked questions and private notes for agents to collaborate among themselves.">
       <% if ENV['IOS_APP_IDENTIFIER'].present? %>
         <meta name="apple-itunes-app" content='app-id=<%= ENV['IOS_APP_IDENTIFIER'] %>'>
