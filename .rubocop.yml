@@ -106,6 +106,9 @@ Rails/ApplicationController:
     - 'app/controllers/platform_controller.rb'
     - 'app/controllers/public_controller.rb'
     - 'app/controllers/survey/responses_controller.rb'
+    # [Onda 6a] manifest.json e apple-touch-icon* sao publicos e sem sessao,
+    # mesmo motivo de widgets_controller.rb acima.
+    - 'app/controllers/manifests_controller.rb'
 
 Rails/FindEach:
   Enabled: true

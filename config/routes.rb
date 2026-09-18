@@ -36,6 +36,13 @@ Rails.application.routes.draw do
       resources :responses, only: [:show]
     end
     resource :slack_uploads, only: [:show]
+
+    # [Onda 6a] manifest.json e os icones de convencao (apple-touch-icon*)
+    # precisam ser dinamicos para refletir a marca configurada -- ver o
+    # comentario de topo de app/controllers/manifests_controller.rb.
+    get 'manifest.json', to: 'manifests#show'
+    get 'apple-touch-icon.png', to: 'manifests#apple_touch_icon'
+    get 'apple-touch-icon-precomposed.png', to: 'manifests#apple_touch_icon'
   end
 
   get '/health', to: 'health#show'
