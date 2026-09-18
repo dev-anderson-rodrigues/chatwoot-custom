@@ -9,6 +9,7 @@ on:
       - closed
     branches:
       - develop
+  workflow_dispatch:
 
 env:
   REGISTRY: registry.kernohub.cloud
