@@ -12,14 +12,27 @@ destaque da marca (seção 4a).
 
 **2026-09-19 — Onda 7 aberta: Campanhas de cobrança (feature nova, fora do port).** O dono
 decidiu **manter e evoluir** Campanhas (a Coraxy ocultava a aba) para disparar templates de
-cobrança por WhatsApp, e-mail ou outra caixa. Fatia 1 pronta e **ainda não commitada**:
-WhatsApp também pelo provider 360dialog. Ver seção 4b.
+cobrança por WhatsApp, e-mail ou outra caixa. Fatia 1 (WhatsApp também pelo 360dialog)
+commitada (`7408218812`, `d2bdb01bd0`), **sem push ainda**. Ver seção 4b.
 
-Próximo passo natural: commitar a fatia 1 da Onda 7 e decidir com o dono as perguntas
-abertas (e-mail em texto ou HTML, o que é "outra caixa", de onde vem o dado da cobrança).
-**Antes de cobrar em volume**, fazer a "fatia 3" da Onda 7 (endurecimento: campanha trava em
-`processing` se o job morrer, sem retry para 429, sem timeout) — está detalhada no plano.
-Depois, a ordem do plano segue: Onda 4 (UI/UX do chat), 6b (infra/i18n), e a Onda 3 por último.
+**2026-09-20 — o dono respondeu as perguntas abertas** (detalhe no plano, Ondas 7, 8 e 9):
+- **E-mail = texto com variáveis Liquid.** Canais: **qualquer caixa** (e-mail, WhatsApp, SMS,
+  Instagram, Telegram…). Instagram só dentro da janela de 24h e Telegram só para quem já
+  iniciou conversa — restrição da plataforma, não do código; esses canais só alcançam quem já
+  tem conversa.
+- **Dado da cobrança vem de integração nativa com ERP/CRM** (IXC primeiro) + **painel do
+  cliente ligado ao contato** → **Onda 8**, nova. Precedente no código: integração com Shopify
+  (`ContactPanel.vue` + `ShopifyOrdersList.vue`); também existe o "Painel de Aplicativos".
+- **Dialogflow removido do catálogo** (feito — `Integrations::App::HIDDEN_APP_IDS`) e
+  **NotificaMe Hub entra como provedor de canais** → **Onda 9**, nova, **não dimensionada**:
+  a documentação da API é uma SPA que não consegui ler. **Conferir em produção se há hook
+  Dialogflow:** `Integrations::Hook.where(app_id: 'dialogflow').count` — hook existente segue
+  processando, só some da tela.
+
+Próximo passo natural: o dono decide a ordem. Sugestão: (1) fatia 3 da Onda 7 (endurecimento
+de volume) antes de qualquer disparo de cobrança real; (2) Onda 8 (ERP/IXC + painel), que
+alimenta as variáveis; (3) fatia 2 da Onda 7 (disparo genérico por qualquer caixa); (4) Onda 9
+quando houver documentação/conta de teste do NotificaMe. Onda 4, 6b e 3 seguem pendentes.
 
 **Decisão de produto registrada (2026-09-19), ainda não implementada:** esconder "Empresas"
 (Companies) do menu lateral. No produto cada empresa é uma **conta**; a entidade nativa
@@ -91,7 +104,9 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
 | 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) · push feito |
 | 6a — Marca no super admin | ✅ completa · 2 fatias, commitadas e com push |
-| 7 — Campanhas de cobrança | 🔄 feature nova · fatia 1 (WhatsApp também pelo 360dialog) pronta, ainda não commitada |
+| 7 — Campanhas de cobrança | 🔄 feature nova · fatia 1 (WhatsApp também pelo 360dialog) commitada, sem push · fatias 2 e 3 a fazer |
+| 8 — ERP/CRM nativo + painel do cliente | ⏳ nova, a desenhar (IXC primeiro) |
+| 9 — NotificaMe Hub | ⏳ nova, precisa da documentação da API |
 | 4 · 6b · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.

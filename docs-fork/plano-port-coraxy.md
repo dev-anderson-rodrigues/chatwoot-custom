@@ -112,6 +112,8 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 5 — Relatórios | ✅ concluída · 5 telas de 5 (a 6ª descartada com motivo) |
 | 6a — Marca no super admin | ✅ concluída · 2 fatias (favicon/manifest, cor de destaque) |
 | 7 — Campanhas de cobrança | 🔄 feature nova, fora do port · fatia 1 (WhatsApp/360dialog) pronta |
+| 8 — ERP/CRM nativo + painel do cliente (IXC primeiro) | ⏳ feature nova, a desenhar |
+| 9 — NotificaMe Hub como provedor de canais | ⏳ feature nova, precisa da documentação da API |
 | 3 · 4 · 6b | pendentes |
 
 #### Fatias do frontend da Onda 1
@@ -2091,7 +2093,7 @@ mesmos dois arquivos — sem regressão), 0 falhas. Rubocop limpo.
 #### Infra e i18n (independentes da marca)
 
 - Locales `pt_BR` completos (chatlist, conversation, macros, report, settings, sla, integrations, generalSettings) + `config/locales/pt_BR.yml` (texto do CSAT no WhatsApp)
-- ~~Ocultar aba Campanhas~~ — **revertido por decisão do dono em 2026-09-19:** Campanhas fica e evolui (Onda 7). Segue valendo: remover Dialogflow das integrações
+- ~~Ocultar aba Campanhas~~ — **revertido por decisão do dono em 2026-09-19:** Campanhas fica e evolui (Onda 7). ~~Remover Dialogflow das integrações~~ — **feito em 2026-09-20** (oculto do catálogo; NotificaMe Hub entra como Onda 9)
 - **Ocultar "Empresas" (Companies) do menu lateral** — decidido em 2026-09-19. É a entidade nativa do 4.17 (`Companies page`, PR #12842 do upstream) que agrupa contatos *dentro* de uma conta; no modelo do produto cada empresa já é uma **conta**, então a entrada não serve. Só voltaria a fazer sentido para representar filiais de uma mesma conta. Ainda não implementado.
 - `docker/Dockerfile`, `docker-compose*.yaml`, `start.sh`, `docker/entrypoints/*`, `.dockerignore` (incluindo o fix de permitir `.gitignore` no build context), `config/initializers/sidekiq_throttled.rb`, `DEPLOY.md`
 
@@ -2137,9 +2139,8 @@ O dono desconfiou, e estava certo. O código existe e funciona, mas havia duas t
 | # | Fatia | Estado |
 |---|---|---|
 | 1 | WhatsApp também pelo 360dialog: flag nas contas existentes, trava de provider, motivo de falha legível | ✅ |
-| 2 | E-mail: `Email::OneoffCampaignService`, tipo `Email` aceito no model, tela | ⏳ decisões abertas |
+| 2 | Disparo genérico por qualquer caixa (e-mail em texto com Liquid, SMS, Instagram, Telegram…) pelo pipeline normal de mensagem; tipos de caixa aceitos no model; tela | ⏳ decisões tomadas (2026-09-20), falta implementar |
 | 3 | Endurecimento para volume (lease de campanha, retry/backoff, timeout, idempotência) | ⏳ recomendada antes de cobrar em escala |
-| 4 | "Outra caixa de entrada" | ⏳ decisão aberta |
 
 ##### Fatia 1 — resolvida. WhatsApp também pelo 360dialog
 
@@ -2222,18 +2223,91 @@ contatos precisa deles resolvidos. Os três primeiros são o que eu trataria ant
 8. `completed!` roda mesmo que todos tenham falhado; falta um resumo de
    enviados/falhos/pulados ao concluir.
 
-#### Decisões que continuam abertas (do dono)
+#### Decisões do dono (2026-09-20)
 
-1. **E-mail:** texto com variáveis Liquid (rápido; já existe `Liquid::CampaignTemplateService`)
-   ou HTML com layout (mais parecido com um template de cobrança de verdade)?
-2. **"Outra caixa configurada":** genérico para qualquer tipo de caixa, ou só os canais que
-   fazem sentido para disparo ativo (e-mail, WhatsApp, SMS)? Widget não dá para "disparar"
-   para quem não está online.
-3. **De onde vem o dado da cobrança** (valor, vencimento por contato)? A campanha só **lê**
-   `custom_attribute` do contato; alguém precisa gravá-lo (importação, API, integração com o
-   sistema financeiro). Sem isso, o template não tem o que preencher.
-4. **Provider real** da caixa (360dialog ou Cloud API): deixou de bloquear — os dois estão
-   liberados —, mas define o que dá para testar.
+1. **E-mail = texto com variáveis Liquid.** Reaproveita `Liquid::CampaignTemplateService`; sem
+   editor de HTML/layout por enquanto.
+2. **Canais: e-mail, WhatsApp, SMS, Instagram, Telegram etc. — qualquer caixa.** Implica um
+   serviço de disparo **genérico** que usa o pipeline normal de mensagem de saída (cria a
+   conversa/mensagem na caixa e deixa o canal enviar), em vez de um serviço por provider como
+   o upstream tem hoje (Twilio, SMS, WhatsApp). O rastreio por destinatário
+   (`campaign_recipients`) continua sendo o registro de resultado.
+   **Restrição de plataforma, não de código — precisa estar clara para quem for usar:** só
+   e-mail, SMS e WhatsApp (template aprovado) permitem abordar quem nunca falou com você.
+   **Instagram** só aceita mensagem dentro da janela de 24h depois do contato escrever;
+   **Telegram** só alcança quem já iniciou conversa com o bot. Nesses canais a "campanha"
+   atinge apenas contatos que já têm conversa naquela caixa, e o resto tem de aparecer como
+   *pulado* ou *falhou* com motivo, nunca sumir em silêncio.
+3. **De onde vem o dado da cobrança → integração nativa com ERP/CRM, nova onda (Onda 8).** Ver
+   abaixo. A campanha continua só **lendo** `custom_attribute`/dado do contato; quem grava é a
+   integração.
+4. **Dialogflow sai do catálogo (feito) e NotificaMe Hub entra no lugar (nova onda, Onda 9).**
+   Ver abaixo.
+
+---
+
+### Onda 8 — Integração nativa com ERP/CRM e painel do cliente · feature nova
+
+**Origem (2026-09-20, dono).** Integração nativa com qualquer ERP/CRM — o primeiro é o **IXC**
+(ERP de provedores de internet). Vincula o cliente do ERP ao contato do chat, e o atendimento
+passa a ter o **contexto do cliente**: faturas, pendências, controle de pagamento, promessas
+de pagamento, abertura de chamados. O agente vê isso num **painel do cliente ligado ao
+contato**. É também a **fonte do dado de cobrança** que as campanhas (Onda 7) precisam.
+
+**Precedente já no código: a integração com o Shopify.** É exatamente o mesmo desenho — um
+app em `config/integration/apps.yml` (`hook_type: account`), controllers que buscam os dados
+no sistema externo (`api/v1/accounts/integrations/shopify_controller.rb`) e um painel no
+`ContactPanel.vue` (`ShopifyOrdersList.vue`, `ShopifyOrderItem.vue`). O painel do ERP segue
+esse molde, generalizado.
+
+**Também já existe o "Painel de Aplicativos"** (Dashboard Apps, Onda 1.2), cuja descrição na
+tela já fala em "pedidos ou histórico de pagamento". Ele embute uma URL externa na conversa,
+com variáveis interpoladas. É o **caminho barato para um primeiro painel**: apontar para um
+painel do cliente que vocês hospedem, passando o contato como variável — mas hoje as
+variáveis são de conta/usuário (`{account_id}`, `{user_email}`…), não do contato, então
+precisaria de `{contact_id}`/atributos do contato.
+
+**Recomendação de arquitetura (para discutir antes de codar):**
+- **Camada de adaptadores por ERP** (interface única: cliente, faturas, pendências,
+  promessas, chamados), com o **IXC como primeiro adaptador**. Trocar ou somar ERP não pode
+  mexer no painel nem na campanha.
+- **Credenciais por conta** (cada empresa é uma conta, com o seu ERP): configuração do hook
+  da conta, com segredo cifrado.
+- **Vínculo contato ↔ cliente do ERP** por chave estável (CPF/CNPJ é a candidata natural);
+  precisa de regra para o caso de não achar ou achar mais de um.
+- **Leitura ao vivo com cache curto**, não cópia do ERP dentro do Chatwoot: fatura desatualizada
+  numa cobrança é pior que uma consulta lenta. Para campanha em massa, um sincronismo que
+  grave só os campos usados nas variáveis (`valor`, `vencimento`) no contato.
+- **Leitura primeiro, escrita depois.** Registrar promessa de pagamento e abrir chamado são
+  ações com efeito no ERP e precisam de permissão e trilha de auditoria — segunda fatia.
+
+**Perguntas abertas (do dono):** (1) acesso à API do IXC para desenvolver contra (URL, token,
+ambiente de teste)? (2) o que entra na primeira versão do painel — só leitura de faturas e
+pendências, ou já promessa de pagamento e chamado? (3) chave do vínculo: CPF/CNPJ do contato?
+(4) o painel nasce nativo (como o Shopify) ou como Dashboard App apontando para um serviço de
+vocês?
+
+---
+
+### Onda 9 — NotificaMe Hub como provedor de canais · feature nova
+
+**Origem (2026-09-20, dono):** "retira o Dialogflow e coloca o NotificaMe Hub no lugar".
+**Dialogflow já saiu do catálogo** (`Integrations::App::HIDDEN_APP_IDS`; a entrada do
+`apps.yml` fica para um hook já existente não perder o `Hook#app` — ele segue processando
+evento, só some da tela. **Conferir em produção:** `Integrations::Hook.where(app_id:
+'dialogflow').count`).
+
+**São coisas de natureza diferente:** Dialogflow é um **bot** (hook por caixa); o NotificaMe
+Hub é um **gateway de canais** — WhatsApp oficial, Instagram, Facebook, Telegram, SMS, e-mail,
+WebChat e outros —, o mesmo papel que 360dialog/Twilio têm hoje. "No lugar" no catálogo é só
+posição na lista; tecnicamente é um **provedor de canal novo** (recebimento por webhook +
+envio por API), do tamanho de um canal, não de uma integração de bot.
+
+**Não dimensionado.** A documentação do NotificaMe (`hub.notificame.com.br/docs/`) é uma SPA e
+não consegui lê-la daqui; **não vou supor endpoints**. Para estimar preciso da documentação da
+API (autenticação, envio, formato do webhook, como registra o canal) e de uma conta de teste.
+Relaciona-se com a decisão 2 da Onda 7: o Hub pode ser o caminho para Instagram/Telegram/e-mail
+de vocês, e nesse caso o disparo genérico da campanha passa a valer por ele.
 
 ---
 
