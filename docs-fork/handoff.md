@@ -29,6 +29,23 @@ commitada (`7408218812`, `d2bdb01bd0`), **sem push ainda**. Ver seção 4b.
   Dialogflow:** `Integrations::Hook.where(app_id: 'dialogflow').count` — hook existente segue
   processando, só some da tela.
 
+**2026-09-21 — plano da Onda 8 escrito: `docs-fork/plano-erp-cobranca.md`.** O dono mandou
+prints de um painel de cobrança dele como referência de produto ("a linha que quero deixar
+nativa"): o registro do ERP aparece direto na conversa e o que se registra na conversa volta
+para o ERP. Pontos que valem lembrar:
+- **Os prints têm dado real de cliente (nome, CPF, telefone). Nada foi copiado para o plano;
+  não versionar esses prints.**
+- **Corrigi uma recomendação minha:** "leitura ao vivo, não cópia do ERP" não serve, porque os
+  relatórios do print agregam milhares de faturas. Desenho final: **ao vivo para o painel,
+  espelho para relatórios e segmentação.**
+- **Assinatura de contrato** entrou como capacidade do adaptador (F7). O IXC tem o "IXC
+  Assina" com API; outros provedores não foram pesquisados.
+- A API do IXC **não foi verificada** contra ambiente algum — tudo é hipótese até termos o
+  acesso de teste (F0).
+- Verificado no código: segredo do hook só é cifrado **se as chaves de criptografia estiverem
+  configuradas** (e `settings` nunca é cifrado); **não há `sidekiq-throttled` no repo** (limite
+  de vazão para chamadas ao ERP precisa ser construído).
+
 Próximo passo natural: o dono decide a ordem. Sugestão: (1) fatia 3 da Onda 7 (endurecimento
 de volume) antes de qualquer disparo de cobrança real; (2) Onda 8 (ERP/IXC + painel), que
 alimenta as variáveis; (3) fatia 2 da Onda 7 (disparo genérico por qualquer caixa); (4) Onda 9
@@ -105,7 +122,7 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) · push feito |
 | 6a — Marca no super admin | ✅ completa · 2 fatias, commitadas e com push |
 | 7 — Campanhas de cobrança | 🔄 feature nova · fatia 1 (WhatsApp também pelo 360dialog) commitada, sem push · fatias 2 e 3 a fazer |
-| 8 — ERP/CRM nativo + painel do cliente | ⏳ nova, a desenhar (IXC primeiro) |
+| 8 — ERP/CRM nativo + painel do cliente + cobrança | 📋 plano escrito em `plano-erp-cobranca.md` (2026-09-21), aguardando aprovação e acesso ao IXC |
 | 9 — NotificaMe Hub | ⏳ nova, precisa da documentação da API |
 | 4 · 6b · 3 | pendentes |
 

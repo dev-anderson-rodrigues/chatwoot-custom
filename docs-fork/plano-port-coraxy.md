@@ -112,7 +112,7 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 5 — Relatórios | ✅ concluída · 5 telas de 5 (a 6ª descartada com motivo) |
 | 6a — Marca no super admin | ✅ concluída · 2 fatias (favicon/manifest, cor de destaque) |
 | 7 — Campanhas de cobrança | 🔄 feature nova, fora do port · fatia 1 (WhatsApp/360dialog) pronta |
-| 8 — ERP/CRM nativo + painel do cliente (IXC primeiro) | ⏳ feature nova, a desenhar |
+| 8 — ERP/CRM nativo + painel do cliente + cobrança (IXC primeiro) | 📋 plano escrito (`plano-erp-cobranca.md`), aguardando aprovação e acesso ao IXC |
 | 9 — NotificaMe Hub como provedor de canais | ⏳ feature nova, precisa da documentação da API |
 | 3 · 4 · 6b | pendentes |
 
@@ -2267,25 +2267,31 @@ painel do cliente que vocês hospedem, passando o contato como variável — mas
 variáveis são de conta/usuário (`{account_id}`, `{user_email}`…), não do contato, então
 precisaria de `{contact_id}`/atributos do contato.
 
-**Recomendação de arquitetura (para discutir antes de codar):**
-- **Camada de adaptadores por ERP** (interface única: cliente, faturas, pendências,
-  promessas, chamados), com o **IXC como primeiro adaptador**. Trocar ou somar ERP não pode
-  mexer no painel nem na campanha.
-- **Credenciais por conta** (cada empresa é uma conta, com o seu ERP): configuração do hook
-  da conta, com segredo cifrado.
-- **Vínculo contato ↔ cliente do ERP** por chave estável (CPF/CNPJ é a candidata natural);
-  precisa de regra para o caso de não achar ou achar mais de um.
-- **Leitura ao vivo com cache curto**, não cópia do ERP dentro do Chatwoot: fatura desatualizada
-  numa cobrança é pior que uma consulta lenta. Para campanha em massa, um sincronismo que
-  grave só os campos usados nas variáveis (`valor`, `vencimento`) no contato.
-- **Leitura primeiro, escrita depois.** Registrar promessa de pagamento e abrir chamado são
-  ações com efeito no ERP e precisam de permissão e trilha de auditoria — segunda fatia.
+**Plano completo: [`plano-erp-cobranca.md`](plano-erp-cobranca.md)** (2026-09-21). Resumo:
 
-**Perguntas abertas (do dono):** (1) acesso à API do IXC para desenvolver contra (URL, token,
-ambiente de teste)? (2) o que entra na primeira versão do painel — só leitura de faturas e
-pendências, ou já promessa de pagamento e chamado? (3) chave do vínculo: CPF/CNPJ do contato?
-(4) o painel nasce nativo (como o Shopify) ou como Dashboard App apontando para um serviço de
-vocês?
+- **Referência de produto:** os prints de um painel de cobrança do dono (6 abas: inadimplência,
+  promessas, recuperação, disparos e respostas, campanhas, análise; cartão do cliente; modal com
+  faturas/promessas/atendimentos). O plano mapeia cada elemento para uma capacidade nativa e uma
+  fatia. **Os prints têm dado real de cliente (nome, CPF, telefone) — não versionar.**
+- **Arquitetura:** camada de adaptadores por ERP (IXC primeiro), credenciais por conta, vínculo
+  contato ↔ cliente persistido (CPF/CNPJ; ambíguo e não-achado como estados explícitos), escrita
+  "ERP primeiro" com caixa de saída e idempotência, limite de vazão por conta.
+- **Correção ao que eu recomendara em 2026-09-20 ("leitura ao vivo, não cópia do ERP"):** os
+  prints mostram relatórios agregados sobre milhares de faturas (faixa de atraso, funil,
+  perfil de pagamento), que **não dá para fazer chamando o ERP ao vivo**. O desenho passou a
+  ser **híbrido: ao vivo com cache curto para o painel da conversa, e espelho sincronizado
+  para relatórios e segmentação.** Atalho para a primeira entrega: o sync grava etiquetas e
+  atributos no contato e a campanha reaproveita a audiência por etiqueta.
+- **Fatias:** F0 fundação e acesso ao IXC → F1 conector somente leitura + vínculo → F2 painel do
+  cliente na conversa → F3 escrita (promessa, atendimento) → F4 espelho e sync → F5 disparo de
+  cobrança (**só depois do endurecimento de volume da Onda 7**) → F6 relatórios → F7 assinatura
+  de contrato → F8 segundo ERP.
+- **Assinatura de contrato (pedido de 2026-09-21):** entra como capacidade do adaptador (F7). O
+  IXC tem produto próprio, o IXC Assina, com API; outros provedores não foram pesquisados.
+  Validade jurídica e provedor são decisões do dono.
+- **Decisões abertas:** acesso ao IXC com ambiente de teste; escopo da 1ª versão do painel;
+  regras de negócio dos relatórios (o que é "respondeu", "convertido", promessa
+  "cumprida/quebrada"); permissões por papel; régua de cobrança automática (fora por ora).
 
 ---
 
