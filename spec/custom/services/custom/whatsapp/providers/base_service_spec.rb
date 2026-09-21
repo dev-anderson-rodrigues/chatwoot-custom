@@ -60,6 +60,51 @@ RSpec.describe Whatsapp::Providers::BaseService do
     expect(service.send(:parsed_error, response)).to include(code: 131_026, message: 'Message undeliverable')
   end
 
+  # [Onda 7 / fatia 3] Status HTTP e Retry-After para distinguir falha transitoria.
+  describe '#process_response' do
+    def response_double(code:, body:, headers: {}, success: false)
+      instance_double(HTTParty::Response, code: code, parsed_response: body, body: body.to_json,
+                                          headers: headers, success?: success)
+    end
+
+    it 'guarda o status HTTP e o Retry-After junto do erro do provider' do
+      response = response_double(code: 429, headers: { 'retry-after' => '12' },
+                                 body: { 'error' => { 'code' => 130_429, 'message' => 'Rate limit hit' } })
+
+      expect(service.process_response(response, nil)).to be_nil
+      expect(service.last_error).to include(http_status: 429, retry_after: 12, code: 130_429, message: 'Rate limit hit')
+    end
+
+    it 'da um texto com o status quando o provider nao explicou o erro' do
+      service.process_response(response_double(code: 502, body: { 'foo' => 'bar' }), nil)
+
+      expect(service.last_error).to include(http_status: 502, message: 'WhatsApp provider returned HTTP 502')
+    end
+
+    it 'ignora Retry-After em formato de data HTTP' do
+      response = response_double(code: 503, headers: { 'retry-after' => 'Wed, 21 Oct 2026 07:28:00 GMT' }, body: {})
+
+      service.process_response(response, nil)
+
+      expect(service.last_error).not_to have_key(:retry_after)
+    end
+
+    it 'mantem o motivo do 360dialog junto do status' do
+      response = response_double(code: 400, body: { 'meta' => { 'http_code' => 400, 'developer_message' => 'bad params' } })
+
+      service.process_response(response, nil)
+
+      expect(service.last_error).to include(http_status: 400, code: 400, message: 'bad params')
+    end
+
+    it 'nao acrescenta erro nenhum quando o envio deu certo, e devolve o id da mensagem' do
+      response = response_double(code: 200, success: true, body: { 'messages' => [{ 'id' => 'wamid.1' }] })
+
+      expect(service.process_response(response, nil)).to eq('wamid.1')
+      expect(service.last_error).to be_nil
+    end
+  end
+
   it 'devolve nil quando nao reconhece nenhum dos formatos, sem levantar erro' do
     expect(service.send(:parsed_error, response_with('foo' => 'bar'))).to be_nil
     expect(service.send(:parsed_error, response_with('errors' => []))).to be_nil
