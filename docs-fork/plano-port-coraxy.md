@@ -110,7 +110,9 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 1 — Backend (macros, dashboard apps, my_teams_only) | ✅ concluída e revisada |
 | 1 — Frontend | ✅ as 8 fatias feitas e revisadas |
 | 5 — Relatórios | ✅ concluída · 5 telas de 5 (a 6ª descartada com motivo) |
-| 3 · 4 · 6 | pendentes |
+| 6a — Marca no super admin | ✅ concluída · 2 fatias (favicon/manifest, cor de destaque) |
+| 7 — Campanhas de cobrança | 🔄 feature nova, fora do port · fatia 1 (WhatsApp/360dialog) pronta |
+| 3 · 4 · 6b | pendentes |
 
 #### Fatias do frontend da Onda 1
 
@@ -2089,8 +2091,149 @@ mesmos dois arquivos — sem regressão), 0 falhas. Rubocop limpo.
 #### Infra e i18n (independentes da marca)
 
 - Locales `pt_BR` completos (chatlist, conversation, macros, report, settings, sla, integrations, generalSettings) + `config/locales/pt_BR.yml` (texto do CSAT no WhatsApp)
-- Ocultar aba Campanhas; remover Dialogflow das integrações
+- ~~Ocultar aba Campanhas~~ — **revertido por decisão do dono em 2026-09-19:** Campanhas fica e evolui (Onda 7). Segue valendo: remover Dialogflow das integrações
+- **Ocultar "Empresas" (Companies) do menu lateral** — decidido em 2026-09-19. É a entidade nativa do 4.17 (`Companies page`, PR #12842 do upstream) que agrupa contatos *dentro* de uma conta; no modelo do produto cada empresa já é uma **conta**, então a entrada não serve. Só voltaria a fazer sentido para representar filiais de uma mesma conta. Ainda não implementado.
 - `docker/Dockerfile`, `docker-compose*.yaml`, `start.sh`, `docker/entrypoints/*`, `.dockerignore` (incluindo o fix de permitir `.gitignore` no build context), `config/initializers/sidekiq_throttled.rb`, `DEPLOY.md`
+
+---
+
+### Onda 7 — Campanhas de cobrança · feature nova, fora do port da Coraxy
+
+**Origem (2026-09-19, pedido do dono).** A Coraxy ocultava a aba Campanhas; aqui a decisão
+é a oposta: **manter e evoluir**. O objetivo é criar campanha e disparar templates de
+**cobrança** por WhatsApp, por e-mail ou por outra caixa de entrada configurada.
+
+#### O que o 4.17 já entrega (levantado no código, não suposição)
+
+- `Campaign` tem dois tipos: `one_off` (disparo em massa — SMS, Twilio SMS e WhatsApp) e
+  `ongoing` (mensagem proativa no widget do site). O model só aceita caixa `Website`,
+  `Twilio SMS`, `Sms` e `Whatsapp`: **e-mail não existe** no fluxo de campanhas.
+- O Enterprise (ativo desde a Onda 2) acrescenta **rastreio de entrega por destinatário**:
+  tabela `campaign_recipients` (enviado/entregue/lido/falhou, código e motivo do erro),
+  atualizada pelo webhook de status, e uma tela de analytics da campanha de WhatsApp.
+- A audiência é só por **etiqueta** (`Label`) aplicada ao contato.
+- As variáveis usam **Liquid** com os drops `contact`, `agent`, `inbox` e `account`. O
+  `ContactDrop` expõe `custom_attribute`, então `{{ contact.custom_attribute.valor }}` já
+  funciona: **cobrança por atributo customizado do contato é viável hoje**, desde que o
+  dado (valor, vencimento) esteja gravado no contato.
+- "Template" de WhatsApp é o **template aprovado pela Meta** (`template_params`), não texto
+  livre — regra da API oficial fora da janela de 24h. E-mail não tem esse conceito.
+
+#### Por que "dispara para WhatsApp" era falso na prática
+
+O dono desconfiou, e estava certo. O código existe e funciona, mas havia duas travas:
+1. **`whatsapp_campaign` vinha desligada** (`enabled: false` em `config/features.yml`).
+2. **`validate_provider!` só aceitava `whatsapp_cloud`.** O Chatwoot tem dois providers
+   (`default`, que é o 360dialog, e `whatsapp_cloud`); qualquer caixa fora da Cloud API
+   levantava `WhatsApp Cloud provider required` antes de enviar. A trava é da feature de
+   campanhas, não do envio: `Whatsapp360DialogService#send_template` existe com a mesma
+   assinatura, os dois providers herdam `process_response` do `BaseService`, e os dois
+   webhooks de entrada herdam de `Whatsapp::IncomingMessageBaseService` (onde o módulo
+   enterprise grava delivered/read/failed). A tela também não filtra por provider
+   (conferido).
+
+#### Fatiamento
+
+| # | Fatia | Estado |
+|---|---|---|
+| 1 | WhatsApp também pelo 360dialog: flag nas contas existentes, trava de provider, motivo de falha legível | ✅ |
+| 2 | E-mail: `Email::OneoffCampaignService`, tipo `Email` aceito no model, tela | ⏳ decisões abertas |
+| 3 | Endurecimento para volume (lease de campanha, retry/backoff, timeout, idempotência) | ⏳ recomendada antes de cobrar em escala |
+| 4 | "Outra caixa de entrada" | ⏳ decisão aberta |
+
+##### Fatia 1 — resolvida. WhatsApp também pelo 360dialog
+
+Tudo na camada `custom/` do fork, sem editar arquivo upstream (mesmo padrão de
+`check_new_versions_job.rb`):
+
+- `custom/app/services/custom/whatsapp/oneoff_campaign_service.rb` — `validate_provider!`
+  passa a aceitar `%w[default whatsapp_cloud]`. **Lista explícita**, não "qualquer provider":
+  um provider novo que o upstream crie não herda o disparo em massa por acidente.
+- `custom/app/services/custom/whatsapp/providers/base_service.rb` — o `parsed_error` do
+  enterprise só entende o formato da Meta (`error: {}`); o 360dialog responde de duas outras
+  formas: erro de **requisição** em `meta.developer_message` (template/parâmetro inválido, o
+  caso mais comum — formato que o próprio `Whatsapp360DialogService#error_message` já
+  documenta) e erro de **entrega** numa lista `errors: [{code, title, details}]`. Sem isto,
+  um envio que falha ficaria na tabela de entrega só com "WhatsApp provider did not return
+  a message id", sem o motivo real — a informação que quem cobra mais precisa. O primeiro
+  formato está documentado no código; o segundo veio da documentação da 360dialog e **não
+  foi validado contra uma conta real**.
+- `db/migrate/20260919000000_enable_whatsapp_campaign_for_existing_accounts.rb` — o
+  `enabled: true` do `features.yml` só vale para conta **criada depois**. Como neste
+  produto cada empresa é uma conta, as existentes precisam do flag ligado explicitamente,
+  senão levantam `WhatsApp campaigns feature not enabled`. Mesmo formato da migration do
+  `captain_tasks`. **Roda no deploy** (`db:migrate`).
+- Um teste upstream (`oneoff_campaign_service_spec.rb`, "raises error when channel provider
+  is not whatsapp_cloud") afirmava o comportamento antigo; foi trocado por um que barra
+  provider **não suportado**. É uma edição de spec upstream, então pode dar conflito num
+  sync — é pequena e está isolada.
+
+Cobertura nova, e os três testes de cada override **falham sem ele** (confirmado
+removendo o arquivo): envio pela API da 360dialog, destinatário marcado como enviado com o
+id devolvido (se o id não voltasse, o override enterprise marcaria todos como falha mesmo
+com a mensagem entregue) e motivo real da falha gravado no destinatário.
+
+Verificado na tela: a caixa 360dialog aparece no seletor de caixa da campanha e o template
+aprovado carrega no seletor de modelo. **Não verificado:** um disparo real contra a
+360dialog (sem conta aqui); o painel de variáveis do template, que é código upstream.
+
+**O que a revisão de `integration-reliability` achou — e o que eu checei antes de aceitar:**
+
+- **`namespace` (apontado como bloqueante) — refutado no código.** O formulário grava
+  `namespace: currentTemplate?.namespace` (`WhatsAppCampaignForm.vue:136`), ou seja, usa o
+  do template sincronizado, que o 360dialog v1 traz. Não é defeito.
+- **Formato de erro — o ponto era válido** e virou a segunda metade do override acima
+  (`meta.developer_message`).
+- **`provider: default` aponta para `waba.360dialog.io/v1`** (on-premise, override por
+  `360DIALOG_BASE_URL`). **Confirmar se a conta 360dialog de vocês ainda está no v1**: se já
+  migrou para a hospedagem de Cloud API da 360dialog, o formato muda.
+
+#### Fatia 3 (dívida de volume) — o que trava cobrança em escala
+
+Achados reais, **todos pré-existentes no upstream e independentes de provider** (valem para
+Cloud também), então não foram desta fatia — mas quem for disparar cobrança para milhares de
+contatos precisa deles resolvidos. Os três primeiros são o que eu trataria antes:
+
+1. **Campanha trava em `processing` para sempre se o job morrer no meio** (deploy, SIGKILL).
+   Reexecutar não retoma: `mark_processing!` faz `next if processing?` e o `trigger!` sai sem
+   fazer nada, então o resto do público nunca recebe. Precisa de reivindicação por *lease*
+   (`started_at` mais antigo que N minutos permite retomar).
+2. **Sem retry nem backoff para 429/5xx.** Um 429 do provider vira `failed` permanente do
+   destinatário. O 360dialog tem limite de vazão por número mais baixo que a Cloud; duas
+   campanhas simultâneas no mesmo número podem estourar. Tratar 429/5xx como transitório
+   (poucas tentativas, backoff, respeitar `Retry-After`) e não marcar falha.
+3. **Sem timeout no `HTTParty.post`** do `send_template` (padrão do Net::HTTP: 60s + 60s).
+   Um provider lento segura o job inteiro: 1.000 contatos a 60s = ~16h num job só. O
+   `with_lock` cobre só a troca de status, não o envio (a premissa contrária que eu tinha
+   estava errada).
+4. **Reexecução reenviaria para quem já recebeu.** O `find_or_create_by!` protege a linha do
+   destinatário, não o envio; `process_recipient` não confere `recipient.sent?`. Hoje isso
+   fica escondido pelo item 1 (a campanha nem retoma), mas quem corrigir o item 1 tem que
+   corrigir este junto.
+5. **Falso "falhou" para mensagem entregue:** se o POST passa e o erro vem depois (queda
+   antes do `mark_sent!`, erro de banco), o `rescue StandardError` marca `failed`. Sem chave
+   de idempotência no 360dialog.
+6. **Template não encontrado** (removido, pausado ou renomeado depois de criar a
+   campanha): `processed_templates_params` devolve nil, mas `name` continua preenchido, então
+   o envio segue com `components: nil` — um POST fadado a falhar por contato. Não é silencioso
+   (cada destinatário fica `failed`, agora com o motivo), só desperdiça chamadas.
+7. `handle_error` do upstream loga o `response.body` inteiro por destinatário — pode levar
+   telefone/PII para o log.
+8. `completed!` roda mesmo que todos tenham falhado; falta um resumo de
+   enviados/falhos/pulados ao concluir.
+
+#### Decisões que continuam abertas (do dono)
+
+1. **E-mail:** texto com variáveis Liquid (rápido; já existe `Liquid::CampaignTemplateService`)
+   ou HTML com layout (mais parecido com um template de cobrança de verdade)?
+2. **"Outra caixa configurada":** genérico para qualquer tipo de caixa, ou só os canais que
+   fazem sentido para disparo ativo (e-mail, WhatsApp, SMS)? Widget não dá para "disparar"
+   para quem não está online.
+3. **De onde vem o dado da cobrança** (valor, vencimento por contato)? A campanha só **lê**
+   `custom_attribute` do contato; alguém precisa gravá-lo (importação, API, integração com o
+   sistema financeiro). Sem isso, o template não tem o que preencher.
+4. **Provider real** da caixa (360dialog ou Cloud API): deixou de bloquear — os dois estão
+   liberados —, mas define o que dá para testar.
 
 ---
 

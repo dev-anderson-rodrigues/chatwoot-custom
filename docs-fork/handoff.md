@@ -1,4 +1,4 @@
-# Handoff — estado em 2026-09-17
+# Handoff — estado em 2026-09-19
 
 Documento de retomada. Leia antes de tocar em qualquer coisa: **o repositório mudou de
 lugar** e o ambiente foi reconstruído.
@@ -7,13 +7,23 @@ lugar** e o ambiente foi reconstruído.
 revisada pelos três especialistas e verificada na tela. Suíte de relatórios completa: 5
 telas de 5. Commitado e com push feito para `origin/feature/port-coraxy`.
 
-**2026-09-17 — Onda 6a fechada.** Fatia 1 (favicon/manifest dinâmicos) commitada
-(`b12ed32631`, `712d4e4db3`). Fatia 2 (cor de destaque da marca) pronta, revisada e
-verificada — **ainda não commitada**, está na working tree. Ver seção 4a para as duas.
+**2026-09-17 — Onda 6a fechada e enviada ao remote.** Favicon/manifest dinâmicos e cor de
+destaque da marca (seção 4a).
 
-Próximo passo natural: commitar a fatia 2 e seguir a ordem do plano — Onda 4 (UI/UX do chat)
-é a próxima depois de 6a, e a Onda 6b (infra/i18n) e a Onda 3 (fluxo IA, deliberadamente por
-último) seguem pendentes.
+**2026-09-19 — Onda 7 aberta: Campanhas de cobrança (feature nova, fora do port).** O dono
+decidiu **manter e evoluir** Campanhas (a Coraxy ocultava a aba) para disparar templates de
+cobrança por WhatsApp, e-mail ou outra caixa. Fatia 1 pronta e **ainda não commitada**:
+WhatsApp também pelo provider 360dialog. Ver seção 4b.
+
+Próximo passo natural: commitar a fatia 1 da Onda 7 e decidir com o dono as perguntas
+abertas (e-mail em texto ou HTML, o que é "outra caixa", de onde vem o dado da cobrança).
+**Antes de cobrar em volume**, fazer a "fatia 3" da Onda 7 (endurecimento: campanha trava em
+`processing` se o job morrer, sem retry para 429, sem timeout) — está detalhada no plano.
+Depois, a ordem do plano segue: Onda 4 (UI/UX do chat), 6b (infra/i18n), e a Onda 3 por último.
+
+**Decisão de produto registrada (2026-09-19), ainda não implementada:** esconder "Empresas"
+(Companies) do menu lateral. No produto cada empresa é uma **conta**; a entidade nativa
+(PR upstream #12842) só faria sentido para filiais. Entra na Onda 6b.
 
 ---
 
@@ -80,7 +90,8 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
 | 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) · push feito |
-| 6a — Marca no super admin | ✅ completa · fatia 1 commitada, fatia 2 (cor de destaque) pronta e não commitada |
+| 6a — Marca no super admin | ✅ completa · 2 fatias, commitadas e com push |
+| 7 — Campanhas de cobrança | 🔄 feature nova · fatia 1 (WhatsApp também pelo 360dialog) pronta, ainda não commitada |
 | 4 · 6b · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.
@@ -213,6 +224,44 @@ Verificado: busca no repo inteiro por `update_column`/`insert`/`upsert` sobre
 `InstallationConfig` fora de specs não achou nada — os dois únicos caminhos de escrita (form
 do super admin, seed via `ConfigLoader`) rodam validação. 29 exemplos, 0 falhas. Rubocop
 limpo. Testado contra o servidor real e no navegador.
+
+**2026-09-19 — Onda 7, fatia 1 pronta (campanha de WhatsApp também pelo 360dialog), ainda
+não commitada.** O upstream só deixava disparar em massa por `whatsapp_cloud`, e o flag
+`whatsapp_campaign` vinha desligado — por isso "dispara para WhatsApp" era falso na prática.
+
+Arquivos novos, todos na camada `custom/` (sem editar upstream):
+`custom/app/services/custom/whatsapp/oneoff_campaign_service.rb` (libera `default`+`whatsapp_cloud`),
+`custom/app/services/custom/whatsapp/providers/base_service.rb` (motivo de falha do 360dialog),
+`db/migrate/20260919000000_enable_whatsapp_campaign_for_existing_accounts.rb` (liga o flag nas
+contas existentes — **roda no deploy**, e como cada empresa é uma conta isso importa),
+`spec/custom/services/custom/whatsapp/providers/base_service_spec.rb`.
+Alterados: `config/features.yml` (flag `enabled: true`; a edição era do dono, ainda não
+commitada), `db/schema.rb` (só a linha de versão), e um teste **upstream** em
+`spec/services/whatsapp/oneoff_campaign_service_spec.rb` que afirmava o comportamento antigo
+(pode dar conflito em sync).
+
+Achados que valem lembrar:
+
+- **O `ContactDrop` expõe `custom_attribute`**, então `{{ contact.custom_attribute.valor }}`
+  já funciona no template: cobrança por atributo customizado é viável hoje — mas **alguém
+  precisa gravar valor/vencimento no contato** (importação, API, integração financeira). É a
+  pergunta 3 do plano.
+- O Enterprise (ativo) já tem **rastreio de entrega por destinatário** e tela de analytics de
+  campanha WhatsApp — o que falta é bem menos do que "escrever do zero".
+- O 360dialog devolve erro em formato diferente da Meta (`meta.developer_message` e lista
+  `errors`); sem o override, o motivo real da falha se perdia. O segundo formato **não foi
+  validado contra conta real**.
+- Um revisor apontou `namespace` como bloqueante; **conferi no código e não é** (o formulário
+  usa o namespace do template sincronizado). Vale lembrar de não aceitar achado sem checar.
+- **Armadilha de ambiente:** `rails db:migrate` no container roda o hook do `annotate` e
+  reescreve comentários de 14 models não relacionados. Reverter com `git checkout` nesses
+  arquivos (conferi que eram só linhas de comentário) e manter só `db/schema.rb` (versão).
+- Banco de teste: depois de uma migration nova, subir a versão em `db/schema.rb` e rodar
+  `bash /home/anderson/bin/cw-testdb` (só `chatwoot_test`), senão o RSpec para com
+  "Migrations are pending".
+
+Dívida de volume (lease de campanha em `processing`, retry/backoff para 429, timeout, reenvio
+na retomada) e as perguntas abertas: seção "Onda 7" de `plano-port-coraxy.md`.
 
 **Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
 e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê
