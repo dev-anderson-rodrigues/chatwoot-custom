@@ -2094,7 +2094,7 @@ mesmos dois arquivos — sem regressão), 0 falhas. Rubocop limpo.
 
 - Locales `pt_BR` completos (chatlist, conversation, macros, report, settings, sla, integrations, generalSettings) + `config/locales/pt_BR.yml` (texto do CSAT no WhatsApp)
 - ~~Ocultar aba Campanhas~~ — **revertido por decisão do dono em 2026-09-19:** Campanhas fica e evolui (Onda 7). ~~Remover Dialogflow das integrações~~ — **feito em 2026-09-20** (oculto do catálogo; NotificaMe Hub entra como Onda 9)
-- **Ocultar "Empresas" (Companies) do menu lateral** — decidido em 2026-09-19. É a entidade nativa do 4.17 (`Companies page`, PR #12842 do upstream) que agrupa contatos *dentro* de uma conta; no modelo do produto cada empresa já é uma **conta**, então a entrada não serve. Só voltaria a fazer sentido para representar filiais de uma mesma conta. Ainda não implementado.
+- **Ocultar "Empresas" (Companies) do menu lateral** — decidido em 2026-09-19. É a entidade nativa do 4.17 (`Companies page`, PR #12842 do upstream) que agrupa contatos *dentro* de uma conta; no modelo do produto cada empresa já é uma **conta**, então a entrada não serve. Só voltaria a fazer sentido para representar filiais de uma mesma conta. **Feito em 2026-09-21:** pelo próprio flag de conta `companies` (desligado por padrão e nas contas existentes, via `20260921000000_set_fork_feature_defaults.rb`), **sem editar o menu do upstream** — e uma conta que tenha filiais liga de volta no super admin. Com o flag desligado o menu não mostra a opção e a API responde 403; a URL direta ainda abre uma página vazia ("Nenhuma empresa encontrada"), porque o roteador do front não redireciona por esse flag. Contatos que já tinham empresa vinculada continuam mostrando o nome dela no cartão.
 - `docker/Dockerfile`, `docker-compose*.yaml`, `start.sh`, `docker/entrypoints/*`, `.dockerignore` (incluindo o fix de permitir `.gitignore` no build context), `config/initializers/sidekiq_throttled.rb`, `DEPLOY.md`
 
 ---
@@ -2159,11 +2159,22 @@ Tudo na camada `custom/` do fork, sem editar arquivo upstream (mesmo padrão de
   a message id", sem o motivo real — a informação que quem cobra mais precisa. O primeiro
   formato está documentado no código; o segundo veio da documentação da 360dialog e **não
   foi validado contra uma conta real**.
-- `db/migrate/20260919000000_enable_whatsapp_campaign_for_existing_accounts.rb` — o
-  `enabled: true` do `features.yml` só vale para conta **criada depois**. Como neste
-  produto cada empresa é uma conta, as existentes precisam do flag ligado explicitamente,
-  senão levantam `WhatsApp campaigns feature not enabled`. Mesmo formato da migration do
-  `captain_tasks`. **Roda no deploy** (`db:migrate`).
+- `db/migrate/20260919000000_enable_whatsapp_campaign_for_existing_accounts.rb` — liga o
+  flag nas contas que **já existem**. Como neste produto cada empresa é uma conta, elas
+  precisam do flag ligado explicitamente, senão levantam `WhatsApp campaigns feature not
+  enabled`. Mesmo formato da migration do `captain_tasks`. **Roda no deploy** (`db:migrate`).
+  **Sozinha ela não bastava — ver a correção de 2026-09-21 logo abaixo.**
+- **Correção de 2026-09-21 (lacuna minha, achada ao fazer o item "Empresas"):** o padrão das
+  contas **novas** vem do registro `ACCOUNT_LEVEL_FEATURE_DEFAULTS` no banco
+  (`Featurable#enable_default_features`), e o `ConfigLoader` do deploy roda com
+  `reconcile_only_new`: **só acrescenta feature que ainda não existe, nunca sobrescreve a que
+  já está lá.** Trocar `whatsapp_campaign` para `enabled: true` no `features.yml` numa
+  instalação existente **não chegava a nenhuma conta criada depois** — e cada nova empresa de
+  vocês é uma conta nova. Confirmado no banco de dev (`whatsapp_campaign=false` no registro
+  com o YAML já em `true`). O comentário da migration de 09-19 afirmava o contrário e foi
+  corrigido. A migration `20260921000000_set_fork_feature_defaults.rb` atualiza o registro
+  **e** as contas existentes (mesmo desenho da `FlipChatwootV4DefaultFeatureFlag…` do
+  upstream), com spec que reproduz o problema e prova a correção.
 - Um teste upstream (`oneoff_campaign_service_spec.rb`, "raises error when channel provider
   is not whatsapp_cloud") afirmava o comportamento antigo; foi trocado por um que barra
   provider **não suportado**. É uma edição de spec upstream, então pode dar conflito num

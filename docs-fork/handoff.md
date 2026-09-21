@@ -51,9 +51,18 @@ de volume) antes de qualquer disparo de cobrança real; (2) Onda 8 (ERP/IXC + pa
 alimenta as variáveis; (3) fatia 2 da Onda 7 (disparo genérico por qualquer caixa); (4) Onda 9
 quando houver documentação/conta de teste do NotificaMe. Onda 4, 6b e 3 seguem pendentes.
 
-**Decisão de produto registrada (2026-09-19), ainda não implementada:** esconder "Empresas"
-(Companies) do menu lateral. No produto cada empresa é uma **conta**; a entidade nativa
-(PR upstream #12842) só faria sentido para filiais. Entra na Onda 6b.
+**2026-09-21 — "Empresas" escondido, e uma lacuna minha corrigida.** Feito pelo flag de conta
+`companies` (desligado), sem editar o menu do upstream: menu sem a opção, API responde 403,
+URL direta abre página vazia. **Ao fazer isso achei que a migration de 09-19 (WhatsApp) tinha um
+buraco:** o padrão de conta **nova** vem do registro `ACCOUNT_LEVEL_FEATURE_DEFAULTS` no
+banco, e o deploy **não sobrescreve** entrada existente — mudar o `features.yml` não chegava a
+contas criadas depois (e cada nova empresa é uma conta). Corrigido em
+`20260921000000_set_fork_feature_defaults.rb` (registro + contas existentes), com spec.
+**Lição para qualquer flag futuro:** mexer só no `features.yml` não basta em instalação
+existente; precisa de migration que atualize o registro. **Roda no deploy** (`db:migrate`).
+Armadilha de ambiente repetida: o `db:migrate` no container **reescreve comentários de 14
+models** (`ANNOTATE_SKIP_ON_DB_MIGRATE` não impediu) — reverter com `git checkout` depois de
+conferir que são só comentários.
 
 ---
 
