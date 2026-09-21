@@ -62,16 +62,88 @@ describe Whatsapp::OneoffCampaignService do
         expect { described_class.new(campaign: campaign).perform }.to raise_error "Invalid campaign #{campaign.id}"
       end
 
-      it 'raises error when channel provider is not whatsapp_cloud' do
-        whatsapp_channel.update!(provider: 'default')
+      # [FORK] O upstream travava em whatsapp_cloud; o fork libera tambem o
+      # 360dialog ('default') via custom/app/services/custom/whatsapp/. Um
+      # provider fora da lista continua barrado.
+      it 'raises error when channel provider is not supported for campaigns' do
+        allow(whatsapp_channel).to receive(:provider).and_return('unsupported_provider')
 
-        expect { described_class.new(campaign: campaign).perform }.to raise_error 'WhatsApp Cloud provider required'
+        expect { described_class.new(campaign: campaign).perform }
+          .to raise_error 'WhatsApp provider not supported for campaigns: unsupported_provider'
       end
 
       it 'raises error when WhatsApp campaigns feature is not enabled' do
         account.disable_features!(:whatsapp_campaign)
 
         expect { described_class.new(campaign: campaign).perform }.to raise_error 'WhatsApp campaigns feature not enabled'
+      end
+    end
+
+    # [FORK] 360dialog ('default'): o envio sai pela API da 360dialog, com o
+    # mesmo contrato de send_template, e o id devolvido marca o destinatario
+    # como enviado -- se o id nao voltasse, o override enterprise marcaria
+    # todos como falha mesmo com a mensagem entregue.
+    context 'when the channel uses the 360dialog provider' do
+      before do
+        whatsapp_channel.update!(provider: 'default')
+        stub_request(:post, %r{waba\.360dialog\.io/v1/messages})
+          .to_return(status: 200, body: { messages: [{ id: 'wamid.360dialog_1' }] }.to_json,
+                     headers: { 'Content-Type' => 'application/json' })
+      end
+
+      it 'sends the template through the 360dialog API and completes the campaign' do
+        contact = create(:contact, :with_phone_number, account: account)
+        contact.update_labels([label1.title])
+
+        described_class.new(campaign: campaign).perform
+
+        expect(a_request(:post, %r{waba\.360dialog\.io/v1/messages})).to have_been_made.once
+        expect(campaign.reload.completed?).to be true
+      end
+
+      it 'marks the recipient as sent with the id returned by the provider' do
+        contact = create(:contact, :with_phone_number, account: account)
+        contact.update_labels([label1.title])
+
+        described_class.new(campaign: campaign).perform
+
+        expect(campaign.campaign_recipients.pluck(:source_id)).to eq(['wamid.360dialog_1'])
+      end
+
+      # Erro de requisicao (o caso mais comum: template/parametro invalido) vem em
+      # `meta.developer_message` -- formato que o proprio servico do 360dialog ja
+      # documenta. Sem o tratamento em custom/.../providers/base_service.rb, a
+      # tabela de entrega mostraria so "provider did not return a message id".
+      it 'records the request error reason when 360dialog returns it in meta' do
+        stub_request(:post, %r{waba\.360dialog\.io/v1/messages})
+          .to_return(status: 400, headers: { 'Content-Type' => 'application/json' },
+                     body: { meta: { success: false, http_code: 400,
+                                     developer_message: 'number of localizable_params does not match' } }.to_json)
+        contact = create(:contact, :with_phone_number, account: account)
+        contact.update_labels([label1.title])
+
+        described_class.new(campaign: campaign).perform
+
+        expect(campaign.campaign_recipients.first).to have_attributes(
+          status: 'failed', error_code: '400', error_message: 'number of localizable_params does not match'
+        )
+      end
+
+      # E a lista `errors` (falha de entrega no nivel do WhatsApp).
+      it 'records the provider reason when 360dialog rejects the message' do
+        stub_request(:post, %r{waba\.360dialog\.io/v1/messages})
+          .to_return(status: 400, headers: { 'Content-Type' => 'application/json' },
+                     body: { errors: [{ code: 1013, title: 'User is invalid',
+                                        details: 'Recipient number is not a WhatsApp user' }] }.to_json)
+        contact = create(:contact, :with_phone_number, account: account)
+        contact.update_labels([label1.title])
+
+        described_class.new(campaign: campaign).perform
+
+        expect(campaign.campaign_recipients.first).to have_attributes(
+          status: 'failed', error_code: '1013', error_title: 'User is invalid',
+          error_message: 'Recipient number is not a WhatsApp user'
+        )
       end
     end
 
