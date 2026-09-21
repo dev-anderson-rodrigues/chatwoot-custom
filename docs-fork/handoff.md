@@ -46,10 +46,31 @@ para o ERP. Pontos que valem lembrar:
   configuradas** (e `settings` nunca é cifrado); **não há `sidekiq-throttled` no repo** (limite
   de vazão para chamadas ao ERP precisa ser construído).
 
-Próximo passo natural: o dono decide a ordem. Sugestão: (1) fatia 3 da Onda 7 (endurecimento
-de volume) antes de qualquer disparo de cobrança real; (2) Onda 8 (ERP/IXC + painel), que
-alimenta as variáveis; (3) fatia 2 da Onda 7 (disparo genérico por qualquer caixa); (4) Onda 9
-quando houver documentação/conta de teste do NotificaMe. Onda 4, 6b e 3 seguem pendentes.
+Próximo passo natural: o dono decide a ordem. Sugestão: (1) ~~fatia 3 da Onda 7 (endurecimento
+de volume)~~ **feita em 2026-09-21, ver abaixo**; (2) Onda 8 (ERP/IXC + painel), que alimenta as
+variáveis — **bloqueada no acesso ao IXC**; (3) fatia 2 da Onda 7 (disparo genérico por
+qualquer caixa); (4) Onda 9 quando houver documentação/conta de teste do NotificaMe. Onda 4, 6b
+(sem o item Empresas/Dialogflow, já feitos) e 3 seguem pendentes.
+
+**2026-09-21 — Onda 7, fatia 3 (endurecimento de volume) pronta, ainda não commitada.** Tudo em
+`custom/`: `Custom::Campaigns::ResetStaleProcessingJob` (destrava campanha presa em
+`processing`, a cada 5 min pelo `TriggerScheduledItemsJob`), `Custom::TriggerScheduledItemsJob`,
+e o `Custom::Whatsapp::OneoffCampaignService` estendido (só processa destinatário `queued` com
+`reload`, confere o template antes de enviar, timeout, retry, ritmo, rescue por destinatário).
+`Custom::Whatsapp::Providers::BaseService` passou a guardar `http_status`/`retry_after`.
+**Variáveis de ambiente novas** (opcionais): `CAMPAIGN_SEND_INTERVAL_MS` (padrão 300) e
+`CAMPAIGN_SEND_TIMEOUT_SECONDS` (padrão 30). **Não medi o limite de vazão real da conta
+360dialog de vocês** — ajustar o intervalo quando souber.
+- **Regra que mais importa:** só repete **429** e **503 com `Retry-After`**. 500/502/504, timeout
+  e erro de rede **não** repetem, porque o provider pode ter processado e reenviar cobraria duas
+  vezes.
+- **A revisão achou dois bloqueantes reais e um erro meu de comentário** (o pior caso de dois
+  jobs concorrentes era a campanha inteira duplicada, não "uma mensagem"): corrigidos com
+  `reload` por destinatário e um rescue por destinatário (sem ele, uma mensagem com Liquid
+  inválido derrubava a campanha **em loop** com o reaper). Detalhe no plano.
+- **Limites que ficam:** timeout pode deixar destinatário `failed` sem `source_id` com a mensagem
+  já entregue; erro de conexão não repete; job de 10 mil ocupa um worker ~50 min (o melhor
+  desenho é em lotes); nada foi testado contra provider real.
 
 **2026-09-21 — "Empresas" escondido, e uma lacuna minha corrigida.** Feito pelo flag de conta
 `companies` (desligado), sem editar o menu do upstream: menu sem a opção, API responde 403,
@@ -130,7 +151,7 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
 | 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) · push feito |
 | 6a — Marca no super admin | ✅ completa · 2 fatias, commitadas e com push |
-| 7 — Campanhas de cobrança | 🔄 feature nova · fatia 1 (WhatsApp também pelo 360dialog) commitada, sem push · fatias 2 e 3 a fazer |
+| 7 — Campanhas de cobrança | 🔄 feature nova · fatia 1 (WhatsApp/360dialog) e fatia 3 (endurecimento de volume) prontas · fatia 2 (disparo por qualquer caixa) a fazer |
 | 8 — ERP/CRM nativo + painel do cliente + cobrança | 📋 plano escrito em `plano-erp-cobranca.md` (2026-09-21), aguardando aprovação e acesso ao IXC |
 | 9 — NotificaMe Hub | ⏳ nova, precisa da documentação da API |
 | 4 · 6b · 3 | pendentes |

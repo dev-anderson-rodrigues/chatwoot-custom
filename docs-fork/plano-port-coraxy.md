@@ -2140,7 +2140,7 @@ O dono desconfiou, e estava certo. O código existe e funciona, mas havia duas t
 |---|---|---|
 | 1 | WhatsApp também pelo 360dialog: flag nas contas existentes, trava de provider, motivo de falha legível | ✅ |
 | 2 | Disparo genérico por qualquer caixa (e-mail em texto com Liquid, SMS, Instagram, Telegram…) pelo pipeline normal de mensagem; tipos de caixa aceitos no model; tela | ⏳ decisões tomadas (2026-09-20), falta implementar |
-| 3 | Endurecimento para volume (lease de campanha, retry/backoff, timeout, idempotência) | ⏳ recomendada antes de cobrar em escala |
+| 3 | Endurecimento para volume (destravar campanha presa, retry/backoff, timeout, retomada sem reenviar) | ✅ 2026-09-21 — ver "Fatia 3 — resolvida" |
 
 ##### Fatia 1 — resolvida. WhatsApp também pelo 360dialog
 
@@ -2200,39 +2200,68 @@ aprovado carrega no seletor de modelo. **Não verificado:** um disparo real cont
   `360DIALOG_BASE_URL`). **Confirmar se a conta 360dialog de vocês ainda está no v1**: se já
   migrou para a hospedagem de Cloud API da 360dialog, o formato muda.
 
-#### Fatia 3 (dívida de volume) — o que trava cobrança em escala
+##### Fatia 3 — resolvida (2026-09-21). Endurecimento para volume
 
-Achados reais, **todos pré-existentes no upstream e independentes de provider** (valem para
-Cloud também), então não foram desta fatia — mas quem for disparar cobrança para milhares de
-contatos precisa deles resolvidos. Os três primeiros são o que eu trataria antes:
+Riscos que a revisão de `integration-reliability` apontou, **todos pré-existentes no upstream e
+independentes de provider** (valem para a Cloud também). Tudo na camada `custom/`, sem editar
+upstream. Estado de cada um:
 
-1. **Campanha trava em `processing` para sempre se o job morrer no meio** (deploy, SIGKILL).
-   Reexecutar não retoma: `mark_processing!` faz `next if processing?` e o `trigger!` sai sem
-   fazer nada, então o resto do público nunca recebe. Precisa de reivindicação por *lease*
-   (`started_at` mais antigo que N minutos permite retomar).
-2. **Sem retry nem backoff para 429/5xx.** Um 429 do provider vira `failed` permanente do
-   destinatário. O 360dialog tem limite de vazão por número mais baixo que a Cloud; duas
-   campanhas simultâneas no mesmo número podem estourar. Tratar 429/5xx como transitório
-   (poucas tentativas, backoff, respeitar `Retry-After`) e não marcar falha.
-3. **Sem timeout no `HTTParty.post`** do `send_template` (padrão do Net::HTTP: 60s + 60s).
-   Um provider lento segura o job inteiro: 1.000 contatos a 60s = ~16h num job só. O
-   `with_lock` cobre só a troca de status, não o envio (a premissa contrária que eu tinha
-   estava errada).
-4. **Reexecução reenviaria para quem já recebeu.** O `find_or_create_by!` protege a linha do
-   destinatário, não o envio; `process_recipient` não confere `recipient.sent?`. Hoje isso
-   fica escondido pelo item 1 (a campanha nem retoma), mas quem corrigir o item 1 tem que
-   corrigir este junto.
-5. **Falso "falhou" para mensagem entregue:** se o POST passa e o erro vem depois (queda
-   antes do `mark_sent!`, erro de banco), o `rescue StandardError` marca `failed`. Sem chave
-   de idempotência no 360dialog.
-6. **Template não encontrado** (removido, pausado ou renomeado depois de criar a
-   campanha): `processed_templates_params` devolve nil, mas `name` continua preenchido, então
-   o envio segue com `components: nil` — um POST fadado a falhar por contato. Não é silencioso
-   (cada destinatário fica `failed`, agora com o motivo), só desperdiça chamadas.
-7. `handle_error` do upstream loga o `response.body` inteiro por destinatário — pode levar
-   telefone/PII para o log.
-8. `completed!` roda mesmo que todos tenham falhado; falta um resumo de
-   enviados/falhos/pulados ao concluir.
+| # | Risco | Estado |
+|---|---|---|
+| 1 | Campanha presa em `processing` para sempre se o job morrer | ✅ `Custom::Campaigns::ResetStaleProcessingJob` (a cada 5 min, pelo `TriggerScheduledItemsJob` que já roda) |
+| 2 | Sem retry/backoff para 429 | ✅ até 3 tentativas, `Retry-After` respeitado (teto de 30s) |
+| 3 | Sem timeout no envio | ✅ `Timeout.timeout` (padrão 30s), com ressalva abaixo |
+| 4 | Reexecução reenviaria para quem já recebeu | ✅ só processa destinatário `queued`, conferido com `reload` |
+| 5 | Falso "falhou" para mensagem entregue (timeout depois do POST) | ⚠️ **mitigado, não fechado**: a mensagem diz "pode ter sido entregue". Sem chave de idempotência no provider não fecha |
+| 6 | Template removido/pausado gerava um POST fadado a falhar por contato | ✅ a campanha inteira é pulada de uma vez, sem chamar o provider |
+| 7 | `handle_error` do upstream loga o corpo da resposta inteiro (PII) | ❌ não tratado |
+| 8 | `completed!` mesmo se todos falharam; sem resumo | ❌ não tratado (a tela de analytics já mostra enviados/falhos/pulados por campanha) |
+| — | Erro inesperado num destinatário derrubava a campanha e, com o reaper, **em loop** | ✅ achado da revisão: rescue por destinatário |
+
+Ritmo entre envios: **300 ms** (~3 msg/s), por `CAMPAIGN_SEND_INTERVAL_MS`. Timeout por envio:
+**30 s**, por `CAMPAIGN_SEND_TIMEOUT_SECONDS`. Ambos configuráveis por ambiente; **não medi o
+limite real de vazão da conta 360dialog de vocês**, então o padrão é conservador. O ritmo só
+vale para quem foi de fato enviado (pular a campanha inteira não dorme).
+
+**A regra de quando repetir é a decisão que mais importa** — reenviar sem chave de
+idempotência no provider pode cobrar duas vezes. Só se repete **429** (o provider recusou antes
+de processar) e **503 com `Retry-After`** (disse quando volta). **500, 502, 504, 503 sem
+`Retry-After`, timeout e erro de rede não são repetidos**: é o caso "processou e a resposta se
+perdeu", e o destinatário falha com o status registrado para o operador decidir.
+
+**O que a revisão mudou (e o que eu conferi antes de aceitar):**
+- **Bloqueante, procede:** o `queued?` era lido do objeto em memória, carregado *antes* do
+  envio; num falso positivo do reaper os dois jobs enviariam para a lista inteira. O meu
+  comentário ("no pior caso uma mensagem") estava errado. Corrigido com `reload` por
+  destinatário; sobra a janela de **um** envio simultâneo. Fechar de vez pede um marcador de
+  "enviando" que o enum do destinatário não tem.
+- **Bloqueante, procede:** um erro fora do `rescue` do enterprise (mensagem com sintaxe Liquid
+  inválida, contato apagado no meio) abortava o job; a campanha ficava em `processing`, o
+  reaper a retomava e o mesmo erro a derrubava de novo, sem nunca chegar aos demais.
+- **Retry só para 429/503+Retry-After:** eu repetia todo 5xx.
+- **`last_provider_error` velho:** uma exceção de rede depois de um 429 deixava o status antigo
+  valendo. Agora é zerado antes de cada tentativa.
+- **Limite do reaper de 30 → 10 min:** o maior intervalo legítimo sem atividade num job vivo é
+  ~2 min; 10 min é seguro e encurta a recuperação depois de um deploy (o SIGTERM interrompe o
+  job, o Sidekiq o reenfileira, a nova execução vê `processing` e não faz nada até o reaper).
+- **Não procede:** `retry_after` em String (já é `Integer` no `base_service`, que o revisor não
+  leu). E o desenho em lotes que se reenfileiram fica como evolução, não como defeito.
+
+**Limites que continuam (dito com franqueza):**
+- `Timeout.timeout` interrompendo o banco no meio de um `mark_sent!` pode deixar o destinatário
+  `failed` com a mensagem já entregue, **sem `source_id`** — os webhooks de entregue/lido não o
+  encontram. É perda de rastreio, não duplicidade. O ideal é timeout no próprio `HTTParty`, mas
+  isso exige sobrescrever o `send_template` dos dois providers; ficou como está.
+- **Erro de conexão não é repetido** (a exceção morre no `rescue` do enterprise sem status).
+- **Um job de 10 mil destinatários ocupa um worker da fila `low` por ~50 min** (10 mil × 0,3 s).
+  Só atrapalha se a concorrência do Sidekiq for atingida; o desenho melhor é processar em lotes
+  de ~200 e reenfileirar.
+- **Dois jobs na mesma campanha** só acontecem se o reaper errar (job vivo parado >10 min sem
+  tocar em nenhum destinatário); com o `reload`, o pior caso é **um** destinatário duplicado.
+- Nada disso foi testado contra um provider real, só contra respostas simuladas (WebMock).
+
+Cobertura: 1646 exemplos nas áreas tocadas, 0 falhas; **cada mecanismo tem teste que falha sem
+ele** (removidos um a um para conferir).
 
 #### Decisões do dono (2026-09-20)
 
