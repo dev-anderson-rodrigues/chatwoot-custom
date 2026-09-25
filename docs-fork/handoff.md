@@ -85,6 +85,17 @@ Armadilha de ambiente repetida: o `db:migrate` no container **reescreve comentá
 models** (`ANNOTATE_SKIP_ON_DB_MIGRATE` não impediu) — reverter com `git checkout` depois de
 conferir que são só comentários.
 
+**2026-09-25 — Onda 8 F0+F1 iniciada (fundação IXC + conector read-only).** Commitado em `d591c9d8c9`. O que foi criado em `custom/`:
+- **Migration** `20260925000001_create_erp_customer_links.rb` — tabela `erp_customer_links` (account, contact, erp_provider, erp_customer_id, document normalizado, match_method, status). Três índices: unique por conta+contato+provider, por conta+provider+customer_id, por conta+provider+document. Migration rodada no dev.
+- **Model** `ErpCustomerLink` com validações e scopes (`linked`, `ambiguous`, `by_provider`).
+- **Serviço** `Erp::Ixc::Client` — HTTP GET para a API IXC com Basic Auth (`Base64(api_user:access_token)`). Métodos: `search_by_document`, `search_by_phone`, `get_customer`, `get_invoices` (fn_areceber, status A), `get_contracts` (cliente_contrato). Timeout 10s; erros tipados: `AuthenticationError`, `TimeoutError`, `RequestError`.
+- **Serviço** `Erp::Ixc::ContactResolver` — resolve contato → cliente IXC: busca por CPF/CNPJ (campo `cpf_cnpj`/`cnpj_cpf`/`cpf`/`cnpj` de `custom_attributes`) e fallback por `phone_number`; persiste link; retorna `{status: 'linked'|'ambiguous'|'not_found', ...}`.
+- **Controller** `Api::V1::Accounts::Integrations::IxcController` — `GET /api/v1/accounts/:id/integrations/ixc/customer?contact_id=X`. Retorna customer + invoices + contracts quando vinculado; trata os três erros tipados do client.
+- **`config/integration/apps.yml`**: entrada `ixc` com `settings_form_schema` (api_url, api_user). Token da API vai em `access_token` (campo criptografado do hook).
+- **`config/routes.rb`**: `resource :ixc … collection { get :customer }`.
+- **Rota verificada:** `GET /api/v1/accounts/:id/integrations/ixc/customer`. **Controller carrega** na chain correta (IxcController → BaseController → AccountsBaseController).
+- **Próximo:** F2 (painel Vue no ContactPanel) — depende de credenciais IXC para testar. Me passe a URL + token para eu configurar um hook e testar ao vivo.
+
 **2026-09-25 — Onda 4 concluída (4.4 — gravador de áudio).** Commitado em `340f0cd87a`. Três mudanças: waveform de 100px → 30px; cancelar gravação vira lixeira vermelha pulsante (`ruby faded + animate-pulse`); enviar durante gravação ativo (botão Enviar habilitado enquanto grava, `pendingSendAfterRecord` dispara o envio ao parar). Verificado na tela — o microfone do browser em sandboxed não tem permissão, mas os estados `isRecordingAudio`, o botão de cancelar e o `disabled: false` do botão Enviar foram confirmados via JavaScript. **Onda 4 agora 100% concluída.** Próximas: Onda 8 (ERP/IXC — bloqueada no acesso), Onda 9 (NotificaMe — bloqueada na documentação), Onda 3 (IA — por último).
 
 ---
