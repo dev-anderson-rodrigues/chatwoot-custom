@@ -3,26 +3,9 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
   before_action :validate_contact, only: [:customer]
 
   # GET /api/v1/accounts/:account_id/integrations/ixc/customer?contact_id=X
-  # Retorna dados do cliente no IXC vinculado ao contato: faturas em aberto e contratos.
   def customer
-    resolver = Erp::Ixc::ContactResolver.new(hook: @hook, contact: @contact)
-    result   = resolver.resolve
-
-    if result[:status] == 'linked'
-      client    = Erp::Ixc::Client.new(hook: @hook)
-      invoices  = client.get_invoices(result[:erp_customer_id])
-      contracts = client.get_contracts(result[:erp_customer_id])
-
-      render json: {
-        status:          'linked',
-        customer:        result[:customer],
-        erp_customer_id: result[:erp_customer_id],
-        invoices:        invoices,
-        contracts:       contracts
-      }
-    else
-      render json: result.slice(:status, :candidates)
-    end
+    result = Erp::Ixc::ContactResolver.new(hook: @hook, contact: @contact).resolve
+    result[:status] == 'linked' ? render_linked(result) : render(json: result.slice(:status, :candidates))
   rescue Erp::Ixc::AuthenticationError
     render json: { error: 'IXC authentication failed. Check the API token.' }, status: :unauthorized
   rescue Erp::Ixc::TimeoutError
@@ -43,5 +26,16 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
     @contact = Current.account.contacts.find(params[:contact_id])
   rescue ActiveRecord::RecordNotFound
     render json: { error: 'Contact not found.' }, status: :not_found
+  end
+
+  def render_linked(result)
+    client = Erp::Ixc::Client.new(hook: @hook)
+    render json: {
+      status: 'linked',
+      customer: result[:customer],
+      erp_customer_id: result[:erp_customer_id],
+      invoices: client.get_invoices(result[:erp_customer_id]),
+      contracts: client.get_contracts(result[:erp_customer_id])
+    }
   end
 end
