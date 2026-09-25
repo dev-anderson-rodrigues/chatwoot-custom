@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_25_000000) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_25_000001) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -1093,6 +1093,25 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_25_000000) do
     t.index ["name", "template_type", "locale"], name: "index_email_templates_on_installation_scope", unique: true, where: "((account_id IS NULL) AND (inbox_id IS NULL))"
   end
 
+  create_table "erp_customer_links", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "contact_id", null: false
+    t.string "erp_provider", default: "ixc", null: false
+    t.string "erp_customer_id"
+    t.string "document"
+    t.string "match_method"
+    t.string "status", default: "not_found", null: false
+    t.integer "confirmed_by"
+    t.datetime "confirmed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "contact_id", "erp_provider"], name: "idx_erp_links_account_contact_provider", unique: true
+    t.index ["account_id", "erp_provider", "document"], name: "idx_erp_links_account_provider_document"
+    t.index ["account_id", "erp_provider", "erp_customer_id"], name: "idx_erp_links_account_provider_customer"
+    t.index ["account_id"], name: "index_erp_customer_links_on_account_id"
+    t.index ["contact_id"], name: "index_erp_customer_links_on_contact_id"
+  end
+
   create_table "folders", force: :cascade do |t|
     t.integer "account_id", null: false
     t.integer "category_id", null: false
@@ -1620,6 +1639,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_25_000000) do
   add_foreign_key "campaign_recipients", "campaigns", on_delete: :cascade
   add_foreign_key "campaign_recipients", "contacts", on_delete: :cascade
   add_foreign_key "campaign_recipients", "inboxes", on_delete: :cascade
+  add_foreign_key "erp_customer_links", "accounts"
+  add_foreign_key "erp_customer_links", "contacts"
   add_foreign_key "inboxes", "portals"
   add_foreign_key "macro_executions", "accounts", on_delete: :cascade
   add_foreign_key "macro_executions", "macros", on_delete: :cascade

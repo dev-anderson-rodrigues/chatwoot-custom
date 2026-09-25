@@ -413,6 +413,11 @@ Rails.application.routes.draw do
                 post :add_participant_to_meeting
               end
             end
+            resource :ixc, controller: 'ixc', only: [] do
+              collection do
+                get :customer
+              end
+            end
             resource :shopify, controller: 'shopify', only: [:destroy] do
               collection do
                 post :auth

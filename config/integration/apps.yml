@@ -262,6 +262,40 @@ shopify:
   allow_multiple_hooks: false
   visible_properties: []
 
+ixc:
+  id: ixc
+  logo: ixc.png
+  i18n_key: ixc
+  hook_type: account
+  allow_multiple_hooks: false
+  visible_properties: ['api_user']
+  settings_json_schema:
+    {
+      'type': 'object',
+      'properties':
+        {
+          'api_url':  { 'type': 'string' },
+          'api_user': { 'type': 'string' },
+        },
+      'required': ['api_url'],
+      'additionalProperties': false,
+    }
+  settings_form_schema:
+    [
+      {
+        'label': 'URL do IXC (ex: https://ixc.empresa.com.br)',
+        'type': 'text',
+        'name': 'api_url',
+        'validation': 'required',
+      },
+      {
+        'label': 'Usuário da API (padrão: 1)',
+        'type': 'text',
+        'name': 'api_user',
+        'validation': '',
+      },
+    ]
+
 leadsquared:
   id: leadsquared
   feature_flag: crm_integration
