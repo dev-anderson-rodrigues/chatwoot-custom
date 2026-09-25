@@ -32,6 +32,7 @@ import {
 } from 'dashboard/composables/useTransformKeys';
 import { useEmitter } from 'dashboard/composables/emitter';
 import { useConversationRequiredAttributes } from 'dashboard/composables/useConversationRequiredAttributes';
+import { usePinnedConversations } from 'dashboard/composables/usePinnedConversations';
 
 import { emitter } from 'shared/helpers/mitt';
 
@@ -139,6 +140,9 @@ const {
 });
 
 const { checkMissingAttributes } = useConversationRequiredAttributes();
+
+// [FORK] Fixar conversas no topo
+const { isPinned, togglePin } = usePinnedConversations();
 
 // computed
 
@@ -397,13 +401,20 @@ const clearInlineSearch = () => {
 
 const filteredConversationList = computed(() => {
   const q = debouncedQuery.value.trim().toLowerCase();
-  if (!q) return conversationList.value;
+  let list = q
+    ? conversationList.value.filter(c => {
+        const name = (c.meta?.sender?.name ?? '').toLowerCase();
+        const phone = (c.meta?.sender?.phone_number ?? '').toLowerCase();
+        const lastMsg = (c.last_non_activity_message?.content ?? '').toLowerCase();
+        return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
+      })
+    : conversationList.value;
 
-  return conversationList.value.filter(c => {
-    const name = (c.meta?.sender?.name ?? '').toLowerCase();
-    const phone = (c.meta?.sender?.phone_number ?? '').toLowerCase();
-    const lastMsg = (c.last_non_activity_message?.content ?? '').toLowerCase();
-    return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
+  // [FORK] Fixar conversas no topo — pinned first, preserve relative order
+  return [...list].sort((a, b) => {
+    const pa = isPinned(a.id) ? 0 : 1;
+    const pb = isPinned(b.id) ? 0 : 1;
+    return pa - pb;
   });
 });
 
@@ -917,6 +928,8 @@ provide('markAsRead', markAsRead);
 provide('assignPriority', assignPriority);
 provide('isConversationSelected', isConversationSelected);
 provide('deleteConversation', handleDelete);
+provide('isPinned', isPinned);
+provide('togglePin', togglePin);
 
 watch(activeTeam, () => resetAndFetchData());
 

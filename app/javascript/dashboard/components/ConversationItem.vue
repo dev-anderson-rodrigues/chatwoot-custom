@@ -35,6 +35,8 @@ const markAsRead = inject('markAsRead');
 const assignPriority = inject('assignPriority');
 const isConversationSelected = inject('isConversationSelected');
 const deleteConversation = inject('deleteConversation');
+const isPinned = inject('isPinned');
+const togglePin = inject('togglePin');
 
 // --- Context menu state (shared by both layouts) ---
 const showContextMenu = ref(false);
@@ -177,6 +179,11 @@ const onDeleteConversation = () => {
   deleteConversation(props.source.id);
   closeContextMenu();
 };
+
+const onTogglePin = () => {
+  togglePin(props.source.id);
+  closeContextMenu();
+};
 </script>
 
 <template>
@@ -210,6 +217,7 @@ const onDeleteConversation = () => {
     :show-assignee="showAssignee"
     :show-inbox-name="showInboxName"
     :compact="isCompact"
+    :is-pinned="isPinned(source.id)"
     @click="onCardClick"
     @contextmenu="openContextMenu"
     @select-conversation="selectConversation"
@@ -231,6 +239,7 @@ const onDeleteConversation = () => {
       :has-unread-messages="source.unread_count > 0"
       :conversation-labels="source.labels"
       :conversation-url="conversationPath"
+      :is-pinned="isPinned(source.id)"
       @update-conversation="onUpdateConversation"
       @assign-agent="onAssignAgent"
       @assign-label="onAssignLabel"
@@ -240,6 +249,7 @@ const onDeleteConversation = () => {
       @mark-as-read="onMarkAsRead"
       @assign-priority="onAssignPriority"
       @delete-conversation="onDeleteConversation"
+      @toggle-pin="onTogglePin"
       @close="closeContextMenu"
     />
   </ContextMenu>

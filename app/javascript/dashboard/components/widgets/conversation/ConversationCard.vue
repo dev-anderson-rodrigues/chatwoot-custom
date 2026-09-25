@@ -24,6 +24,7 @@ const props = defineProps({
   showInboxName: { type: Boolean, default: false },
   hideThumbnail: { type: Boolean, default: false },
   compact: { type: Boolean, default: false },
+  isPinned: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -241,6 +242,11 @@ watch(
           v-if="hasUnread"
           :count="unreadCount"
           class="ltr:ml-auto rtl:mr-auto mt-1"
+        />
+        <!-- [FORK] Indicador de conversa fixada -->
+        <i
+          v-if="isPinned && !hasUnread"
+          class="i-lucide-pin size-3 ltr:ml-auto rtl:mr-auto mt-1 text-n-brand rotate-45"
         />
       </div>
       <CardLabels
