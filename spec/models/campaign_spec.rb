@@ -61,15 +61,13 @@ RSpec.describe Campaign do
     end
   end
 
-  context 'when Inbox other then Website or Twilio SMS' do
-    before do
-      stub_request(:post, /graph.facebook.com/)
-    end
-
+  # [FORK] Era `channel_facebook_page`: o disparo em massa por Facebook/e-mail/Telegram/Instagram... passou
+  # a ser aceito (custom/app/models/custom/campaign.rb). Twitter segue sem suporte.
+  context 'when Inbox is not supported for campaigns' do
     let(:account) { create(:account) }
-    let!(:facebook_channel) { create(:channel_facebook_page, account: account) }
-    let!(:facebook_inbox) { create(:inbox, channel: facebook_channel, account: account) }
-    let(:campaign) { build(:campaign, inbox: facebook_inbox, account: account) }
+    let!(:twitter_channel) { create(:channel_twitter_profile, account: account) }
+    let!(:twitter_inbox) { create(:inbox, channel: twitter_channel, account: account) }
+    let(:campaign) { build(:campaign, inbox: twitter_inbox, account: account) }
 
     it 'would not save the campaigns' do
       expect(campaign.save).to be false

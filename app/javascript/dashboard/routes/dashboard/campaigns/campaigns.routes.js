@@ -5,6 +5,9 @@ import LiveChatCampaignsPage from './pages/LiveChatCampaignsPage.vue';
 import SMSCampaignsPage from './pages/SMSCampaignsPage.vue';
 import WhatsAppCampaignsPage from './pages/WhatsAppCampaignsPage.vue';
 import WhatsAppCampaignAnalyticsPage from './pages/WhatsAppCampaignAnalyticsPage.vue';
+import ChannelCampaignsPage from './pages/ChannelCampaignsPage.vue';
+import ChannelCampaignAnalyticsPage from './pages/ChannelCampaignAnalyticsPage.vue';
+import { CHANNEL_CAMPAIGN_KINDS } from 'dashboard/helper/channelCampaigns';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 
 const meta = {
@@ -69,6 +72,32 @@ const campaignsRoutes = {
             featureFlag: FEATURE_FLAGS.WHATSAPP_CAMPAIGNS,
           },
           component: WhatsAppCampaignAnalyticsPage,
+        },
+        // [FORK] Disparo em massa por e-mail e por outras caixas (Onda 7 / fatia 2).
+        // A mesma pagina atende as duas abas; quem diz qual e e o `meta.kind`.
+        {
+          path: 'email',
+          name: 'campaigns_email_index',
+          meta: { ...meta, kind: CHANNEL_CAMPAIGN_KINDS.EMAIL },
+          component: ChannelCampaignsPage,
+        },
+        {
+          path: 'email/:campaignId/analytics',
+          name: 'campaigns_email_analytics',
+          meta: { ...meta, kind: CHANNEL_CAMPAIGN_KINDS.EMAIL },
+          component: ChannelCampaignAnalyticsPage,
+        },
+        {
+          path: 'channels',
+          name: 'campaigns_channels_index',
+          meta: { ...meta, kind: CHANNEL_CAMPAIGN_KINDS.CHANNELS },
+          component: ChannelCampaignsPage,
+        },
+        {
+          path: 'channels/:campaignId/analytics',
+          name: 'campaigns_channels_analytics',
+          meta: { ...meta, kind: CHANNEL_CAMPAIGN_KINDS.CHANNELS },
+          component: ChannelCampaignAnalyticsPage,
         },
       ],
     },

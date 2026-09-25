@@ -785,6 +785,17 @@ const menuItems = computed(() => {
           label: t('SIDEBAR.WHATSAPP'),
           to: accountScopedRoute('campaigns_whatsapp_index'),
         },
+        // [FORK] Disparo em massa por e-mail e por outras caixas (Onda 7 / fatia 2).
+        {
+          name: 'Email campaigns',
+          label: t('SIDEBAR.EMAIL_CAMPAIGNS'),
+          to: accountScopedRoute('campaigns_email_index'),
+        },
+        {
+          name: 'Other channels campaigns',
+          label: t('SIDEBAR.OTHER_CHANNELS_CAMPAIGNS'),
+          to: accountScopedRoute('campaigns_channels_index'),
+        },
       ],
     },
     ...dashboardAppMenuItems.value,

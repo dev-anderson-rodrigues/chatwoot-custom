@@ -37,9 +37,11 @@
 # Custom::Campaigns::ResetStaleProcessingJob.
 #
 # Configuravel por ambiente (padroes conservadores):
-#   CAMPAIGN_SEND_INTERVAL_MS       pausa entre envios (padrao 300 => ~3 msg/s)
+#   CAMPAIGN_SEND_INTERVAL_MS       pausa entre envios (padrao 300 => ~3 msg/s) -- ver SendPacing
 #   CAMPAIGN_SEND_TIMEOUT_SECONDS   teto de cada envio (padrao 30)
 module Custom::Whatsapp::OneoffCampaignService
+  include Custom::Campaigns::SendPacing
+
   SUPPORTED_PROVIDERS = %w[default whatsapp_cloud].freeze
 
   MAX_SEND_ATTEMPTS = 3
@@ -194,16 +196,7 @@ module Custom::Whatsapp::OneoffCampaignService
     recipient.update!(status: :queued, failed_at: nil, error_code: nil, error_title: nil, error_message: nil)
   end
 
-  def send_interval
-    ENV.fetch('CAMPAIGN_SEND_INTERVAL_MS', 300).to_f / 1000
-  end
-
   def send_timeout
     ENV.fetch('CAMPAIGN_SEND_TIMEOUT_SECONDS', 30).to_i
-  end
-
-  # Metodo proprio (e nao `sleep` solto) para os specs poderem trocar.
-  def pause(seconds)
-    sleep(seconds) if seconds.to_f.positive?
   end
 end

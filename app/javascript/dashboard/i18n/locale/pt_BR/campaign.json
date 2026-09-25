@@ -203,6 +203,155 @@
         }
       }
     },
+    "EMAIL": {
+      "HEADER_TITLE": "Campanhas de e-mail",
+      "NEW_CAMPAIGN": "Criar campanha",
+      "EMPTY_STATE": {
+        "TITLE": "Nenhuma campanha de e-mail ainda",
+        "SUBTITLE": "Envie um e-mail a todos os contatos com uma etiqueta, como um lembrete de cobrança, com os dados de cada cliente no texto. Clique em 'Criar campanha' para começar."
+      }
+    },
+    "CHANNELS": {
+      "HEADER_TITLE": "Outros canais",
+      "NEW_CAMPAIGN": "Criar campanha",
+      "EMPTY_STATE": {
+        "TITLE": "Nenhuma campanha em outros canais ainda",
+        "SUBTITLE": "Envie mensagens a contatos no Telegram, Instagram, Facebook, LINE, TikTok ou em uma caixa de API. Esses canais só alcançam quem já escreveu para a caixa. Clique em 'Criar campanha' para começar."
+      }
+    },
+    "CHANNEL_CAMPAIGN": {
+      "CREATE": {
+        "TITLE_EMAIL": "Criar campanha de e-mail",
+        "TITLE_CHANNELS": "Criar campanha",
+        "FORM": {
+          "TITLE": {
+            "LABEL": "Título",
+            "PLACEHOLDER": "Nome interno da campanha",
+            "ERROR": "O título é obrigatório"
+          },
+          "SUBJECT": {
+            "LABEL": "Assunto",
+            "PLACEHOLDER": "Assunto do e-mail",
+            "ERROR": "O assunto é obrigatório"
+          },
+          "MESSAGE": {
+            "LABEL": "Mensagem",
+            "PLACEHOLDER": "Escreva a mensagem",
+            "ERROR": "A mensagem é obrigatória",
+            "HINT": "Use os dados do contato, como {name} ou {attribute} (troque {key} pela chave do atributo do contato). Se o dado puder faltar, use um texto padrão: {fallback}. Contatos com variável vazia são pulados. O assunto aceita as mesmas variáveis.",
+            "ATTRIBUTE_KEY": "chave_do_atributo",
+            "DEFAULT_TEXT": "cliente"
+          },
+          "INBOX": {
+            "LABEL": "Selecione a caixa de entrada",
+            "PLACEHOLDER": "Selecione a caixa de entrada",
+            "ERROR": "A caixa de entrada é obrigatória",
+            "EMPTY": "Nenhuma caixa desse tipo está configurada nesta conta."
+          },
+          "AUDIENCE": {
+            "LABEL": "Público",
+            "PLACEHOLDER": "Selecione as etiquetas dos clientes",
+            "ERROR": "O público é obrigatório"
+          },
+          "SCHEDULED_AT": {
+            "LABEL": "Horário agendado",
+            "PLACEHOLDER": "Selecione o horário",
+            "ERROR": "O horário agendado é obrigatório",
+            "PAST_ERROR": "O horário agendado não pode estar no passado",
+            "HINT": "Horário do seu computador ({timezone})"
+          },
+          "CHANNELS_NOTICE": "Esses canais só permitem mensagens a quem já escreveu para a caixa. Os demais contatos são pulados e aparecem no resultado da campanha com o motivo. Instagram, Facebook e TikTok também exigem uma mensagem recente do contato.",
+          "BUTTONS": {
+            "CREATE": "Criar",
+            "CANCEL": "Cancelar"
+          },
+          "API": {
+            "SUCCESS_MESSAGE": "Campanha criada com sucesso",
+            "ERROR_MESSAGE": "Ocorreu um erro. Tente novamente."
+          }
+        }
+      },
+      "ANALYTICS": {
+        "LOADING": "Carregando resultados...",
+        "EMPTY": "Nenhum registro encontrado.",
+        "EMPTY_FILTER": "Nenhum destinatário com o status \"{status}\".",
+        "DELIVERIES_ERROR": "Não foi possível carregar os registros. Atualize a página para tentar novamente.",
+        "EMPTY_STATE": {
+          "ERROR": {
+            "TITLE": "Não foi possível carregar os resultados",
+            "DESCRIPTION": "Atualize a página para tentar novamente."
+          },
+          "PENDING": {
+            "TITLE": "Os resultados aparecem quando o envio começar",
+            "DESCRIPTION": "Ainda não há registros para esta campanha."
+          },
+          "UNAVAILABLE": {
+            "TITLE": "Sem resultados para esta campanha",
+            "DESCRIPTION": "Nenhum destinatário foi registrado. As etiquetas escolhidas como público podem não ter contatos."
+          }
+        },
+        "PROCESSING_BANNER": {
+          "DEFAULT": "Esta campanha ainda está em processamento. Os resultados são atualizados automaticamente.",
+          "QUEUED": "Esta campanha ainda está em processamento. {count} contato ainda está na fila. | Esta campanha ainda está em processamento. {count} contatos ainda estão na fila.",
+          "COMPLETING": "Esta campanha está sendo concluída. Os resultados são atualizados automaticamente."
+        },
+        "RATE": "{value}% do público",
+        "SENT_ON": "Enviada em {date}",
+        "PAGE_INFO": "Exibindo {startItem} - {endItem} de {totalItems} contato | Exibindo {startItem} - {endItem} de {totalItems} contatos",
+        "BREADCRUMB": {
+          "CAMPAIGNS": "Campanhas",
+          "EMAIL": "E-mail",
+          "CHANNELS": "Outros canais"
+        },
+        "FILTERS": {
+          "ALL": "Todos"
+        },
+        "METRICS": {
+          "AUDIENCE": {
+            "LABEL": "Público",
+            "HINT": "Contatos incluídos nesta campanha."
+          },
+          "SENT": {
+            "LABEL": "Enviadas",
+            "HINT": "Mensagens aceitas pelo canal para envio. Alguns canais não informam a entrega, então esse é o estado final delas."
+          },
+          "DELIVERED": {
+            "LABEL": "Entregues",
+            "HINT": "Mensagens que o canal confirmou como entregues. As lidas estão incluídas."
+          },
+          "READ": {
+            "LABEL": "Lidas",
+            "HINT": "Mensagens que o canal confirmou como lidas."
+          },
+          "FAILED": {
+            "LABEL": "Falharam",
+            "HINT": "Mensagens que o canal não conseguiu enviar. O motivo aparece abaixo."
+          },
+          "SKIPPED": {
+            "LABEL": "Puladas",
+            "HINT": "Contatos que não receberam a mensagem, por exemplo sem e-mail, bloqueados, com variável vazia ou que nunca escreveram para esta caixa. O motivo aparece abaixo."
+          }
+        },
+        "STATUS": {
+          "QUEUED": "Na fila",
+          "SENT": "Enviada",
+          "DELIVERED": "Entregue",
+          "READ": "Lida",
+          "FAILED": "Falhou",
+          "SKIPPED": "Pulada"
+        },
+        "TABLE": {
+          "TITLE": "Destinatários",
+          "CONTACT": "Contato",
+          "STATUS": "Status",
+          "MESSAGE": "Mensagem",
+          "MESSAGE_NOT_GENERATED": "Não gerada",
+          "REASON": "Motivo",
+          "ERROR_CODE": "Código {code}"
+        },
+        "SCHEDULED_FOR": "Agendada para {date}"
+      }
+    },
     "CONFIRM_DELETE": {
       "TITLE": "Você tem certeza que deseja excluir?",
       "DESCRIPTION": "A ação de exclusão é permanente e não pode ser revertida.",

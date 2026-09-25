@@ -373,6 +373,8 @@
     "LIVE_CHAT": "Live Chat",
     "SMS": "SMS",
     "WHATSAPP": "WhatsApp",
+    "EMAIL_CAMPAIGNS": "E-mail",
+    "OTHER_CHANNELS_CAMPAIGNS": "Other channels",
     "CAMPAIGNS": "Campaigns",
     "ONGOING": "Ongoing",
     "ONE_OFF": "One off",

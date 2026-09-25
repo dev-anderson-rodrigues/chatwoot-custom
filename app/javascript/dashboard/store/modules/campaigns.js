@@ -71,7 +71,11 @@ export const actions = {
       const response = await CampaignsAPI.create(campaignObj);
       commit(types.ADD_CAMPAIGN, response.data);
     } catch (error) {
-      throw new Error(error);
+      // [FORK] Mantem a resposta da API no erro: sem ela o dialogo so consegue dizer "ocorreu um erro" e o
+      // operador nao ve a regra que o backend recusou (ex.: caixa de e-mail sem SMTP proprio).
+      const wrapped = new Error(error);
+      wrapped.response = error?.response;
+      throw wrapped;
     } finally {
       commit(types.SET_CAMPAIGN_UI_FLAG, { isCreating: false });
     }
