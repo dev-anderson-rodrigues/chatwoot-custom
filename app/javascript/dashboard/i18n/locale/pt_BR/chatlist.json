@@ -13,6 +13,10 @@
     "UNATTENDED_HEADING": "Não Atendidas",
     "MINE_HEADING": "Minhas",
     "AI_HEADING": "Aguardando humano",
+    "DENSITY": {
+      "COMPACT": "Mudar para visão compacta",
+      "COMFORTABLE": "Mudar para visão confortável"
+    },
     "SEARCH": {
       "INPUT": "Pesquisar pessoas, conversas, respostas salvas .."
     },

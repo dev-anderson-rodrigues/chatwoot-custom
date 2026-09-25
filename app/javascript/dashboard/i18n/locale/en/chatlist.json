@@ -13,6 +13,10 @@
     "UNATTENDED_HEADING": "Unattended",
     "MINE_HEADING": "Mine",
     "AI_HEADING": "Waiting for agent",
+    "DENSITY": {
+      "COMPACT": "Switch to compact view",
+      "COMFORTABLE": "Switch to comfortable view"
+    },
     "SEARCH": {
       "INPUT": "Search for People, Chats, Saved Replies .."
     },

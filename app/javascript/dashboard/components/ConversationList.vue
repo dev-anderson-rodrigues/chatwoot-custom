@@ -20,6 +20,7 @@ const props = defineProps({
   conversationType: { type: String, default: '' },
   showAssignee: { type: Boolean, default: false },
   isOnExpandedLayout: { type: Boolean, default: false },
+  isCompact: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['loadMore']);
@@ -78,6 +79,7 @@ defineExpose({ conversationListRef });
         :conversation-type="conversationType"
         :show-assignee="showAssignee"
         :show-expanded="showExpandedCards"
+        :is-compact="isCompact"
       />
     </Virtualizer>
     <!-- [FORK] Skeleton cards durante o carregamento inicial -->

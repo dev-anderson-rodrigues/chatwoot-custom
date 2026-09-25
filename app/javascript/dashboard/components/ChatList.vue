@@ -19,6 +19,7 @@ import TeleportWithDirection from 'dashboard/components-next/TeleportWithDirecti
 import ConversationResolveAttributesModal from 'dashboard/components-next/ConversationWorkflow/ConversationResolveAttributesModal.vue';
 
 import { useUISettings } from 'dashboard/composables/useUISettings';
+import { useResizableColumn } from 'dashboard/composables/useResizableColumn';
 import { useAlert } from 'dashboard/composables';
 import { useBulkActions } from 'dashboard/composables/chatlist/useBulkActions';
 import { useFilter } from 'shared/composables/useFilter';
@@ -67,6 +68,8 @@ const props = defineProps({
 
 const emit = defineEmits(['conversationLoad']);
 const { uiSettings } = useUISettings();
+// [FORK] Coluna redimensionável
+const { columnWidth, onHandleMouseDown, onHandleDblClick } = useResizableColumn();
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
@@ -188,6 +191,11 @@ const assigneeTabItems = computed(() => {
     count: conversationStats.value[countKey] || 0,
   }));
 });
+
+// [FORK] Densidade comfortable/compact — lê de ui_settings
+const isCompactDensity = computed(
+  () => uiSettings.value.conversation_density === 'compact'
+);
 
 const showAssigneeInConversationCard = computed(() => {
   return (
@@ -927,12 +935,11 @@ watch(conversationFilters, (newVal, oldVal) => {
 </script>
 
 <template>
+  <!-- [FORK] Largura redimensionável via drag; em expanded usa basis-full -->
   <div
     class="flex flex-col flex-shrink-0 conversations-list-wrap bg-n-surface-1 relative"
-    :class="[
-      { hidden: !showConversationList },
-      isOnExpandedLayout ? 'basis-full' : 'w-[340px] 2xl:w-[412px]',
-    ]"
+    :class="{ hidden: !showConversationList, 'basis-full': isOnExpandedLayout }"
+    :style="isOnExpandedLayout ? {} : { width: `${columnWidth}px` }"
   >
     <slot />
     <ChatListHeader
@@ -1005,6 +1012,7 @@ watch(conversationFilters, (newVal, oldVal) => {
       :conversation-type="conversationType"
       :show-assignee="showAssigneeInConversationCard"
       :is-on-expanded-layout="isOnExpandedLayout"
+      :is-compact="isCompactDensity"
       @load-more="loadMoreConversations"
     />
     <Dialog
@@ -1036,6 +1044,13 @@ watch(conversationFilters, (newVal, oldVal) => {
     <ConversationResolveAttributesModal
       ref="resolveAttributesModalRef"
       @submit="handleResolveWithAttributes"
+    />
+    <!-- [FORK] Alça de redimensionamento da coluna -->
+    <div
+      v-if="!isOnExpandedLayout"
+      class="absolute top-0 bottom-0 ltr:right-0 rtl:left-0 w-1 cursor-col-resize z-20 hover:bg-n-brand/30 transition-colors"
+      @mousedown="onHandleMouseDown"
+      @dblclick="onHandleDblClick"
     />
   </div>
 </template>

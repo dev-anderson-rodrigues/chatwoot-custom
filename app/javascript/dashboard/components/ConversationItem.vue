@@ -16,6 +16,7 @@ const props = defineProps({
   foldersId: { type: [String, Number], default: 0 },
   showAssignee: { type: Boolean, default: false },
   showExpanded: { type: Boolean, default: false },
+  isCompact: { type: Boolean, default: false },
 });
 
 const router = useRouter();
@@ -208,6 +209,7 @@ const onDeleteConversation = () => {
     :is-active-chat="isActiveChat"
     :show-assignee="showAssignee"
     :show-inbox-name="showInboxName"
+    :compact="isCompact"
     @click="onCardClick"
     @contextmenu="openContextMenu"
     @select-conversation="selectConversation"
