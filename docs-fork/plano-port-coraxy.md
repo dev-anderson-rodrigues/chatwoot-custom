@@ -111,10 +111,12 @@ git diff v4.2.0 origin/ajuste-powerbi -- app/models/macro.rb app/services/macros
 | 1 — Frontend | ✅ as 8 fatias feitas e revisadas |
 | 5 — Relatórios | ✅ concluída · 5 telas de 5 (a 6ª descartada com motivo) |
 | 6a — Marca no super admin | ✅ concluída · 2 fatias (favicon/manifest, cor de destaque) |
-| 7 — Campanhas de cobrança | 🔄 feature nova, fora do port · fatia 1 (WhatsApp/360dialog) pronta |
+| 6b — Itens pendentes (e-mail duplicado, versionamento, notificações) | ✅ concluída |
+| 7 — Campanhas de cobrança | ✅ feature nova · fatias 1 (WhatsApp/360dialog), 2 (qualquer canal), 3 (endurecimento) prontas |
+| 4 — UI/UX do chat | ✅ concluída · 4.1–4.3 + 4.4 (gravador de áudio) |
 | 8 — ERP/CRM nativo + painel do cliente + cobrança (IXC primeiro) | 📋 plano escrito (`plano-erp-cobranca.md`), aguardando aprovação e acesso ao IXC |
 | 9 — NotificaMe Hub como provedor de canais | ⏳ feature nova, precisa da documentação da API |
-| 3 · 4 · 6b | pendentes |
+| 3 — Fluxo de atendimento IA (MAESTRO) | ⏳ deliberadamente por último |
 
 #### Fatias do frontend da Onda 1
 

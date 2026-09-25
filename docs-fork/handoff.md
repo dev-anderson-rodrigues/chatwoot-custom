@@ -1,4 +1,4 @@
-# Handoff — estado em 2026-09-19
+# Handoff — estado em 2026-09-25
 
 Documento de retomada. Leia antes de tocar em qualquer coisa: **o repositório mudou de
 lugar** e o ambiente foi reconstruído.
@@ -85,7 +85,11 @@ Armadilha de ambiente repetida: o `db:migrate` no container **reescreve comentá
 models** (`ANNOTATE_SKIP_ON_DB_MIGRATE` não impediu) — reverter com `git checkout` depois de
 conferir que são só comentários.
 
-**2026-09-24 — Onda 7, fatia 2 (disparo por qualquer caixa) pronta e revisada, ainda não commitada.**
+**2026-09-25 — Onda 4 concluída (4.4 — gravador de áudio).** Commitado em `340f0cd87a`. Três mudanças: waveform de 100px → 30px; cancelar gravação vira lixeira vermelha pulsante (`ruby faded + animate-pulse`); enviar durante gravação ativo (botão Enviar habilitado enquanto grava, `pendingSendAfterRecord` dispara o envio ao parar). Verificado na tela — o microfone do browser em sandboxed não tem permissão, mas os estados `isRecordingAudio`, o botão de cancelar e o `disabled: false` do botão Enviar foram confirmados via JavaScript. **Onda 4 agora 100% concluída.** Próximas: Onda 8 (ERP/IXC — bloqueada no acesso), Onda 9 (NotificaMe — bloqueada na documentação), Onda 3 (IA — por último).
+
+---
+
+**2026-09-24 — Onda 7, fatia 2 (disparo por qualquer caixa) commitada.**
 Campanhas por **e-mail, Telegram, Instagram, Facebook, LINE, TikTok e API**, pelo pipeline normal de
 mensagem (conversa + mensagem de saída + `SendReplyJob`), com telas novas em Campanhas: abas **E-mail** e
 **Outros canais**, e resultados por campanha (enviado/pulado/falhou **com o motivo**). Tudo em `custom/`
