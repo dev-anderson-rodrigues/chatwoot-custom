@@ -52,6 +52,11 @@
             "EXTRA_LARGE": "Muito Grande"
           }
         },
+        "MESSAGE_COLORS": {
+          "TITLE": "Cores dos balões de mensagem",
+          "DESCRIPTION": "Atribua uma cor às mensagens de cada atendente para identificação visual.",
+          "RESET": "Redefinir cor"
+        },
         "LANGUAGE": {
           "TITLE": "Idioma preferido",
           "NOTE": "Escolha o idioma que deseja usar.",

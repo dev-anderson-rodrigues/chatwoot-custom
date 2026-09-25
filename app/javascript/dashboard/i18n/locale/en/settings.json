@@ -52,6 +52,11 @@
             "EXTRA_LARGE": "Extra Large"
           }
         },
+        "MESSAGE_COLORS": {
+          "TITLE": "Message bubble colors",
+          "DESCRIPTION": "Assign a color to each agent's messages for easier identification.",
+          "RESET": "Reset to default"
+        },
         "LANGUAGE": {
           "TITLE": "Preferred Language",
           "NOTE": "Choose the language you want to use.",
