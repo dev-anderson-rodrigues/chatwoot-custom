@@ -313,12 +313,22 @@ export default {
         />
       </FileUpload>
       <NextButton
-        v-if="showAudioRecorderButton"
+        v-if="showAudioRecorderButton && !isRecordingAudio"
         v-tooltip.top-end="$t('CONVERSATION.REPLYBOX.TIP_AUDIORECORDER_ICON')"
-        :icon="!isRecordingAudio ? 'i-ph-microphone' : 'i-ph-microphone-slash'"
+        icon="i-ph-microphone"
         slate
         faded
         sm
+        @click="toggleAudioRecorder"
+      />
+      <NextButton
+        v-if="isRecordingAudio && showAudioRecorder"
+        v-tooltip.top-end="$t('CONVERSATION.REPLYBOX.CANCEL_AUDIO_RECORDING')"
+        icon="i-ph-trash"
+        ruby
+        faded
+        sm
+        class="animate-pulse"
         @click="toggleAudioRecorder"
       />
       <NextButton

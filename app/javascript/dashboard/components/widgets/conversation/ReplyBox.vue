@@ -153,6 +153,7 @@ export default {
       newConversationModalActive: false,
       showArticleSearchPopover: false,
       hasRecordedAudio: false,
+      pendingSendAfterRecord: false,
       copilotAcceptedMessages: {},
     };
   },
@@ -285,6 +286,7 @@ export default {
       if (this.isEditorDisabled) return true;
       if (this.isATwitterInbox) return true;
       if (this.hasAttachments || this.hasRecordedAudio) return false;
+      if (this.isRecordingAudio && !this.recordingAudioState) return false;
 
       return (
         this.isMessageEmpty ||
@@ -890,6 +892,12 @@ export default {
       if (this.isReplyButtonDisabled) {
         return;
       }
+      // Envio durante gravação: para a gravação e aguarda o record-end para disparar.
+      if (this.isRecordingAudio && !this.recordingAudioState) {
+        this.pendingSendAfterRecord = true;
+        this.$refs.audioRecorderInput?.stopRecording();
+        return;
+      }
       if (!this.showMentions) {
         const copilotAcceptedMessage = this.getCopilotAcceptedMessage();
         const isOnWhatsApp =
@@ -1135,7 +1143,11 @@ export default {
         ...file,
         isVoiceMessage: true,
       };
-      return file && this.onFileUpload(autoRecordedFile);
+      if (file) this.onFileUpload(autoRecordedFile);
+      if (this.pendingSendAfterRecord) {
+        this.pendingSendAfterRecord = false;
+        this.$nextTick(() => this.confirmOnSendReply());
+      }
     },
     onRecordError() {
       this.toggleAudioRecorder();
@@ -1385,6 +1397,7 @@ export default {
       this.isRecordingAudio = false;
       this.recordingAudioState = '';
       this.hasRecordedAudio = false;
+      this.pendingSendAfterRecord = false;
       // Only clear the recorded audio when we click toggle button.
       this.attachedFiles = this.attachedFiles.filter(
         file => !file?.isVoiceMessage
