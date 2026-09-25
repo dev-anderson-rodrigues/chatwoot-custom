@@ -44,6 +44,8 @@ import {
   isOnMentionsView,
   isOnParticipatingView,
   isOnUnattendedView,
+  isOnMineView,
+  isOnAiView,
 } from '../store/modules/conversations/helpers/actionHelpers';
 import {
   getUserPermissions,
@@ -247,6 +249,13 @@ const conversationListPagination = computed(() => {
 });
 
 const conversationFilters = computed(() => {
+  // [FORK] As filas mine/ai controlam status e assignee localmente;
+  // não enviam conversationType ao backend (que não conhece esses valores).
+  const isMineQueue =
+    props.conversationType === wootConstants.CONVERSATION_TYPE.MINE;
+  const isAiQueue =
+    props.conversationType === wootConstants.CONVERSATION_TYPE.AI;
+
   return {
     inboxId: props.conversationInbox ? props.conversationInbox : undefined,
     assigneeType: activeAssigneeTab.value,
@@ -255,7 +264,8 @@ const conversationFilters = computed(() => {
     page: conversationListPagination.value,
     labels: props.label ? [props.label] : undefined,
     teamId: props.teamId || undefined,
-    conversationType: props.conversationType || undefined,
+    conversationType:
+      isMineQueue || isAiQueue ? undefined : props.conversationType || undefined,
   };
 });
 
@@ -289,6 +299,13 @@ const pageTitle = computed(() => {
   }
   if (props.conversationType === wootConstants.CONVERSATION_TYPE.UNATTENDED) {
     return t('CHAT_LIST.UNATTENDED_HEADING');
+  }
+  // [FORK] Filas IA MAESTRO
+  if (props.conversationType === wootConstants.CONVERSATION_TYPE.MINE) {
+    return t('CHAT_LIST.MINE_HEADING');
+  }
+  if (props.conversationType === wootConstants.CONVERSATION_TYPE.AI) {
+    return t('CHAT_LIST.AI_HEADING');
   }
   if (hasActiveFolders.value) {
     return activeFolder.value.name;
@@ -658,6 +675,10 @@ function redirectToConversationList() {
     conversationType = wootConstants.CONVERSATION_TYPE.PARTICIPATING;
   } else if (isOnUnattendedView({ route: { name } })) {
     conversationType = wootConstants.CONVERSATION_TYPE.UNATTENDED;
+  } else if (isOnMineView({ route: { name } })) {
+    conversationType = wootConstants.CONVERSATION_TYPE.MINE;
+  } else if (isOnAiView({ route: { name } })) {
+    conversationType = wootConstants.CONVERSATION_TYPE.AI;
   }
   router.push(
     conversationListPageURL({
@@ -811,7 +832,16 @@ useEmitter('fetch_conversation_stats', () => {
 
 onMounted(() => {
   store.dispatch('setChatListFilters', conversationFilters.value);
-  setFiltersFromUISettings();
+  // [FORK] Filas IA MAESTRO: sobrepõem o status e assignee padrão
+  if (props.conversationType === wootConstants.CONVERSATION_TYPE.MINE) {
+    activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ME;
+    activeStatus.value = wootConstants.STATUS_TYPE.OPEN;
+  } else if (props.conversationType === wootConstants.CONVERSATION_TYPE.AI) {
+    activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ALL;
+    activeStatus.value = wootConstants.STATUS_TYPE.PENDING;
+  } else {
+    setFiltersFromUISettings();
+  }
   store.dispatch('setChatStatusFilter', activeStatus.value);
   store.dispatch('setChatSortFilter', activeSortBy.value);
   resetAndFetchData();
@@ -865,7 +895,17 @@ watch(
 );
 watch(
   computed(() => props.conversationType),
-  () => resetAndFetchData()
+  newType => {
+    // [FORK] Filas IA MAESTRO: forçar filtros corretos ao entrar na fila
+    if (newType === wootConstants.CONVERSATION_TYPE.MINE) {
+      activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ME;
+      activeStatus.value = wootConstants.STATUS_TYPE.OPEN;
+    } else if (newType === wootConstants.CONVERSATION_TYPE.AI) {
+      activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ALL;
+      activeStatus.value = wootConstants.STATUS_TYPE.PENDING;
+    }
+    resetAndFetchData();
+  }
 );
 
 watch(activeFolder, (newVal, oldVal) => {

@@ -37,7 +37,7 @@
     "NOT_ASSIGNED_TO_YOU": "Esta conversa não está atribuída a você. Gostaria de atribuir esta conversa a você mesmo?",
     "ASSIGN_TO_ME": "Atribuir a mim",
     "BOT_HANDOFF_MESSAGE": "Esta conversa está sendo atendida por {assigneeName}.",
-    "BOT_HANDOFF_FALLBACK_ASSIGNEE": "um bot",
+    "BOT_HANDOFF_FALLBACK_ASSIGNEE": "Agente Virtual",
     "BOT_HANDOFF_ACTION": "Assumir atendimento",
     "BOT_HANDOFF_REOPEN_ACTION": "Marcar conversa como aberta",
     "BOT_HANDOFF_SUCCESS": "Uma conversa foi atribuída a você",
@@ -285,7 +285,9 @@
         "REMOVE_PREVIEW": "Remover o encadeamento de e-mails citado",
         "COLLAPSE": "Recolher a prévia",
         "EXPAND": "Expandir a prévia"
-      }
+      },
+      "AI_LOCK_TITLE": "Sendo atendida pelo Agente Virtual",
+      "AI_LOCK_HOLD": "Segurar para assumir"
     },
     "VISIBLE_TO_AGENTS": "Mensagem Privada: Apenas visível para você e seu time",
     "CHANGE_STATUS": "Estado da conversa mudou",

@@ -447,6 +447,22 @@ const menuItems = computed(() => {
           activeOn: ['inbox_conversation'],
           to: accountScopedRoute('home'),
         },
+        // [FORK] Fila "Minhas" — conversas abertas atribuídas ao usuário atual
+        {
+          name: 'Mine',
+          label: t('SIDEBAR.MINE_CONVERSATIONS'),
+          icon: 'i-lucide-user-round',
+          activeOn: ['conversation_through_mine'],
+          to: accountScopedRoute('conversation_mine'),
+        },
+        // [FORK] Fila "Aguardando humano" — conversas pendentes com Agente Virtual
+        {
+          name: 'AI Queue',
+          label: t('SIDEBAR.AI_QUEUE'),
+          icon: 'i-lucide-bot',
+          activeOn: ['conversation_through_ai'],
+          to: accountScopedRoute('conversation_ai'),
+        },
         {
           name: 'Mentions',
           label: t('SIDEBAR.MENTIONED_CONVERSATIONS'),

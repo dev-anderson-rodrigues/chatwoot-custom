@@ -38,6 +38,24 @@ export const isOnParticipatingView = ({ route: { name: routeName } }) => {
   return PARTICIPATING_ROUTES.includes(routeName);
 };
 
+// [FORK] Fila "Minhas" — conversas abertas atribuídas ao usuário atual
+export const isOnMineView = ({ route: { name: routeName } }) => {
+  const MINE_ROUTES = [
+    'conversation_mine',
+    'conversation_through_mine',
+  ];
+  return MINE_ROUTES.includes(routeName);
+};
+
+// [FORK] Fila "Aguardando humano" — conversas pendentes com Agente Virtual
+export const isOnAiView = ({ route: { name: routeName } }) => {
+  const AI_ROUTES = [
+    'conversation_ai',
+    'conversation_through_ai',
+  ];
+  return AI_ROUTES.includes(routeName);
+};
+
 export const isOnFoldersView = ({ route: { name: routeName } }) => {
   const FOLDER_ROUTES = [
     'folder_conversations',

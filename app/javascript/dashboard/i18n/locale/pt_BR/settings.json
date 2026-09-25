@@ -318,6 +318,8 @@
     "MENTIONED_CONVERSATIONS": "Menções",
     "PARTICIPATING_CONVERSATIONS": "Participantes",
     "UNATTENDED_CONVERSATIONS": "Não atendidas",
+    "MINE_CONVERSATIONS": "Minhas",
+    "AI_QUEUE": "Aguardando humano",
     "REPORTS": "Relatórios",
     "SETTINGS": "Configurações",
     "CONTACTS": "Contatos",

@@ -11,6 +11,8 @@
     "TAB_HEADING": "Conversations",
     "MENTION_HEADING": "Mentions",
     "UNATTENDED_HEADING": "Unattended",
+    "MINE_HEADING": "Mine",
+    "AI_HEADING": "Waiting for agent",
     "SEARCH": {
       "INPUT": "Search for People, Chats, Saved Replies .."
     },

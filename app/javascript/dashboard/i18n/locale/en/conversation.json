@@ -323,7 +323,9 @@
         "REMOVE_PREVIEW": "Remove quoted email thread",
         "COLLAPSE": "Collapse preview",
         "EXPAND": "Expand preview"
-      }
+      },
+      "AI_LOCK_TITLE": "Being handled by Virtual Agent",
+      "AI_LOCK_HOLD": "Hold to take over"
     },
     "VISIBLE_TO_AGENTS": "Private Note: Only visible to you and your team",
     "CHANGE_STATUS": "Conversation status changed",

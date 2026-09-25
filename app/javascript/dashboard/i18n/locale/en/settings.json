@@ -318,6 +318,8 @@
     "MENTIONED_CONVERSATIONS": "Mentions",
     "PARTICIPATING_CONVERSATIONS": "Participating",
     "UNATTENDED_CONVERSATIONS": "Unattended",
+    "MINE_CONVERSATIONS": "Mine",
+    "AI_QUEUE": "Waiting for agent",
     "REPORTS": "Reports",
     "SETTINGS": "Settings",
     "CONTACTS": "Contacts",
