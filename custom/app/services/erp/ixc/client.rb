@@ -9,7 +9,7 @@ module Erp
 
       def initialize(hook:)
         @base_url = (hook.settings.dig('api_url') || hook.reference_id).to_s.chomp('/')
-        @token    = hook.access_token
+        @token    = hook.settings.dig('api_token') || hook.access_token
         @user_id  = hook.settings.dig('api_user') || '1'
       end
 

@@ -268,16 +268,17 @@ ixc:
   i18n_key: ixc
   hook_type: account
   allow_multiple_hooks: false
-  visible_properties: ['api_user']
+  visible_properties: ['api_url', 'api_user']
   settings_json_schema:
     {
       'type': 'object',
       'properties':
         {
-          'api_url':  { 'type': 'string' },
-          'api_user': { 'type': 'string' },
+          'api_url':   { 'type': 'string' },
+          'api_user':  { 'type': 'string' },
+          'api_token': { 'type': 'string' },
         },
-      'required': ['api_url'],
+      'required': ['api_url', 'api_token'],
       'additionalProperties': false,
     }
   settings_form_schema:
@@ -289,7 +290,13 @@ ixc:
         'validation': 'required',
       },
       {
-        'label': 'Usuário da API (padrão: 1)',
+        'label': 'Token da API (campo Webservice do usuário no IXC)',
+        'type': 'text',
+        'name': 'api_token',
+        'validation': 'required',
+      },
+      {
+        'label': 'ID do usuário da API (padrão: 1)',
         'type': 'text',
         'name': 'api_user',
         'validation': '',
