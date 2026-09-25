@@ -12,8 +12,10 @@ RSpec.describe AccountUser do
     it 'gets created with the right default settings' do
       expect(account_user.user.notification_settings).not_to be_nil
 
+      # [FORK] Sem notificação por e-mail por padrão — email_conversation_assignment desligado.
       expect(account_user.user.notification_settings.first.email_conversation_creation?).to be(false)
-      expect(account_user.user.notification_settings.first.email_conversation_assignment?).to be(true)
+      expect(account_user.user.notification_settings.first.email_conversation_assignment?).to be(false)
+      expect(account_user.user.notification_settings.first.push_conversation_assignment?).to be(true)
     end
   end
 

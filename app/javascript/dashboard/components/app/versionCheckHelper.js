@@ -1,8 +1,3 @@
-import semver from 'semver';
-
-export const hasAnUpdateAvailable = (latestVersion, currentVersion) => {
-  if (!semver.valid(latestVersion)) {
-    return false;
-  }
-  return semver.lt(currentVersion, latestVersion);
-};
+// [FORK] Aviso de atualização do Chatwoot desativado — este é um fork customizado.
+// eslint-disable-next-line no-unused-vars
+export const hasAnUpdateAvailable = (_latestVersion, _currentVersion) => false;

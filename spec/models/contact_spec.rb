@@ -88,6 +88,15 @@ RSpec.describe Contact do
       expect(contact.update!(email: 'test@test.com')).to be true
       expect(contact.email).to eq 'test@test.com'
     end
+
+    # [FORK] Múltiplos contatos com o mesmo e-mail são permitidos na mesma conta.
+    # Caso de uso: membros da mesma família em provedores de internet compartilham e-mail.
+    it 'allows two contacts in the same account to share an email' do
+      account = create(:account)
+      create(:contact, account: account, email: 'shared@example.com')
+      duplicate = build(:contact, account: account, email: 'shared@example.com')
+      expect(duplicate).to be_valid
+    end
   end
 
   context 'when city and country code passed in additional attributes' do
