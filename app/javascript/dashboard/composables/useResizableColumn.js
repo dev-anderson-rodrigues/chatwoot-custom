@@ -1,19 +1,30 @@
 import { ref, onUnmounted } from 'vue';
 
-const STORAGE_KEY = 'chat_list_column_width';
-const DEFAULT_WIDTH = 340;
-const MIN_WIDTH = 280;
-const MAX_WIDTH = 600;
-
 /**
  * Composable that makes a column resizable via a drag handle.
- * Width is persisted in localStorage and clamped between MIN and MAX.
+ * Width is persisted in localStorage and clamped between min and max.
  * Double-clicking the handle resets to the default width.
+ *
+ * @param {object} [options]
+ * @param {string} [options.storageKey='chat_list_column_width']
+ * @param {number} [options.defaultWidth=340]
+ * @param {number} [options.minWidth=280]
+ * @param {number} [options.maxWidth=600]
+ * @param {'right'|'left'} [options.direction='right'] - side the handle is on;
+ *   'left' inverts the delta (drag left = grow, drag right = shrink).
  */
-export function useResizableColumn() {
-  const storedWidth = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+export function useResizableColumn({
+  storageKey = 'chat_list_column_width',
+  defaultWidth = 340,
+  minWidth = 280,
+  maxWidth = 600,
+  direction = 'right',
+} = {}) {
+  const storedWidth = parseInt(localStorage.getItem(storageKey), 10);
   const width = ref(
-    !isNaN(storedWidth) ? Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, storedWidth)) : DEFAULT_WIDTH
+    !isNaN(storedWidth)
+      ? Math.min(maxWidth, Math.max(minWidth, storedWidth))
+      : defaultWidth
   );
 
   let startX = 0;
@@ -22,15 +33,15 @@ export function useResizableColumn() {
 
   const onMouseMove = event => {
     if (!isDragging) return;
-    const delta = event.clientX - startX;
-    const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta));
-    width.value = newWidth;
+    const rawDelta = event.clientX - startX;
+    const delta = direction === 'left' ? -rawDelta : rawDelta;
+    width.value = Math.min(maxWidth, Math.max(minWidth, startWidth + delta));
   };
 
   const onMouseUp = () => {
     if (!isDragging) return;
     isDragging = false;
-    localStorage.setItem(STORAGE_KEY, String(width.value));
+    localStorage.setItem(storageKey, String(width.value));
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     document.removeEventListener('mousemove', onMouseMove);
@@ -49,8 +60,8 @@ export function useResizableColumn() {
   };
 
   const onHandleDblClick = () => {
-    width.value = DEFAULT_WIDTH;
-    localStorage.removeItem(STORAGE_KEY);
+    width.value = defaultWidth;
+    localStorage.removeItem(storageKey);
   };
 
   onUnmounted(() => {
@@ -62,8 +73,5 @@ export function useResizableColumn() {
     columnWidth: width,
     onHandleMouseDown,
     onHandleDblClick,
-    DEFAULT_WIDTH,
-    MIN_WIDTH,
-    MAX_WIDTH,
   };
 }

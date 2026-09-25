@@ -5,6 +5,7 @@ import { useUISettings } from 'dashboard/composables/useUISettings';
 import { useWindowSize } from '@vueuse/core';
 import { vOnClickOutside } from '@vueuse/components';
 import wootConstants from 'dashboard/constants/globals';
+import { useResizableColumn } from 'dashboard/composables/useResizableColumn';
 
 defineProps({
   currentChat: {
@@ -15,6 +16,22 @@ defineProps({
 
 const { uiSettings, updateUISettings } = useUISettings();
 const { width: windowWidth } = useWindowSize();
+
+// [FORK] Sidebar da conversa redimensionável
+const { columnWidth: sidebarWidth, onHandleMouseDown, onHandleDblClick } =
+  useResizableColumn({
+    storageKey: 'conversation_sidebar_width',
+    defaultWidth: 320,
+    minWidth: 240,
+    maxWidth: 520,
+    direction: 'left',
+  });
+
+const sidebarStyle = computed(() =>
+  windowWidth.value >= wootConstants.SMALL_SCREEN_BREAKPOINT
+    ? { width: `${sidebarWidth.value}px`, minWidth: `${sidebarWidth.value}px` }
+    : {}
+);
 
 const activeTab = computed(() => {
   const { is_contact_sidebar_open: isContactSidebarOpen } = uiSettings.value;
@@ -51,14 +68,21 @@ const closeContactPanel = () => {
         ],
       },
     ]"
-    class="bg-n-surface-2 h-full overflow-hidden flex flex-col fixed top-0 z-40 w-full max-w-sm transition-transform duration-300 ease-in-out ltr:right-0 rtl:left-0 md:static md:w-[320px] md:min-w-[320px] ltr:border-l rtl:border-r border-n-weak 2xl:min-w-[360px] 2xl:w-[360px] shadow-lg md:shadow-none"
+    class="relative bg-n-surface-2 h-full overflow-hidden flex flex-col fixed top-0 z-40 w-full max-w-sm transition-transform duration-300 ease-in-out ltr:right-0 rtl:left-0 md:static ltr:border-l rtl:border-r border-n-weak shadow-lg md:shadow-none"
     :class="[
       {
         'md:flex': activeTab === 0,
         'md:hidden': activeTab !== 0,
       },
     ]"
+    :style="sidebarStyle"
   >
+    <!-- [FORK] Handle de redimensionamento do painel lateral -->
+    <div
+      class="absolute top-0 bottom-0 ltr:left-0 rtl:right-0 w-1 cursor-col-resize z-20 hover:bg-n-brand/30 transition-colors hidden md:block"
+      @mousedown="onHandleMouseDown"
+      @dblclick="onHandleDblClick"
+    />
     <div class="flex flex-1 overflow-auto">
       <ContactPanel
         v-show="activeTab === 0"
