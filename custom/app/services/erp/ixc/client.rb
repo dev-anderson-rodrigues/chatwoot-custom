@@ -79,6 +79,13 @@ module Erp::Ixc
            sortorder: 'desc')
     end
 
+    # Retorna { records: [...], total: N } para paginação de clientes.
+    def customers_page(page:, per_page: 100)
+      body = { page: page.to_s, rp: per_page.to_s, sortname: 'cliente.id', sortorder: 'asc' }
+      response = request('cliente', body)
+      { records: Array(response['registros']), total: response['total'].to_i }
+    end
+
     private
 
     def list(endpoint, params)
