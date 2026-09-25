@@ -267,8 +267,8 @@ ixc:
   logo: ixc.png
   i18n_key: ixc
   hook_type: account
-  allow_multiple_hooks: false
-  visible_properties: ['api_url', 'api_user']
+  allow_multiple_hooks: true
+  visible_properties: ['api_url', 'api_user', 'filial', 'filial_id']
   settings_json_schema:
     {
       'type': 'object',
@@ -277,6 +277,9 @@ ixc:
           'api_url':   { 'type': 'string' },
           'api_user':  { 'type': 'string' },
           'api_token': { 'type': 'string' },
+          'filial':    { 'type': 'string' },
+          'filial_id': { 'type': 'string' },
+          'inbox_ids': { 'type': 'string' },
         },
       'required': ['api_url', 'api_token'],
       'additionalProperties': false,
@@ -294,6 +297,24 @@ ixc:
         'type': 'text',
         'name': 'api_token',
         'validation': 'required',
+      },
+      {
+        'label': 'Nome da filial (ex: Filial Centro)',
+        'type': 'text',
+        'name': 'filial',
+        'validation': '',
+      },
+      {
+        'label': 'ID da filial (deve ser igual ao atributo filial_id do contato)',
+        'type': 'text',
+        'name': 'filial_id',
+        'validation': '',
+      },
+      {
+        'label': 'IDs das Caixas de Entrada desta filial (separados por vírgula)',
+        'type': 'text',
+        'name': 'inbox_ids',
+        'validation': '',
       },
       {
         'label': 'ID do usuário da API (padrão: 1)',
