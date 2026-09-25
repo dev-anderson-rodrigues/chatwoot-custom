@@ -2,6 +2,7 @@
 import { ref, unref, provide, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
+import { useDebounceFn } from '@vueuse/core';
 import {
   useMapGetter,
   useFunctionGetter,
@@ -381,6 +382,31 @@ const conversationList = computed(() => {
   return localConversationList;
 });
 
+// [FORK] Busca inline com debounce 300ms
+const inlineSearchQuery = ref('');
+const debouncedQuery = ref('');
+const applyDebounce = useDebounceFn(val => {
+  debouncedQuery.value = val;
+}, 300);
+
+const onInlineSearch = e => applyDebounce(e.target.value);
+const clearInlineSearch = () => {
+  inlineSearchQuery.value = '';
+  debouncedQuery.value = '';
+};
+
+const filteredConversationList = computed(() => {
+  const q = debouncedQuery.value.trim().toLowerCase();
+  if (!q) return conversationList.value;
+
+  return conversationList.value.filter(c => {
+    const name = (c.meta?.sender?.name ?? '').toLowerCase();
+    const phone = (c.meta?.sender?.phone_number ?? '').toLowerCase();
+    const lastMsg = (c.last_non_activity_message?.content ?? '').toLowerCase();
+    return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
+  });
+});
+
 const showEndOfListMessage = computed(() => {
   return !!(
     conversationList.value.length &&
@@ -636,6 +662,7 @@ function updateAssigneeTab(selectedTab) {
   if (activeAssigneeTab.value !== selectedTab) {
     resetBulkActions();
     emitter.emit('clearSearchInput');
+    clearInlineSearch();
     activeAssigneeTab.value = selectedTab;
     if (!currentPage.value) {
       fetchConversations();
@@ -986,6 +1013,27 @@ watch(conversationFilters, (newVal, oldVal) => {
       @chat-tab-change="updateAssigneeTab"
     />
 
+    <!-- [FORK] Busca inline na lista de conversas -->
+    <div class="px-2 py-1 relative">
+      <span class="absolute ltr:left-4 rtl:right-4 top-1/2 -translate-y-1/2 text-n-slate-10 pointer-events-none">
+        <i class="i-lucide-search size-3.5" />
+      </span>
+      <input
+        v-model="inlineSearchQuery"
+        type="search"
+        :placeholder="$t('CHAT_LIST.INLINE_SEARCH_PLACEHOLDER')"
+        class="reset-base w-full h-7 text-xs bg-n-alpha-black1 border border-n-weak rounded-lg ltr:pl-7 rtl:pr-7 ltr:pr-6 rtl:pl-6 text-n-slate-12 placeholder:text-n-slate-9 focus:outline-none focus:border-n-brand"
+        @input="onInlineSearch"
+      />
+      <button
+        v-if="inlineSearchQuery"
+        class="absolute ltr:right-4 rtl:left-4 top-1/2 -translate-y-1/2 border-0 p-0 bg-transparent text-n-slate-9 hover:text-n-slate-12"
+        @click="clearInlineSearch"
+      >
+        <i class="i-lucide-x size-3" />
+      </button>
+    </div>
+
     <p
       v-if="!chatListLoading && !conversationList.length"
       class="flex overflow-auto justify-center items-center p-4"
@@ -1003,7 +1051,7 @@ watch(conversationFilters, (newVal, oldVal) => {
       @select-all-conversations="toggleSelectAll"
     />
     <ConversationList
-      :conversation-list="conversationList"
+      :conversation-list="filteredConversationList"
       :is-loading="chatListLoading"
       :show-end-of-list-message="showEndOfListMessage"
       :label="label"

@@ -17,6 +17,7 @@
       "COMPACT": "Switch to compact view",
       "COMFORTABLE": "Switch to comfortable view"
     },
+    "INLINE_SEARCH_PLACEHOLDER": "Filter by name, phone or message",
     "SEARCH": {
       "INPUT": "Search for People, Chats, Saved Replies .."
     },

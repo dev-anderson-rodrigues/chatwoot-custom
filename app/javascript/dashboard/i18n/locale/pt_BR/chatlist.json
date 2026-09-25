@@ -17,6 +17,7 @@
       "COMPACT": "Mudar para visão compacta",
       "COMFORTABLE": "Mudar para visão confortável"
     },
+    "INLINE_SEARCH_PLACEHOLDER": "Filtrar por nome, telefone ou mensagem",
     "SEARCH": {
       "INPUT": "Pesquisar pessoas, conversas, respostas salvas .."
     },
