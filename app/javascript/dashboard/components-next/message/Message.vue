@@ -632,4 +632,38 @@ provideMessageContext({
     @apply ltr:rounded-tr-sm rtl:rounded-tl-sm;
   }
 }
+
+// [FORK] Tail (rabo) nas bolhas — exibido apenas no último da sequência
+.message-bubble-container:not(.group-with-next) {
+  .left-bubble:not(.bg-transparent) {
+    position: relative;
+    &::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -5px;
+      width: 8px;
+      height: 10px;
+      background: rgb(var(--slate-4));
+      clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    }
+  }
+
+  .right-bubble:not(.bg-transparent) {
+    position: relative;
+    &::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: -5px;
+      width: 8px;
+      height: 10px;
+      clip-path: polygon(0 0, 0 100%, 100% 100%);
+    }
+    &.bg-n-solid-blue::before { background: rgb(var(--solid-blue)); }
+    &.bg-n-solid-iris::before { background: rgb(var(--solid-iris)); }
+    &.bg-n-solid-amber::before { background: rgb(var(--solid-amber)); }
+    &.bg-n-ruby-4::before { background: rgb(var(--ruby-4)); }
+  }
+}
 </style>
