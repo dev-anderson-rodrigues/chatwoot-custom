@@ -2139,8 +2139,233 @@ O dono desconfiou, e estava certo. O código existe e funciona, mas havia duas t
 | # | Fatia | Estado |
 |---|---|---|
 | 1 | WhatsApp também pelo 360dialog: flag nas contas existentes, trava de provider, motivo de falha legível | ✅ |
-| 2 | Disparo genérico por qualquer caixa (e-mail em texto com Liquid, SMS, Instagram, Telegram…) pelo pipeline normal de mensagem; tipos de caixa aceitos no model; tela | ⏳ decisões tomadas (2026-09-20), falta implementar |
+| 2 | Disparo genérico por qualquer caixa (e-mail em texto com Liquid, Instagram, Telegram, Facebook, LINE, TikTok, API) pelo pipeline normal de mensagem; tipos de caixa aceitos no model; tela | ✅ 2026-09-24 — ver "Fatia 2 — resolvida" |
 | 3 | Endurecimento para volume (destravar campanha presa, retry/backoff, timeout, retomada sem reenviar) | ✅ 2026-09-21 — ver "Fatia 3 — resolvida" |
+
+##### Fatia 2 — resolvida (2026-09-24). Disparo por qualquer caixa
+
+Tudo em `custom/` (regra do fork), **sem editar arquivo Ruby do upstream**. O que mudou em arquivo do
+upstream está listado em "Edições em arquivo do upstream", para o próximo sync.
+
+**O que faz.** Campanha `one_off` em caixa **E-mail, Telegram, Instagram, Facebook, LINE, TikTok ou API**
+(lista explícita `Custom::Campaign::GENERIC_INBOX_TYPES`; Website continua "ongoing" e SMS/Twilio
+SMS/WhatsApp continuam nos serviços do upstream, sem mudança). Para cada contato da audiência (etiquetas)
+o `Custom::Campaigns::OneoffMessageService` renderiza o texto com Liquid e cria conversa + mensagem de
+saída pelo pipeline normal (`SendReplyJob`), deixando o canal enviar. Na tela: abas **E-mail** e **Outros
+canais** em Campanhas, e uma tela de resultados por campanha com quem foi enviado, pulado ou falhou e
+**por quê**.
+
+**Desenho — o que o código do 4.17 impôs**
+
+- **O envio real é assíncrono e o resultado volta por outro caminho.** Criar a mensagem de saída enfileira
+  `SendReplyJob` (fila `high`, **a mesma dos agentes**); a falha só aparece depois, via
+  `Messages::StatusUpdateService`. Por isso `sent` no destinatário significa **"entregue ao canal"**, e um
+  gancho corrige para `failed`/`delivered`/`read` quando o canal informar. E-mail e Telegram não têm
+  recibo: ficam `sent`.
+- **Um único vínculo destinatário ↔ mensagem, sem coluna nova:** o `source_id` do destinatário (único,
+  índice parcial, hoje só usado pelo webhook do WhatsApp) recebe `"message:<id da mensagem>"`. O gancho
+  (`Custom::Concerns::Message`, ponto de extensão que o upstream já tem em `Message`) só age em mensagem
+  com `additional_attributes.campaign_id` — a marca que a campanha do widget já usa — e reaproveita
+  `CampaignRecipient#update_from_whatsapp_status!`, que já faz o lock e impede rebaixar `delivered/read`
+  para `failed` (o nome é do WhatsApp; o formato serve).
+- **Conversa, mensagem e destinatário na MESMA transação, com a linha do destinatário travada.** Além de
+  evitar duplicidade na retomada (se o job morrer entre um e outro, ou existe tudo ou nada), a transação
+  garante a **ordem**: o `SendReplyJob` só sai no `after_commit`. **Sem ela, a falha do canal chegava
+  antes do `mark_sent!` e o destinatário voltava a `sent` por cima** — a prova de mutação pegou isso sem
+  eu ter previsto. Dentro dela o `lock!` + reconferência de `queued?` fecha a corrida de **dois jobs na
+  mesma campanha** (o reaper com falso positivo): o segundo espera o commit do primeiro e pula. (O serviço
+  do WhatsApp continua com a janela de um envio; a dele é a chamada HTTP e não dá para travar.)
+- **O resultado de skip/falha só é gravado se o destinatário AINDA estiver `queued`** (com a linha
+  travada). Uma exceção de `after_commit` chega **depois** do commit — a mensagem existe, o destinatário já
+  é `sent` — e não pode rebaixá-lo a `failed` (o operador reenviaria à mão e o cliente seria cobrado 2x).
+- **Sem retry automático do Sidekiq para mensagem de campanha** (`Custom::CampaignSendReplyGuard`, prepend no
+  `SendReplyJob`). O upstream deixa a exceção do canal subir e o Sidekiq refaz até 3 vezes; se a exceção
+  vem **depois** de o provider ter aceitado a mensagem (timeout de leitura, resposta que não é JSON), o
+  retry entrega de novo. Mesmo critério da fatia 3 no WhatsApp: **duplicar é pior que falhar**. A exceção
+  vira `failed` com o motivo (e chega ao destinatário pelo gancho). Só mexe em mensagem com destinatário
+  apontando para ela; qualquer outra segue como no upstream, retry incluso. **Custo:** uma falha
+  transitória (limite de vazão do Telegram, por exemplo) não é repetida — o contato aparece como falhou.
+- **Conversa da campanha nasce `snoozed` sem prazo ("até o cliente responder") e com `waiting_since`
+  zerado.** Aberta, uma campanha de 5 mil contatos criaria 5 mil conversas abertas, "aguardando resposta"
+  e distribuídas pelo rodízio de atribuição. Soneca sem prazo não aparece nas listas abertas, não é
+  atribuída e **volta sozinha a `open` quando o cliente responde** (`Message#reopen_conversation`), **na
+  mesma conversa** — o agente vê o que foi enviado. `resolved` reabriria no e-mail, mas no
+  Telegram/Instagram a resposta abriria uma conversa nova, sem o contexto. Verificado no app: a resposta
+  reabre a conversa da campanha e a mantém (2 mensagens, mesma conversa, `campaign_id` preservado).
+  - **Exceção — caixa com bot de atendimento ativo:** o próprio model cria **toda** conversa nova como
+    `pending`, com o bot (`Conversation#determine_conversation_status`), e a resposta do cliente **não** a
+    reabre; o bot atende, como em qualquer conversa daquela caixa. Aceito (a caixa é bot-first) e coberto
+    por spec, mas o operador precisa saber.
+  - **Defeito meu, achado na verificação:** o model preenche `waiting_since` em TODA conversa nova
+    (`ensure_waiting_since`) e a mensagem de campanha não o limpa (não é resposta humana nem de bot).
+    Quando o cliente respondia, o relógio **continuava valendo desde o envio da campanha**
+    (`set_waiting_since_on_incoming_message` só grava se estiver vazio): inflaria o "aguardando há X", a
+    ordenação por maior espera e o **tempo de resposta do agente**. Agora a conversa nasce com
+    `waiting_since` nulo; o teste reproduz o caso (resposta dois dias depois) e falha sem o ajuste.
+  - **Custo assumido:** conversa `snoozed` sem prazo nunca sai sozinha (o reabrir-soneca só olha
+    `snoozed_until <= agora`; `NULL` fica de fora). Quem não responde fica na lista "Soneca" — milhares por
+    campanha. Não é bug; é o preço de não inundar as listas abertas.
+- **Marcação:** `conversation.campaign_id` + `message.additional_attributes.campaign_id`, como a campanha do
+  widget. Efeitos que já existiam: a mensagem **não conta como resposta humana** (`human_response?`), o
+  relatório de Origem a classifica como "campanha", o filtro de conversas por campanha passa a valer.
+  Remetente **nulo** (não o agente da campanha), senão contaria no tempo de primeira resposta.
+- **Onde cada canal entra:** e-mail sempre em conversa nova por campanha (cada campanha tem seu assunto).
+  Telegram/LINE: a mensagem entra na conversa aberta do contato (mesma regra que decide para onde vai a
+  **resposta**; com `lock_to_single_conversation`, a última) e, sem conversa aberta, abre uma nova.
+  **Restrição de plataforma, não de código:** nesses canais o id do contato só nasce quando a **pessoa**
+  escreve primeiro — sem vínculo contato-caixa o contato é *pulado* com o motivo. Só e-mail e API montam
+  o vínculo sozinhos. Canal com janela (Instagram, Facebook, TikTok, API com janela configurada): a
+  janela é da **última mensagem do contato**, não do estado da conversa — entra na conversa cuja janela
+  está aberta (resolvida ou não), senão *pulado*. **TikTok** só reaproveita conversa: o envio precisa do
+  `conversation_id` do TikTok, que só o webhook de entrada grava (e o TikTok tem janela, então nunca cria).
+- **Telegram: conversa nova precisa de `chat_id`** (revisão de backend, bloqueante procedente): o canal envia
+  para `conversation.additional_attributes['chat_id']`, que só o webhook de entrada preenche — uma conversa
+  criada aqui iria para a API com `chat_id` nulo e falharia. Copia `chat_id`/`business_connection_id` da
+  última conversa do contato (qualquer estado) e, sem nenhuma, usa o id do contato (chat privado). Coberto
+  ponta a ponta com a API do Telegram simulada (WebMock).
+- **Texto** (`Custom::Campaigns::MessageRenderer`): variável Liquid que renderiza vazia (o
+  `{{ contact.custom_attribute.valor }}` sem o atributo) *pula* o contato **com o nome da variável** — mesmo
+  critério que o WhatsApp aplica aos parâmetros do template; sem isso a cobrança sairia "vence em ." Quem quer
+  aceitar vazio usa `{{ contact.name | default: 'cliente' }}`. Sintaxe Liquid que não renderiza também *pula*
+  (o serviço do upstream devolveria o texto cru, com as chaves). Texto entre crases ou em `{% raw %}` é literal.
+  **Marcação suspeita num VALOR vindo do contato** (`](`, `![`, tag HTML) *pula*: nome/atributo que o próprio
+  contato controla (perfil do Telegram, widget, API pública) passa pelo markdown do e-mail, e
+  `[Pague agora](http://x)` no nome viraria link ativo numa cobrança com a marca do cliente. Só os valores
+  são examinados, nunca o texto do operador; URL pura num atributo passa (link de boleto é o caso de uso).
+  O **assunto** troca CR/LF/controle por espaço (a gem `mail` não deixa injetar cabeçalho, mas o assunto
+  sairia com `=0D=0A`).
+- **E-mail em massa exige SMTP próprio na caixa** (validação no model, só na criação/mudança de assunto ou
+  caixa): sem isso o mailer usa o **SMTP global da plataforma**, com o `support_email` que o admin da conta
+  escolhe como remetente — um tenant disparando a base inteira pela infraestrutura compartilhada queima a
+  reputação de envio de todos (revisão de segurança). Vale SMTP da caixa ou conexão Google/Microsoft (as
+  mesmas condições que o `ConversationReplyMailer` já aceita). **Instalação de uma empresa só, que quer usar o
+  SMTP da plataforma: `CAMPAIGN_EMAIL_ALLOW_PLATFORM_SMTP=true`.** Só na criação de propósito: o upstream faz
+  `update!` na campanha a cada passo do disparo, e uma regra que passasse a falhar depois travaria uma
+  campanha em andamento.
+- **Assunto do e-mail** em `template_params.subject` (a API já aceita e devolve; evita coluna nova e mexer
+  em view do upstream), com Liquid, **obrigatório** para caixa de e-mail.
+- **Contato bloqueado** é pulado (o model cria a conversa como resolvida, mas a mensagem sairia).
+- **Ritmo e contrapressão:** a pausa da fatia 3 (`CAMPAIGN_SEND_INTERVAL_MS`, 300 ms) vive agora num módulo
+  compartilhado (`Custom::Campaigns::SendPacing`, usado também pelo WhatsApp) e limita a taxa de **criação**,
+  não a de **entrega**: com o canal lento (SMTP degradado) a fila `high` — a dos agentes — cresceria sem
+  freio (revisão de integração). Por isso, antes de cada envio, a campanha espera a fila `high` baixar de
+  `CAMPAIGN_MAX_HIGH_QUEUE` (padrão 100; 0 desliga), **no máximo 60 s por destinatário** (bem abaixo dos
+  10 min de batimento do reaper). Se não consegue ler a fila (Redis fora), segue.
+- **Conversa de campanha não notifica como "nova conversa"** (`Custom::CampaignNotificationFilter`): o
+  `NotificationListener` avisa todo membro da caixa que ativou "nova conversa" a cada conversa criada; 5 mil
+  conversas seriam 5 mil notificações por agente que optou. Só campanha `one_off`; a do widget segue
+  notificando (lá a conversa nasce porque o visitante respondeu). **Preço:** quando o cliente responde não há
+  aviso de "nova conversa" — a conversa aparece nas listas em tempo real.
+- **Data no passado:** o agendador só pega campanha agendada nos últimos 3 dias; uma data mais antiga nunca
+  dispararia. Na criação, mais de 5 min no passado vira "agora" (só na criação — depois de disparada a campanha
+  tem agendamento no passado por definição). O formulário também recusa.
+- **Conclusão resiliente:** `completed!` roda as validações do model; uma campanha que ficou inválida no
+  caminho levantaria **depois** de enviar tudo e o reaper a reenfileiraria para sempre. Cai para
+  `update_columns`. Resumo por status no log ao concluir; motivo de cada pulado no log.
+- **Motivos no idioma da conta** (`config/locales/fork.{en,pt_BR}.yml`, `Custom::Campaigns::Reasons`), gravados
+  no destinatário e mostrados como estão. A verificação visual achou que o motivo é cortado em 2 linhas e,
+  para "variável vazia", **justamente o nome da variável sumia**: textos encurtados (o dado importante vem
+  primeiro) e `title` na célula.
+- **Analytics:** o controller enterprise só liberava WhatsApp com a flag ligada; um override em `custom/`
+  (`Custom::CampaignAnalyticsAccess`, ligado por `to_prepare` em `custom/config/initializers/`) libera as
+  caixas genéricas, acrescenta o e-mail do contato ao payload e corrige **Enviadas**: no WhatsApp `sent` é
+  "tem `source_id`" (inclui quem falhou depois); aqui o `source_id` nasce com a mensagem, então quem o canal
+  recusou depois contaria como enviado **e** como falha e as faixas somariam mais que o público. Agora
+  enviadas + falharam + puladas fecham o público. A tela nova mostra "Entregues/Lidas" **só quando o canal
+  informa**: num canal sem recibo seriam sempre 0.
+
+**Arquivos novos (custom/):** `app/models/custom/campaign.rb` (Concern; o `included` faz `prepend` de
+overrides nos três métodos **privados** do model — um `include` não os sobrescreve),
+`app/models/custom/concerns/message.rb`, `app/services/custom/campaigns/{oneoff_message_service,
+message_renderer,recipient_status_sync,reasons,skip,send_pacing}.rb`,
+`app/controllers/custom/campaign_analytics_access.rb`, `app/jobs/custom/campaign_send_reply_guard.rb`,
+`app/listeners/custom/campaign_notification_filter.rb`,
+`config/initializers/campaign_dispatch_overrides.rb` (o `to_prepare` das três classes sem gancho de
+extensão). Fora dele: `config/locales/fork.{en,pt_BR}.yml` e, no front, `helper/channelCampaigns.js`,
+`ChannelCampaignsPage.vue`, `ChannelCampaignAnalyticsPage.vue`, `ChannelCampaign/ChannelCampaignForm.vue` e
+`ChannelCampaignDialog.vue`.
+
+**Edições em arquivo do upstream (pequenas, para o próximo sync):** `spec/models/campaign_spec.rb` (um teste
+afirmava que caixa do Facebook não é aceita — trocado por Twitter, que segue sem suporte; mesmo tipo de
+troca da fatia 1); no front: `campaigns.routes.js`, `Sidebar.vue`, `CampaignList.vue` (analytics também para
+as caixas novas), `CampaignDeliveryTable.vue` e `DeliveryStatusBadge.vue` (prop `i18nScope` com o mesmo
+padrão de antes; e-mail do contato quando não há telefone; `title` no motivo e na mensagem),
+`store/modules/campaigns.js` (`create` mantém a resposta da API no erro — sem isso o operador nunca via a
+regra que o backend recusou — + teste), e as chaves novas em `i18n/locale/{en,pt_BR}/{campaign,settings}.json`
+(só acréscimo).
+
+**O que a revisão dos especialistas mudou** (integração, backend, banco, segurança, front; conferi cada
+achado no código antes de aceitar):
+- **Aceitos e corrigidos:** corrida entre dois jobs (lock da linha); exceção de `after_commit` rebaixando
+  `sent` para `failed`; retry do Sidekiq reenviando o que o canal já aceitou; `chat_id` do Telegram;
+  janela por contato (não por conversa); conclusão que travava a campanha em `processing`; fila `high`
+  sem contrapressão; e-mail sem SMTP próprio; assunto com CR/LF; marcação suspeita em valor de contato;
+  validação que reexaminava a campanha a cada `update!`; variável entre crases; pausa após falha; no front,
+  a mensagem de erro do servidor que nunca chegava ao operador, o formulário que fechava e zerava antes de
+  saber se a criação deu certo (perderia a mensagem de cobrança), data no passado, falha transitória do
+  polling derrubando a tela, "Enviada em" × "Agendada para", pt-BR de "Nenhum registro enviada encontrado".
+- **Refutado pelo código:** "e-mail sem SMTP fica `sent` para sempre" (integração I2). Nesta versão do Rails o
+  `deliver_now` devolve `nil`, o upstream levanta `NoMethodError` ao ler o `message_id` e **já marca a
+  mensagem `failed`** (motivo enigmático). Escrevi uma checagem para isso e o teste mostrou que era código
+  morto: removida; o spec passou a travar o comportamento real.
+- **Aceitos como estão, com o custo dito:** caixa com bot ativo cria a conversa `pending` (acima);
+  conversa `snoozed` sem prazo acumula; automações de "conversa criada"/"mensagem criada" da conta **rodam**
+  para as conversas da campanha (uma que responde a toda conversa nova responderia a todos — a conta decide;
+  desligar exigiria impedir também as automações que alguém queira de propósito); webhooks de
+  `conversation_created`/`message_created` disparam para cada destinatário.
+- **Não feito (registrado):** teto de destinatários por campanha e auditoria de "quem disparou quantos" (a
+  revisão de segurança recomenda; só o SMTP próprio foi implementado); criação dos destinatários em lote
+  (`insert_all`) e iteração só dos `queued` — hoje todos os destinatários viram um array em memória, **aceitável
+  até uns 20 mil por campanha**; ~48 consultas por destinatário (medido; a maior parte são recargas de
+  `belongs_to` dos callbacks do upstream — o `pause` é o limitador real); índices redundantes em
+  `campaign_recipients` e a paginação do analytics por `created_at` (ambos do upstream); no front, pré-visualização
+  do texto renderizado / botão "inserir variável" (a maior lacuna de UX do formulário), acessibilidade do
+  diálogo (largura fixa de 25rem, sem `role="dialog"`/Esc — é o padrão das telas irmãs), item ativo da sidebar
+  dentro dos resultados, estado de erro da lista.
+
+**Verificado no app real (dev, `qa_setup_campanhas_canais.rb`):** campanha de e-mail criada pela tela e
+disparada pelo agendador de verdade (`TriggerScheduledItemsJob`); **2 e-mails chegaram ao MailHog** com o
+destinatário certo e o **assunto renderizado** ("Sua fatura de R$ 150,00 vence em 10/10"); 3 contatos
+pulados com motivo em português (conta pt_BR): sem e-mail, bloqueado, variável vazia com o nome da variável;
+**falha de envio voltando ao destinatário** (no dev, sem SMTP, o app cai no `sendmail` e as duas mensagens
+ficaram `failed` com o motivo do canal — o gancho pelo caminho real, no Sidekiq); campanha em caixa de API
+(conversas `snoozed`, vínculo contato-caixa criado sozinho); resposta do cliente reabrindo a conversa na
+mesma conversa. Telas: as duas abas, formulário (caixa filtrada por tipo, dica de variáveis, aviso dos
+canais restritos), lista, resultados. <<QA2>>
+
+**Provas de mutação:** duas rodadas — 25 mecanismos na primeira e <<MUT2N>> depois da revisão (lock e
+reconferência da linha, guarda do resultado, `reload` antes do lock, contrapressão e seu teto, corrida na
+criação, conclusão sem validação, `chat_id` do Telegram, janela por contato, pausa após falha, resumo no
+log, os cinco guardas do renderizador, os quatro do model, os dois do `SendReplyJob`, o filtro de
+notificação e o `sent` do analytics) — **em todos o spec correspondente falhou** <<MUT2R>>.
+
+**Não verificado / limites (dito com franqueza):**
+- **Telegram, Instagram, Facebook, LINE e TikTok nunca foram exercitados contra a plataforma real.** Os specs
+  usam o pipeline real de criação de conversa/mensagem, e o Telegram foi coberto ponta a ponta com a API
+  simulada; o envio de cada canal (`SendOn*Service`) é código do upstream. **A regra de janela e o
+  `conversation_id` do TikTok vieram do código, não de um envio real.**
+- **E-mail só foi entregue a um MailHog de dev.** Sem agente como remetente, o nome no "From" sai como
+  **"Notificações de <nome da caixa>"** (visto no MailHog) — vale chamar a caixa de algo que o cliente
+  reconheça.
+- **Reaper (fatia 3) pode repetir para sempre uma campanha que morre ANTES de processar destinatários**
+  (erro de validação no início): ela volta a `active` a cada 10 min. Não afeta a fatia 2, mas afeta o WhatsApp
+  com caixa Twilio-WhatsApp (o `inbox_type` dela também é "Whatsapp" e `channel.provider` não existe nela).
+  Pendência registrada.
+- Uma campanha de milhares de contatos cria **milhares de conversas e mensagens** e dispara os
+  **webhooks/automações** da conta para cada uma. Relatórios que contam conversas criadas passam a incluir as
+  da campanha (todas têm `campaign_id`, dá para filtrar depois); tempo de primeira resposta e de resposta não
+  são afetados.
+- **Contato com conversa aberta por outra via** recebe a mensagem nela (Telegram) — não há como saber que a
+  conversa é de outro assunto.
+- **Prova de que o operador vê o motivo:** a mensagem que o backend recusa (ex.: caixa sem SMTP próprio) é
+  mostrada tal como vem da API, no idioma do usuário quando há tradução.
+
+**Deploy:** **reiniciar o Rails e o Sidekiq** — há raízes de autoload novas (`custom/app/models`,
+`custom/app/listeners`), um initializer novo (`custom/config/initializers/`) e locales novos. **Nenhuma
+migration nesta fatia.** Variáveis: `CAMPAIGN_SEND_INTERVAL_MS` (já existia; agora vale também para as
+caixas genéricas), `CAMPAIGN_MAX_HIGH_QUEUE` (nova, padrão 100), `CAMPAIGN_EMAIL_ALLOW_PLATFORM_SMTP` (nova,
+padrão desligada). **Caixa de e-mail precisa ter SMTP próprio (ou Google/Microsoft) para criar campanha** —
+avisar os clientes antes de liberar a aba.
 
 ##### Fatia 1 — resolvida. WhatsApp também pelo 360dialog
 

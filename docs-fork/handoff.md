@@ -85,6 +85,41 @@ Armadilha de ambiente repetida: o `db:migrate` no container **reescreve comentá
 models** (`ANNOTATE_SKIP_ON_DB_MIGRATE` não impediu) — reverter com `git checkout` depois de
 conferir que são só comentários.
 
+**2026-09-24 — Onda 7, fatia 2 (disparo por qualquer caixa) pronta e revisada, ainda não commitada.**
+Campanhas por **e-mail, Telegram, Instagram, Facebook, LINE, TikTok e API**, pelo pipeline normal de
+mensagem (conversa + mensagem de saída + `SendReplyJob`), com telas novas em Campanhas: abas **E-mail** e
+**Outros canais**, e resultados por campanha (enviado/pulado/falhou **com o motivo**). Tudo em `custom/`
+(nenhum arquivo Ruby do upstream editado); o desenho, o que a revisão mudou e os limites estão na seção
+"Fatia 2 — resolvida" da Onda 7 do plano. O que precisa estar na cabeça de quem continuar:
+- **Deploy:** reiniciar Rails e Sidekiq (raízes de autoload novas, initializer novo, locales novos). **Sem
+  migration.** Variáveis novas: `CAMPAIGN_MAX_HIGH_QUEUE` (padrão 100 — a campanha espera a fila `high`, a
+  dos agentes, baixar) e `CAMPAIGN_EMAIL_ALLOW_PLATFORM_SMTP` (padrão desligada). **Campanha de e-mail
+  exige SMTP próprio na caixa (ou Google/Microsoft)** — sem isso ela seria enviada pelo SMTP da plataforma;
+  avisar os clientes antes de liberar a aba.
+- **`sent` = "entregue ao canal".** O envio real é assíncrono; um gancho em `Message` corrige o destinatário
+  para `failed`/`delivered`/`read`. O vínculo destinatário↔mensagem é o `source_id` `"message:<id>"`.
+- **Conversa da campanha nasce `snoozed` sem prazo e volta sozinha a `open` quando o cliente responde** — na
+  mesma conversa. Exceção: caixa com bot ativo cria `pending` (regra do model). `waiting_since` nasce nulo
+  (defeito meu, achado na verificação: sem isso a espera contaria desde o envio).
+- **Sem retry automático do Sidekiq para mensagem de campanha** (duplicar cobrança é pior que falhar): uma
+  falha transitória do canal aparece como falhou. Só o `SendReplyJob` de mensagem de campanha muda; o resto
+  segue como no upstream.
+- **A revisão dos 5 especialistas achou coisa séria e eu conferi cada uma no código:** `chat_id` do Telegram
+  (conversa nova nascia sem ele e o envio falhava), corrida entre dois jobs, exceção de `after_commit`
+  rebaixando `sent`, retry reenviando, fila `high` sem contrapressão, e-mail pelo SMTP global da plataforma,
+  marcação (link/imagem) em nome de contato virando phishing no e-mail. **Um achado eu refutei:** "e-mail sem
+  SMTP fica `sent` para sempre" — nesta versão o upstream levanta e a mensagem já vira `failed`.
+- **Não há teto de destinatários por campanha nem auditoria** de quem disparou o quê (recomendado pela revisão
+  de segurança; não feito). Os destinatários viram um array em memória: aceitável até ~20 mil por campanha.
+- **Nada disso foi testado contra Telegram/Instagram/Facebook/LINE/TikTok reais**; o e-mail só foi a um MailHog.
+- **Verificação no dev:** `qa_setup_campanhas_canais.rb` (não versionado, como os outros `qa_setup_*.rb`)
+  cria caixa de e-mail e de API, 5 contatos "QA" e a etiqueta `inadimplente-qa`. **A caixa de e-mail do QA
+  precisa de SMTP próprio agora** (o seed não configura; apontar `smtp_address: mailhog`, porta 1025, sem
+  TLS). Reinício obrigatório do Rails/Sidekiq depois de puxar esta fatia.
+- **Armadilhas novas de ambiente:** o `sleep` longo é bloqueado na ferramenta de shell; comando em segundo
+  plano dentro de `wsl -e bash -lc` **morre** quando a sessão termina (use `setsid nohup ... &` e um
+  `sleep` curto depois); `pkill -f` com um padrão que aparece na própria linha de comando mata o próprio shell.
+
 ---
 
 ## 1. Onde o código vive agora
@@ -151,7 +186,7 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
 | 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) · push feito |
 | 6a — Marca no super admin | ✅ completa · 2 fatias, commitadas e com push |
-| 7 — Campanhas de cobrança | 🔄 feature nova · fatia 1 (WhatsApp/360dialog) e fatia 3 (endurecimento de volume) prontas · fatia 2 (disparo por qualquer caixa) a fazer |
+| 7 — Campanhas de cobrança | ✅ feature nova · fatias 1 (WhatsApp/360dialog), 2 (disparo por qualquer caixa) e 3 (endurecimento de volume) prontas e revisadas; limites e pendências no plano |
 | 8 — ERP/CRM nativo + painel do cliente + cobrança | 📋 plano escrito em `plano-erp-cobranca.md` (2026-09-21), aguardando aprovação e acesso ao IXC |
 | 9 — NotificaMe Hub | ⏳ nova, precisa da documentação da API |
 | 4 · 6b · 3 | pendentes |
