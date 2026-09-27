@@ -476,7 +476,8 @@
       "MACROS": "Macros",
       "LINEAR_ISSUES": "Linked Linear Issues",
       "SHOPIFY_ORDERS": "Shopify Orders",
-      "SHARED_FILES": "Attachments"
+      "SHARED_FILES": "Attachments",
+      "IXC_CUSTOMER": "IXC Customer"
     },
     "SHARED_FILES": {
       "EMPTY": "No attachments yet",
@@ -507,6 +508,30 @@
         "FULFILLED": "Fulfilled",
         "PARTIALLY_FULFILLED": "Partially Fulfilled",
         "UNFULFILLED": "Unfulfilled"
+      }
+    },
+    "IXC": {
+      "ERROR": "Error loading IXC data",
+      "NOT_FOUND": "Customer not found in IXC",
+      "AMBIGUOUS": "Multiple customers found. Please link the contact manually.",
+      "RETRY": "Try again",
+      "LOAD": "Load IXC data",
+      "REFRESH": "Refresh",
+      "INVOICES": "Open Invoices",
+      "NO_INVOICES": "No open invoices",
+      "CONTRACTS": "Contracts",
+      "NO_CONTRACTS": "No contracts found",
+      "DUE": "Due",
+      "LATE": "late",
+      "INVOICE_STATUS": {
+        "OPEN": "Open",
+        "PAID": "Paid",
+        "CANCELLED": "Cancelled"
+      },
+      "CONTRACT_STATUS": {
+        "ACTIVE": "Active",
+        "INACTIVE": "Inactive",
+        "CANCELLED": "Cancelled"
       }
     }
   },
