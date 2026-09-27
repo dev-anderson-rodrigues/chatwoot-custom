@@ -21,7 +21,6 @@ import SharedFiles from './SharedFiles.vue';
 import Draggable from 'vuedraggable';
 import MacrosList from './Macros/List.vue';
 import ShopifyOrdersList from 'dashboard/components/widgets/conversation/ShopifyOrdersList.vue';
-import IxcCustomerPanel from 'dashboard/components/widgets/conversation/IxcCustomerPanel.vue';
 import SidebarActionsHeader from 'dashboard/components-next/SidebarActionsHeader.vue';
 import LinearIssuesList from 'dashboard/components/widgets/conversation/linear/IssuesList.vue';
 import LinearSetupCTA from 'dashboard/components/widgets/conversation/linear/LinearSetupCTA.vue';
@@ -51,12 +50,6 @@ const shopifyIntegration = useFunctionGetter(
   'integrations/getIntegration',
   'shopify'
 );
-
-const ixcIntegration = useFunctionGetter(
-  'integrations/getIntegration',
-  'ixc'
-);
-const isIxcEnabled = computed(() => !!ixcIntegration.value?.id);
 
 const isShopifyFeatureEnabled = computed(
   () => shopifyIntegration.value.enabled
@@ -135,7 +128,6 @@ onMounted(() => {
   store.dispatch('attributes/get', 0);
   // Load integrations to ensure linear integration state is available
   store.dispatch('integrations/get', 'linear');
-  store.dispatch('integrations/get', 'ixc');
 });
 </script>
 
@@ -316,23 +308,6 @@ onMounted(() => {
               "
             >
               <SharedFiles />
-            </AccordionItem>
-          </div>
-          <div
-            v-else-if="element.name === 'ixc_customer' && isIxcEnabled"
-          >
-            <AccordionItem
-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.IXC_CUSTOMER')"
-              :is-open="isContactSidebarItemOpen('is_ixc_customer_open')"
-              compact
-              @toggle="
-                value => toggleSidebarUIState('is_ixc_customer_open', value)
-              "
-            >
-              <IxcCustomerPanel
-                :contact-id="contactId"
-                :inbox-id="inboxId"
-              />
             </AccordionItem>
           </div>
         </template>

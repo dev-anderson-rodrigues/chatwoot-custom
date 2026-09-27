@@ -438,8 +438,7 @@
       "MACROS": "Macros",
       "LINEAR_ISSUES": "Problemas do Linear vinculados",
       "SHOPIFY_ORDERS": "Pedidos do Shopify",
-      "SHARED_FILES": "Anexos",
-      "IXC_CUSTOMER": "Cliente IXC"
+      "SHARED_FILES": "Anexos"
     },
     "SHARED_FILES": {
       "EMPTY": "Nenhum anexo ainda",
@@ -470,30 +469,6 @@
         "FULFILLED": "Concluído",
         "PARTIALLY_FULFILLED": "Parcialmente Concluído",
         "UNFULFILLED": "Não concluído"
-      }
-    },
-    "IXC": {
-      "ERROR": "Erro ao carregar dados do IXC",
-      "NOT_FOUND": "Cliente não encontrado no IXC",
-      "AMBIGUOUS": "Mais de um cliente encontrado. Vincule o contato manualmente.",
-      "RETRY": "Tentar novamente",
-      "LOAD": "Carregar dados do IXC",
-      "REFRESH": "Atualizar",
-      "INVOICES": "Faturas em Aberto",
-      "NO_INVOICES": "Nenhuma fatura em aberto",
-      "CONTRACTS": "Contratos",
-      "NO_CONTRACTS": "Nenhum contrato encontrado",
-      "DUE": "Venc.",
-      "LATE": "de atraso",
-      "INVOICE_STATUS": {
-        "OPEN": "Aberto",
-        "PAID": "Pago",
-        "CANCELLED": "Cancelado"
-      },
-      "CONTRACT_STATUS": {
-        "ACTIVE": "Ativo",
-        "INACTIVE": "Inativo",
-        "CANCELLED": "Cancelado"
       }
     }
   },
