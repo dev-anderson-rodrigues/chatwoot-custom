@@ -1,49 +1,46 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import IxcAPI from '../../../api/integrations/ixc';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
-  contactId: {
-    type: [Number, String],
-    required: true,
-  },
-  inboxId: {
-    type: Number,
-    default: undefined,
-  },
+  contactId: { type: [Number, String], required: true },
+  inboxId: { type: Number, default: undefined },
 });
 
 const { t } = useI18n();
 
-const state = ref('idle'); // idle | loading | linked | ambiguous | not_found | error
+const state = ref('idle');
 const customer = ref(null);
 const invoices = ref([]);
 const contracts = ref([]);
 const candidates = ref([]);
 const errorMsg = ref('');
 
-const statusLabel = status => {
-  const map = { A: t('CONVERSATION_SIDEBAR.IXC.INVOICE_STATUS.OPEN'), B: t('CONVERSATION_SIDEBAR.IXC.INVOICE_STATUS.PAID'), C: t('CONVERSATION_SIDEBAR.IXC.INVOICE_STATUS.CANCELLED') };
-  return map[status] || status;
-};
+const maxOverdueDays = computed(() => {
+  const days = invoices.value.map(i => parseInt(i.atraso) || 0);
+  return days.length ? Math.max(...days) : 0;
+});
 
-const contractStatusLabel = status => {
-  const map = { A: t('CONVERSATION_SIDEBAR.IXC.CONTRACT_STATUS.ACTIVE'), I: t('CONVERSATION_SIDEBAR.IXC.CONTRACT_STATUS.INACTIVE'), C: t('CONVERSATION_SIDEBAR.IXC.CONTRACT_STATUS.CANCELLED') };
-  return map[status] || status;
-};
+const totalDebt = computed(() => {
+  const sum = invoices.value.reduce((acc, i) => acc + parseFloat(i.valor || 0), 0);
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sum);
+});
+
+const openInvoicesCount = computed(() => invoices.value.length);
+
+const firstContract = computed(() => contracts.value.find(c => c.status === 'A') || contracts.value[0]);
+
+const oldestDueDate = computed(() => {
+  const dates = invoices.value.map(i => i.data_vencimento).filter(Boolean).sort();
+  return dates[0] ? formatDate(dates[0]) : '—';
+});
 
 const formatDate = dateStr => {
-  if (!dateStr) return '';
+  if (!dateStr) return '—';
   const [y, m, d] = dateStr.split('-');
   return `${d}/${m}/${y}`;
-};
-
-const formatCurrency = value => {
-  const num = parseFloat(value);
-  if (isNaN(num)) return value;
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
 };
 
 const fetchCustomer = async () => {
@@ -73,120 +70,124 @@ watch(() => props.contactId, fetchCustomer, { immediate: true });
 </script>
 
 <template>
-  <div class="px-4 py-2 text-n-slate-12 text-sm">
+  <div class="text-n-slate-12 text-sm">
     <!-- Loading -->
-    <div v-if="state === 'loading'" class="flex justify-center items-center p-4">
+    <div v-if="state === 'loading'" class="flex justify-center items-center py-6">
       <Spinner size="24" class="text-n-brand" />
     </div>
 
     <!-- Error -->
-    <div v-else-if="state === 'error'" class="text-center text-n-ruby-12 text-xs py-2">
-      {{ errorMsg }}
-    </div>
-
-    <!-- Not found -->
-    <div v-else-if="state === 'not_found'" class="text-center py-3">
-      <p class="text-n-slate-11 text-xs mb-2">
-        {{ $t('CONVERSATION_SIDEBAR.IXC.NOT_FOUND') }}
-      </p>
-      <button
-        class="text-xs text-n-brand hover:underline"
-        @click="fetchCustomer"
-      >
+    <div v-else-if="state === 'error'" class="px-4 py-3">
+      <p class="text-n-ruby-11 text-xs text-center mb-2">{{ errorMsg }}</p>
+      <button class="w-full text-xs text-n-slate-11 hover:text-n-brand text-center" @click="fetchCustomer">
         {{ $t('CONVERSATION_SIDEBAR.IXC.RETRY') }}
       </button>
     </div>
 
-    <!-- Ambiguous - multiple candidates -->
-    <div v-else-if="state === 'ambiguous'" class="py-2">
-      <p class="text-n-slate-11 text-xs mb-2">
-        {{ $t('CONVERSATION_SIDEBAR.IXC.AMBIGUOUS') }}
-      </p>
+    <!-- Not found -->
+    <div v-else-if="state === 'not_found'" class="px-4 py-3 text-center">
+      <p class="text-n-slate-11 text-xs mb-2">{{ $t('CONVERSATION_SIDEBAR.IXC.NOT_FOUND') }}</p>
+      <button class="text-xs text-n-brand hover:underline" @click="fetchCustomer">
+        {{ $t('CONVERSATION_SIDEBAR.IXC.RETRY') }}
+      </button>
+    </div>
+
+    <!-- Ambiguous -->
+    <div v-else-if="state === 'ambiguous'" class="px-4 py-3">
+      <p class="text-n-slate-11 text-xs mb-2">{{ $t('CONVERSATION_SIDEBAR.IXC.AMBIGUOUS') }}</p>
       <div
         v-for="c in candidates"
         :key="c.id"
-        class="border border-n-weak rounded-md px-3 py-2 mb-2 text-xs"
+        class="border border-n-weak rounded-lg px-3 py-2 mb-2 text-xs"
       >
-        <p class="font-medium">{{ c.razao || c.nome }}</p>
+        <p class="font-semibold">{{ c.razao || c.nome }}</p>
         <p class="text-n-slate-11">{{ c.cnpj_cpf }}</p>
       </div>
     </div>
 
-    <!-- Linked -->
-    <div v-else-if="state === 'linked'">
-      <!-- Customer info -->
-      <div class="mb-3">
-        <p class="font-semibold text-n-slate-12 truncate">{{ customer?.razao || customer?.nome }}</p>
-        <p v-if="customer?.cnpj_cpf" class="text-n-slate-11 text-xs">{{ customer.cnpj_cpf }}</p>
-        <p v-if="customer?.email" class="text-n-slate-11 text-xs truncate">{{ customer.email }}</p>
-      </div>
-
-      <!-- Invoices -->
-      <div class="mb-3">
-        <p class="text-n-slate-11 text-xs font-medium uppercase tracking-wide mb-1">
-          {{ $t('CONVERSATION_SIDEBAR.IXC.INVOICES') }}
-          <span class="ml-1 font-normal">({{ invoices.length }})</span>
+    <!-- Linked — card style -->
+    <div v-else-if="state === 'linked'" class="px-3 py-3">
+      <!-- Header: name + overdue badge -->
+      <div class="flex items-start justify-between gap-2 mb-3">
+        <p class="font-bold text-n-slate-12 leading-tight text-sm">
+          {{ customer?.razao || customer?.nome }}
         </p>
-        <div v-if="!invoices.length" class="text-n-slate-11 text-xs">
-          {{ $t('CONVERSATION_SIDEBAR.IXC.NO_INVOICES') }}
-        </div>
-        <div
-          v-for="inv in invoices"
-          :key="inv.id"
-          class="border border-n-weak rounded-md px-3 py-2 mb-1.5"
+        <span
+          v-if="maxOverdueDays > 0"
+          class="shrink-0 rounded-full bg-n-ruby-9 text-white text-xs font-semibold px-2 py-0.5 whitespace-nowrap"
         >
-          <div class="flex items-center justify-between">
-            <span class="font-medium">{{ formatCurrency(inv.valor) }}</span>
-            <span
-              class="text-xs px-1.5 py-0.5 rounded"
-              :class="inv.status === 'A' ? 'bg-n-ruby-3 text-n-ruby-11' : 'bg-n-teal-3 text-n-teal-11'"
-            >{{ statusLabel(inv.status) }}</span>
-          </div>
-          <div class="flex items-center justify-between mt-0.5">
-            <span class="text-n-slate-11 text-xs">{{ $t('CONVERSATION_SIDEBAR.IXC.DUE') }}: {{ formatDate(inv.data_vencimento) }}</span>
-            <span v-if="parseInt(inv.atraso) > 0" class="text-n-ruby-11 text-xs font-medium">
-              {{ inv.atraso }}d {{ $t('CONVERSATION_SIDEBAR.IXC.LATE') }}
-            </span>
-          </div>
+          {{ maxOverdueDays }}d vencido
+        </span>
+        <span
+          v-else
+          class="shrink-0 rounded-full bg-n-teal-9 text-white text-xs font-semibold px-2 py-0.5"
+        >
+          Em dia
+        </span>
+      </div>
+
+      <!-- Info grid -->
+      <div class="grid grid-cols-2 gap-x-3 gap-y-2 mb-3">
+        <!-- Phone -->
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="i-lucide-phone text-n-ruby-9 shrink-0 w-3.5 h-3.5" />
+          <span class="text-xs text-n-slate-11 truncate">{{ customer?.telefone_celular || customer?.fone || '—' }}</span>
+        </div>
+        <!-- CPF/CNPJ -->
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="i-lucide-id-card text-n-slate-10 shrink-0 w-3.5 h-3.5" />
+          <span class="text-xs text-n-slate-11 truncate">{{ customer?.cnpj_cpf || '—' }}</span>
+        </div>
+        <!-- Faturas em aberto -->
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="i-lucide-file-text text-n-slate-10 shrink-0 w-3.5 h-3.5" />
+          <span class="text-xs text-n-slate-11">{{ openInvoicesCount }} fatura{{ openInvoicesCount !== 1 ? 's' : '' }} em aberto</span>
+        </div>
+        <!-- Contract -->
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="i-lucide-wifi text-n-teal-9 shrink-0 w-3.5 h-3.5" />
+          <span class="text-xs text-n-slate-11 truncate">
+            {{ firstContract ? `Contrato ${firstContract.id}` : '—' }}
+          </span>
+        </div>
+        <!-- Total debt -->
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="i-lucide-circle-dollar-sign text-n-ruby-9 shrink-0 w-3.5 h-3.5" />
+          <span class="text-xs font-semibold text-n-ruby-11">{{ totalDebt }}</span>
+        </div>
+        <!-- Oldest due date -->
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="i-lucide-calendar text-n-slate-10 shrink-0 w-3.5 h-3.5" />
+          <span class="text-xs text-n-slate-11">{{ oldestDueDate }}</span>
         </div>
       </div>
 
-      <!-- Contracts -->
-      <div>
-        <p class="text-n-slate-11 text-xs font-medium uppercase tracking-wide mb-1">
-          {{ $t('CONVERSATION_SIDEBAR.IXC.CONTRACTS') }}
-          <span class="ml-1 font-normal">({{ contracts.length }})</span>
-        </p>
-        <div v-if="!contracts.length" class="text-n-slate-11 text-xs">
-          {{ $t('CONVERSATION_SIDEBAR.IXC.NO_CONTRACTS') }}
-        </div>
-        <div
-          v-for="ct in contracts"
-          :key="ct.id"
-          class="border border-n-weak rounded-md px-3 py-2 mb-1.5"
-        >
-          <div class="flex items-center justify-between">
-            <span class="font-medium text-xs truncate pr-2">{{ ct.descricao || ct.id }}</span>
-            <span
-              class="text-xs px-1.5 py-0.5 rounded shrink-0"
-              :class="ct.status === 'A' ? 'bg-n-teal-3 text-n-teal-11' : 'bg-n-slate-3 text-n-slate-11'"
-            >{{ contractStatusLabel(ct.status) }}</span>
-          </div>
-          <p v-if="ct.velocidade" class="text-n-slate-11 text-xs mt-0.5">{{ ct.velocidade }}</p>
-        </div>
+      <!-- Footer: promise status -->
+      <div class="flex items-center gap-1.5 mb-3 pb-3 border-b border-n-weak">
+        <span class="i-lucide-message-circle text-n-slate-10 w-3.5 h-3.5 shrink-0" />
+        <span class="text-xs text-n-slate-11">Sem promessa registrada</span>
       </div>
 
-      <!-- Refresh link -->
-      <button
-        class="mt-2 text-xs text-n-slate-10 hover:text-n-brand w-full text-center"
-        @click="fetchCustomer"
-      >
-        {{ $t('CONVERSATION_SIDEBAR.IXC.REFRESH') }}
-      </button>
+      <!-- Action buttons -->
+      <div class="flex gap-2">
+        <button
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-n-weak text-xs font-medium text-n-slate-11 hover:bg-n-slate-3 transition-colors"
+          @click="fetchCustomer"
+        >
+          <span class="i-lucide-refresh-cw w-3 h-3" />
+          Atualizar
+        </button>
+        <button
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-n-brand text-white text-xs font-semibold hover:bg-n-brand/90 transition-colors"
+        >
+          <span class="i-lucide-send w-3 h-3" />
+          Disparar
+        </button>
+      </div>
     </div>
 
-    <!-- Idle fallback -->
-    <div v-else class="text-center py-3">
+    <!-- Idle -->
+    <div v-else class="px-4 py-3 text-center">
       <button class="text-xs text-n-brand hover:underline" @click="fetchCustomer">
         {{ $t('CONVERSATION_SIDEBAR.IXC.LOAD') }}
       </button>
