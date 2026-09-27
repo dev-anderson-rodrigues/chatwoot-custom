@@ -205,7 +205,7 @@ onMounted(fetchData);
         <div class="flex flex-col gap-3">
           <!-- Search row -->
           <div class="flex items-center gap-2">
-            <label class="flex items-center gap-2 flex-1 h-9 px-3 rounded-lg border border-n-weak bg-n-background focus-within:ring-1 focus-within:ring-n-brand transition-shadow cursor-text">
+            <label class="flex items-center gap-2 flex-1 h-9 px-3 rounded-lg border border-n-weak bg-n-background focus-within:border-n-brand transition-colors cursor-text">
               <span class="i-lucide-search w-4 h-4 text-n-slate-10 shrink-0" />
               <input
                 v-model="search"
