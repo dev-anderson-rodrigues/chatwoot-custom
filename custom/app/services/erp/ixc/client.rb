@@ -79,6 +79,21 @@ module Erp::Ixc
            sortorder: 'desc')
     end
 
+    # Retorna faturas em aberto com atraso > 0, paginado.
+    # min_atraso: dias mínimos de atraso (default 1)
+    def overdue_invoices_page(page:, per_page: 100, min_atraso: 1)
+      body = {
+        page: page.to_s, rp: per_page.to_s,
+        sortname: 'fn_areceber.atraso', sortorder: 'desc',
+        grid_param: JSON.generate([
+                                    { 'TB' => 'fn_areceber.status', 'OP' => '=', 'P' => 'A' },
+                                    { 'TB' => 'fn_areceber.atraso', 'OP' => '>=', 'P' => min_atraso.to_s }
+                                  ])
+      }
+      response = request('fn_areceber', body)
+      { records: Array(response['registros']), total: response['total'].to_i }
+    end
+
     # Retorna { records: [...], total: N } para paginação de clientes.
     def customers_page(page:, per_page: 100)
       body = { page: page.to_s, rp: per_page.to_s, sortname: 'cliente.id', sortorder: 'asc' }

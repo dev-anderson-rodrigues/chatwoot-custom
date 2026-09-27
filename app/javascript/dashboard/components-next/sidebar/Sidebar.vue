@@ -749,6 +749,13 @@ const menuItems = computed(() => {
       ],
     },
     {
+      name: 'GestaoCobranca',
+      label: t('SIDEBAR.GESTAO_COBRANCA'),
+      icon: 'i-lucide-receipt',
+      to: accountScopedRoute('gestao_cobranca_index'),
+      activeOn: ['gestao_cobranca_index'],
+    },
+    {
       name: 'Reports',
       label: t('SIDEBAR.REPORTS'),
       icon: 'i-lucide-chart-spline',

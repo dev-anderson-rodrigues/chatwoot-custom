@@ -12,6 +12,12 @@ class IxcAPI extends ApiClient {
       params: { contact_id: contactId, inbox_id: inboxId },
     });
   }
+
+  getOverdueCustomers(page = 1, perPage = 50) {
+    return axios.get(`${this.url}/overdue_customers`, {
+      params: { page, per_page: perPage },
+    });
+  }
 }
 
 export default new IxcAPI();

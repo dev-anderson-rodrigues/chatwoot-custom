@@ -416,6 +416,7 @@ Rails.application.routes.draw do
             resource :ixc, controller: 'ixc', only: [] do
               collection do
                 get :customer
+                get :overdue_customers
               end
             end
             resource :shopify, controller: 'shopify', only: [:destroy] do
