@@ -205,15 +205,15 @@ onMounted(fetchData);
         <div class="flex flex-col gap-3">
           <!-- Search row -->
           <div class="flex items-center gap-2">
-            <label class="flex items-center gap-2 flex-1 h-9 px-3 rounded-lg border border-n-weak bg-n-background focus-within:border-n-brand transition-colors cursor-text">
-              <span class="i-lucide-search w-4 h-4 text-n-slate-10 shrink-0" />
+            <div class="relative flex-1 h-9">
+              <span class="i-lucide-search absolute left-3 top-0 bottom-0 m-auto w-4 h-4 text-n-slate-10 pointer-events-none" />
               <input
                 v-model="search"
-                type="search"
+                type="text"
                 placeholder="Buscar por nome, CPF/CNPJ ou telefone…"
-                class="flex-1 min-w-0 bg-transparent text-sm text-n-slate-12 placeholder-n-slate-10 focus:outline-none"
+                class="absolute inset-0 pl-9 pr-4 rounded-lg border border-n-weak bg-n-background text-sm text-n-slate-12 placeholder-n-slate-10 focus:outline-none focus:border-n-brand transition-colors"
               />
-            </label>
+            </div>
             <button
               v-if="hasActiveFilters"
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-n-weak text-sm text-n-slate-11 hover:bg-n-slate-3 transition-colors whitespace-nowrap"
