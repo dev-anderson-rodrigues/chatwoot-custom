@@ -2,7 +2,7 @@ class Erp::Ixc::ContactResolver
   def initialize(hook:, contact:)
     @hook    = hook
     @contact = contact
-    @client  = Client.new(hook: hook)
+    @client  = Erp::Ixc::Client.new(hook: hook)
   end
 
   # Retorna hash com :status ('linked' | 'ambiguous' | 'not_found') e dados relevantes.
