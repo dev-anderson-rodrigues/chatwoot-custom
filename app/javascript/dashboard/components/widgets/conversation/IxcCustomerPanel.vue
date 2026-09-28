@@ -108,7 +108,7 @@ watch(() => props.contactId, fetchCustomer, { immediate: true });
 
     <!-- Linked — card style matching reference -->
     <div v-else-if="state === 'linked'" class="px-3 py-3">
-      <div class="rounded-xl bg-n-slate-2 outline outline-1 outline-n-container -outline-offset-1 p-4">
+      <div class="rounded-xl bg-n-slate-4 outline outline-1 outline-n-weak -outline-offset-1 p-4">
         <!-- Header: name + overdue badge -->
         <div class="flex items-start justify-between gap-2 mb-3">
           <p class="font-bold text-n-slate-12 text-sm uppercase leading-tight flex-1 min-w-0">
@@ -195,7 +195,7 @@ watch(() => props.contactId, fetchCustomer, { immediate: true });
             Ver detalhes
           </button>
           <button
-            class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors"
+            class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-n-amber-9 text-n-slate-1 text-xs font-semibold transition-colors hover:opacity-90"
           >
             <span class="i-lucide-send w-3 h-3" />
             Disparar
