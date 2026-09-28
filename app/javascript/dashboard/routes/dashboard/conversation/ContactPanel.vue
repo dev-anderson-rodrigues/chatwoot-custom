@@ -147,7 +147,11 @@ onMounted(() => {
     />
     <ContactInfo :contact="contact" :channel-type="channelType" />
     <div v-if="isIxcEnabled" class="border-t border-n-weak">
-      <IxcCustomerPanel :contact-id="contactId" :inbox-id="inboxId" />
+      <IxcCustomerPanel
+        :contact-id="contactId"
+        :inbox-id="inboxId"
+        :contact-email="contact.email || ''"
+      />
     </div>
     <div class="px-2 pb-8 list-group">
       <Draggable
