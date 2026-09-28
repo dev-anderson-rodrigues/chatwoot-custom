@@ -146,6 +146,9 @@ onMounted(() => {
       @close="closeContactPanel"
     />
     <ContactInfo :contact="contact" :channel-type="channelType" />
+    <div v-if="isIxcEnabled" class="border-t border-n-weak">
+      <IxcCustomerPanel :contact-id="contactId" :inbox-id="inboxId" />
+    </div>
     <div class="px-2 pb-8 list-group">
       <Draggable
         :list="conversationSidebarItems"
@@ -316,23 +319,6 @@ onMounted(() => {
               "
             >
               <SharedFiles />
-            </AccordionItem>
-          </div>
-          <div
-            v-else-if="element.name === 'ixc_customer' && isIxcEnabled"
-          >
-            <AccordionItem
-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.IXC_CUSTOMER')"
-              :is-open="isContactSidebarItemOpen('is_ixc_customer_open')"
-              compact
-              @toggle="
-                value => toggleSidebarUIState('is_ixc_customer_open', value)
-              "
-            >
-              <IxcCustomerPanel
-                :contact-id="contactId"
-                :inbox-id="inboxId"
-              />
             </AccordionItem>
           </div>
         </template>
