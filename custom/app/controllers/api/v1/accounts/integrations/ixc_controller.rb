@@ -190,9 +190,7 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
   end
 
   def fetch_customers_map(client, customer_ids)
-    customer_ids.each_with_object({}) do |id, map|
-      map[id.to_s] = client.get_customer(id) rescue nil
-    end
+    client.get_customers_by_ids(customer_ids)
   end
 
   def build_overdue_records(invoices, customers_by_id)

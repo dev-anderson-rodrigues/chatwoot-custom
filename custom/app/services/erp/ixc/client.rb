@@ -103,7 +103,28 @@ module Erp::Ixc
       { records: Array(response['registros']), total: response['total'].to_i }
     end
 
+    # Busca multiplos clientes em paralelo com pool de threads.
+    # Funciona corretamente para qualquer distribuicao de IDs (esparsos ou contiguos).
+    CUSTOMER_FETCH_CONCURRENCY = 15
+
+    def get_customers_by_ids(ids)
+      return {} if ids.empty?
+
+      mutex  = Mutex.new
+      result = {}
+      ids.each_slice(CUSTOMER_FETCH_CONCURRENCY) do |slice|
+        slice.map do |id|
+          Thread.new do
+            customer = get_customer(id) rescue nil
+            mutex.synchronize { result[id.to_s] = customer if customer }
+          end
+        end.each(&:join)
+      end
+      result
+    end
+
     private
+
 
     def list(endpoint, params)
       body = { page: '1', sortorder: 'asc' }.merge(params)
