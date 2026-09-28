@@ -145,14 +145,18 @@ onMounted(() => {
       :title="$t('CONVERSATION.SIDEBAR.CONTACT')"
       @close="closeContactPanel"
     />
-    <ContactInfo :contact="contact" :channel-type="channelType" />
-    <div v-if="isIxcEnabled" class="border-t border-n-weak">
-      <IxcCustomerPanel
-        :contact-id="contactId"
-        :inbox-id="inboxId"
-        :contact-email="contact.email || ''"
-      />
-    </div>
+    <ContactInfo
+      :contact="contact"
+      :channel-type="channelType"
+      :hide-info-rows="isIxcEnabled"
+    />
+    <IxcCustomerPanel
+      v-if="isIxcEnabled"
+      :contact-id="contactId"
+      :inbox-id="inboxId"
+      :contact-email="contact.email || ''"
+      :contact-phone="contact.phone_number || ''"
+    />
     <div class="px-2 pb-8 list-group">
       <Draggable
         :list="conversationSidebarItems"

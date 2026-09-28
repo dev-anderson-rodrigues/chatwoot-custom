@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_25_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_28_000002) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -1200,6 +1200,40 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_25_000001) do
     t.jsonb "settings", default: {}
   end
 
+  create_table "ixc_attendances", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "contact_id", null: false
+    t.string "erp_customer_id", null: false
+    t.string "canal"
+    t.string "resultado"
+    t.text "descricao"
+    t.integer "created_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "deleted_at"
+    t.integer "deleted_by"
+    t.index ["account_id", "contact_id", "erp_customer_id"], name: "idx_ixc_attendances_account_contact_customer"
+    t.index ["account_id"], name: "index_ixc_attendances_on_account_id"
+    t.index ["contact_id"], name: "index_ixc_attendances_on_contact_id"
+  end
+
+  create_table "ixc_promises", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "contact_id", null: false
+    t.string "erp_customer_id", null: false
+    t.date "promised_date", null: false
+    t.decimal "amount", precision: 10, scale: 2
+    t.integer "created_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.text "observacao"
+    t.datetime "deleted_at"
+    t.integer "deleted_by"
+    t.index ["account_id", "contact_id", "erp_customer_id"], name: "idx_ixc_promises_account_contact_customer"
+    t.index ["account_id"], name: "index_ixc_promises_on_account_id"
+    t.index ["contact_id"], name: "index_ixc_promises_on_contact_id"
+  end
+
   create_table "labels", force: :cascade do |t|
     t.string "title"
     t.text "description"
@@ -1642,6 +1676,10 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_25_000001) do
   add_foreign_key "erp_customer_links", "accounts"
   add_foreign_key "erp_customer_links", "contacts"
   add_foreign_key "inboxes", "portals"
+  add_foreign_key "ixc_attendances", "accounts"
+  add_foreign_key "ixc_attendances", "contacts"
+  add_foreign_key "ixc_promises", "accounts"
+  add_foreign_key "ixc_promises", "contacts"
   add_foreign_key "macro_executions", "accounts", on_delete: :cascade
   add_foreign_key "macro_executions", "macros", on_delete: :cascade
   add_foreign_key "macro_executions", "users", on_delete: :nullify

@@ -25,6 +25,98 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
     render json: { error: e.message }, status: :bad_gateway
   end
 
+  # GET /api/v1/accounts/:account_id/integrations/ixc/promises?contact_id=X&erp_customer_id=Y
+  def promises
+    contact = Current.account.contacts.find(params[:contact_id])
+    records = IxcPromise.active
+                        .where(account: Current.account, contact: contact,
+                               erp_customer_id: params[:erp_customer_id])
+                        .order(created_at: :desc)
+    render json: records.map { |p| serialize_promise(p) }
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: 'Contact not found.' }, status: :not_found
+  end
+
+  # POST /api/v1/accounts/:account_id/integrations/ixc/promises
+  def create_promise
+    contact = Current.account.contacts.find(params[:contact_id])
+    promise = IxcPromise.create!(
+      account: Current.account,
+      contact: contact,
+      erp_customer_id: params[:erp_customer_id],
+      promised_date: params[:promised_date],
+      amount: params[:amount].presence,
+      observacao: params[:observacao].presence,
+      created_by: current_user.id
+    )
+    render json: serialize_promise(promise), status: :created
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: 'Contact not found.' }, status: :not_found
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: e.message }, status: :unprocessable_entity
+  end
+
+  # DELETE /api/v1/accounts/:account_id/integrations/ixc/promises/:id
+  def destroy_promise
+    contact = Current.account.contacts.find(params[:contact_id])
+    promise = IxcPromise.active
+                        .find_by!(account: Current.account, contact: contact, id: params[:id])
+    unless promise.created_by == current_user.id
+      return render json: { error: 'Você só pode excluir registros criados por você.' }, status: :forbidden
+    end
+
+    promise.update!(deleted_at: Time.current, deleted_by: current_user.id)
+    render json: { ok: true }
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: 'Record not found.' }, status: :not_found
+  end
+
+  # GET /api/v1/accounts/:account_id/integrations/ixc/attendances?contact_id=X&erp_customer_id=Y
+  def attendances
+    contact = Current.account.contacts.find(params[:contact_id])
+    records = IxcAttendance.active
+                           .where(account: Current.account, contact: contact,
+                                  erp_customer_id: params[:erp_customer_id])
+                           .order(created_at: :desc)
+    render json: records.map { |a| serialize_attendance(a) }
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: 'Contact not found.' }, status: :not_found
+  end
+
+  # POST /api/v1/accounts/:account_id/integrations/ixc/attendances
+  def create_attendance
+    contact = Current.account.contacts.find(params[:contact_id])
+    attendance = IxcAttendance.create!(
+      account: Current.account,
+      contact: contact,
+      erp_customer_id: params[:erp_customer_id],
+      canal: params[:canal],
+      resultado: params[:resultado],
+      descricao: params[:descricao],
+      created_by: current_user.id
+    )
+    render json: serialize_attendance(attendance), status: :created
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: 'Contact not found.' }, status: :not_found
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: e.message }, status: :unprocessable_entity
+  end
+
+  # DELETE /api/v1/accounts/:account_id/integrations/ixc/attendances/:id
+  def destroy_attendance
+    contact = Current.account.contacts.find(params[:contact_id])
+    attendance = IxcAttendance.active
+                              .find_by!(account: Current.account, contact: contact, id: params[:id])
+    unless attendance.created_by == current_user.id
+      return render json: { error: 'Você só pode excluir registros criados por você.' }, status: :forbidden
+    end
+
+    attendance.update!(deleted_at: Time.current, deleted_by: current_user.id)
+    render json: { ok: true }
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: 'Record not found.' }, status: :not_found
+  end
+
   # GET /api/v1/accounts/:account_id/integrations/ixc/customer?contact_id=X[&inbox_id=Y]
   def customer
     contact = Current.account.contacts.find(params[:contact_id])
@@ -44,6 +136,34 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
   end
 
   private
+
+  def serialize_promise(p)
+    {
+      id: p.id,
+      promised_date: p.promised_date,
+      amount: p.amount,
+      observacao: p.observacao,
+      created_at: p.created_at,
+      created_by_name: user_name(p.created_by)
+    }
+  end
+
+  def serialize_attendance(a)
+    {
+      id: a.id,
+      canal: a.canal,
+      resultado: a.resultado,
+      descricao: a.descricao,
+      created_at: a.created_at,
+      created_by_name: user_name(a.created_by)
+    }
+  end
+
+  def user_name(user_id)
+    return nil if user_id.blank?
+
+    User.find_by(id: user_id)&.name
+  end
 
   def resolve_hook(contact)
     hooks = Integrations::Hook.where(account: Current.account, app_id: 'ixc')

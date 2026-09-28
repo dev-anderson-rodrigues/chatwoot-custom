@@ -417,6 +417,12 @@ Rails.application.routes.draw do
               collection do
                 get :customer
                 get :overdue_customers
+                get :promises
+                post :create_promise
+                delete 'promises/:id', action: :destroy_promise
+                get :attendances
+                post :create_attendance
+                delete 'attendances/:id', action: :destroy_attendance
               end
             end
             resource :shopify, controller: 'shopify', only: [:destroy] do
