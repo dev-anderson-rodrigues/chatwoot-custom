@@ -12,7 +12,6 @@ module Erp::Ixc
       @user_id  = hook.settings['api_user'] || '1'
     end
 
-    # Busca cliente(s) por CPF/CNPJ (formato livre, normalizado internamente).
     def search_by_document(document)
       normalized = document.to_s.gsub(/\D/, '')
       return [] if normalized.blank?
@@ -25,7 +24,6 @@ module Erp::Ixc
            sortname: 'cliente.id')
     end
 
-    # Busca cliente(s) por número de celular (últimos 11 dígitos).
     def search_by_phone(phone)
       normalized = phone.to_s.gsub(/\D/, '').last(11)
       return [] if normalized.blank?
@@ -55,7 +53,6 @@ module Erp::Ixc
            sortname: 'cliente.id').first
     end
 
-    # status: 'A' = aberto, 'B' = baixado/pago, 'C' = cancelado
     def get_invoices(customer_id, status: 'A')
       list('fn_areceber',
            qtype: 'fn_areceber.id_cliente',
@@ -79,22 +76,21 @@ module Erp::Ixc
            sortorder: 'desc')
     end
 
-    # Retorna faturas em aberto com atraso > 0, paginado.
-    # min_atraso: dias mínimos de atraso (default 1)
+    # atraso eh campo calculado no IXC, nao aceita filtro via grid_param.
+    # Filtra apenas status=A na API e descarta sem atraso no Ruby.
     def overdue_invoices_page(page:, per_page: 100, min_atraso: 1)
       body = {
         page: page.to_s, rp: per_page.to_s,
-        sortname: 'fn_areceber.atraso', sortorder: 'desc',
+        sortname: 'fn_areceber.data_vencimento', sortorder: 'asc',
         grid_param: JSON.generate([
-                                    { 'TB' => 'fn_areceber.status', 'OP' => '=', 'P' => 'A' },
-                                    { 'TB' => 'fn_areceber.atraso', 'OP' => '>=', 'P' => min_atraso.to_s }
+                                    { 'TB' => 'fn_areceber.status', 'OP' => '=', 'P' => 'A' }
                                   ])
       }
       response = request('fn_areceber', body)
-      { records: Array(response['registros']), total: response['total'].to_i }
+      records = Array(response['registros']).select { |r| r['atraso'].to_i >= min_atraso }
+      { records: records, total: records.size }
     end
 
-    # Retorna { records: [...], total: N } para paginação de clientes.
     def customers_page(page:, per_page: 100)
       body = { page: page.to_s, rp: per_page.to_s, sortname: 'cliente.id', sortorder: 'asc' }
       response = request('cliente', body)
@@ -119,7 +115,7 @@ module Erp::Ixc
     rescue Net::OpenTimeout, Net::ReadTimeout => e
       raise TimeoutError, e.message
     rescue JSON::ParserError => e
-      raise RequestError, "JSON parse error: #{e.message}"
+            raise RequestError, "JSON parse error: #{e.message}"
     end
 
     def build_http(uri)
@@ -132,7 +128,7 @@ module Erp::Ixc
 
     def build_request(path, body)
       req                  = Net::HTTP::Get.new(path)
-      req['Authorization'] = "Basic #{auth_header}"
+            req["Authorization"] = "Basic #{auth_header}"
       req['ixcsoft']       = 'listar'
       req['Content-Type']  = 'application/json'
       req.body             = body.to_json
@@ -141,13 +137,13 @@ module Erp::Ixc
 
     def parse_response(resp)
       raise AuthenticationError if resp.code == '401'
-      raise RequestError, "HTTP #{resp.code}: #{resp.body}" unless resp.is_a?(Net::HTTPSuccess)
+            raise RequestError, "HTTP #{resp.code}: #{resp.body}" unless resp.is_a?(Net::HTTPSuccess)
 
       JSON.parse(resp.body)
     end
 
     def auth_header
-      Base64.strict_encode64("#{@user_id}:#{@token}")
+            Base64.strict_encode64("#{@user_id}:#{@token}")
     end
   end
 
