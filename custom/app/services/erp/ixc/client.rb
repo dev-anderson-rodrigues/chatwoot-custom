@@ -87,7 +87,13 @@ module Erp::Ixc
                                   ])
       }
       response = request('fn_areceber', body)
-      records = Array(response['registros']).select { |r| r['atraso'].to_i >= min_atraso }
+      today = Date.today
+      records = Array(response['registros']).select do |r|
+        due = Date.parse(r['data_vencimento']) rescue nil
+        next false unless due
+        atraso = (today - due).to_i
+        atraso >= min_atraso
+      end
       { records: records, total: records.size }
     end
 

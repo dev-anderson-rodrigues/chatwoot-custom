@@ -196,13 +196,17 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
   end
 
   def build_overdue_records(invoices, customers_by_id)
+    today = Date.today
     grouped = invoices.group_by { |i| i['id_cliente'].to_s }
     grouped.map do |customer_id, inv_list|
       customer = customers_by_id[customer_id]
       next unless customer
 
       total_debt = inv_list.sum { |i| i['valor'].to_f }
-      max_overdue = inv_list.map { |i| i['atraso'].to_i }.max
+      max_overdue = inv_list.map do |i|
+        due = Date.parse(i['data_vencimento']) rescue nil
+        due ? (today - due).to_i : 0
+      end.max
 
       {
         customer_id: customer_id,
