@@ -178,198 +178,202 @@ export default {
 </script>
 
 <template>
-  <div class="relative items-center w-full p-4">
-    <div class="flex flex-col w-full gap-2 text-left rtl:text-right">
-      <div class="flex flex-row justify-between">
-        <Avatar
-          v-if="showAvatar"
-          :src="contact.thumbnail"
-          :name="contact.name"
-          :status="contact.availability_status"
-          :size="48"
-          hide-offline-status
-        />
-      </div>
-
-      <div class="flex flex-col items-start gap-1.5 min-w-0 w-full">
-        <div v-if="showAvatar" class="flex items-center w-full min-w-0 gap-2">
-          <div class="group/name flex items-center min-w-0 gap-2">
-            <InlineInput
-              v-if="isEditingName"
-              ref="nameInput"
-              v-model="editName"
-              custom-input-class="!text-base !font-medium !w-auto max-w-full [field-sizing:content]"
-              class="!w-fit min-w-0"
-              @enter-press="saveNameEdit"
-              @escape-press="cancelNameEdit"
-              @blur="saveNameEdit"
-            />
-            <h3
-              v-else
-              class="flex-shrink max-w-full min-w-0 my-0 text-base capitalize break-words text-n-slate-12 cursor-pointer hover:text-n-slate-12/80"
-              :title="$t('CONTACT_PANEL.CLICK_TO_EDIT')"
-              @click="startEditingName"
-            >
-              {{ contact.name }}
-            </h3>
-            <NextButton
-              ghost
-              xs
-              slate
-              icon="i-lucide-pencil"
-              :title="$t('CONTACT_PANEL.CLICK_TO_EDIT')"
-              class="flex-shrink-0 -mx-1 opacity-0 transition-opacity"
-              :class="
-                isEditingName
-                  ? 'invisible'
-                  : 'group-hover/name:opacity-100 focus-visible:opacity-100'
-              "
-              @click="startEditingName"
-            />
-          </div>
-          <div class="flex flex-row items-center gap-2">
-            <span
-              v-if="contact.created_at"
-              v-tooltip.left="
-                `${$t('CONTACT_PANEL.CREATED_AT_LABEL')} ${exactTimestamp(
-                  contact.created_at
-                )}`
-              "
-              class="i-lucide-info text-sm text-n-slate-10"
-            />
-            <a
-              :href="contactProfileLink"
-              target="_blank"
-              rel="noopener nofollow noreferrer"
-              class="leading-3"
-            >
-              <span class="i-lucide-external-link text-sm text-n-slate-10" />
-            </a>
-          </div>
-        </div>
-
-        <p v-if="additionalAttributes.description" class="break-words mb-0.5">
-          {{ additionalAttributes.description }}
-        </p>
-        <div class="flex flex-col items-start w-full gap-2">
-          <ContactInfoRow
-            :href="contact.email ? `mailto:${contact.email}` : ''"
-            :value="contact.email"
-            icon="mail"
-            emoji="✉️"
-            :title="$t('CONTACT_PANEL.EMAIL_ADDRESS')"
-            show-copy
-            editable
-            @update="value => onFieldUpdate('email', value)"
-          />
-          <ContactInfoRow
-            :href="contact.phone_number ? `tel:${contact.phone_number}` : ''"
-            :value="contact.phone_number"
-            icon="call"
-            emoji="📞"
-            :title="$t('CONTACT_PANEL.PHONE_NUMBER')"
-            show-copy
-            editable
-            @update="value => onFieldUpdate('phone_number', value)"
-          />
-          <ContactInfoRow
-            v-if="contact.identifier"
-            :value="contact.identifier"
-            icon="contact-identify"
-            emoji="🪪"
-            :title="$t('CONTACT_PANEL.IDENTIFIER')"
-          />
-          <ContactInfoRow
-            :value="additionalAttributes.company_name"
-            icon="building-bank"
-            emoji="🏢"
-            :title="$t('CONTACT_PANEL.COMPANY')"
-            editable
-            @update="
-              value =>
-                updateContactField({
-                  additional_attributes: {
-                    ...additionalAttributes,
-                    company_name: value,
-                  },
-                })
-            "
-          />
-          <ContactInfoRow
-            v-if="location || additionalAttributes.location"
-            :value="location || additionalAttributes.location"
-            icon="map"
-            emoji="🌍"
-            :title="$t('CONTACT_PANEL.LOCATION')"
-          />
-          <SocialIcons :social-profiles="socialProfiles" />
-        </div>
-      </div>
-      <div class="flex items-center w-full mt-0.5 gap-2">
-        <ComposeConversation :contact-id="String(contact.id)">
-          <template #trigger>
-            <NextButton
-              v-tooltip.top-end="$t('CONTACT_PANEL.NEW_MESSAGE')"
-              icon="i-ph-chat-circle-dots"
-              slate
-              faded
-              sm
-            />
-          </template>
-        </ComposeConversation>
-        <VoiceCallButton
-          :phone="contact.phone_number"
-          :contact-id="contact.id"
-          :conversation-id="currentChat?.id"
-          icon="i-lucide-phone"
-          sm
-          faded
-          slate
-          :tooltip-label="$t('CONTACT_PANEL.CALL')"
-        />
-        <NextButton
-          v-tooltip.top-end="$t('EDIT_CONTACT.BUTTON_LABEL')"
-          icon="i-ph-pencil-simple"
-          slate
-          faded
-          sm
-          @click="toggleEditModal"
-        />
-        <ContactMergeModal :primary-contact="contact">
-          <template #trigger>
-            <NextButton
-              v-tooltip.top-end="$t('CONTACT_PANEL.MERGE_CONTACT')"
-              icon="i-ph-arrows-merge"
-              slate
-              faded
-              sm
-              :disabled="uiFlags.isMerging"
-            />
-          </template>
-        </ContactMergeModal>
-        <ContactDeleteModal
-          v-if="isAdmin"
-          :contact="contact"
-          @deleted="$emit('panelClose')"
-        >
-          <template #trigger>
-            <NextButton
-              v-tooltip.top-end="$t('DELETE_CONTACT.BUTTON_LABEL')"
-              icon="i-ph-trash"
-              slate
-              faded
-              sm
-              ruby
-              :disabled="uiFlags.isDeleting"
-            />
-          </template>
-        </ContactDeleteModal>
-      </div>
-      <EditContact
-        :show="showEditModal"
-        :contact="contact"
-        @cancel="toggleEditModal"
+  <div class="w-full text-left rtl:text-right">
+    <!-- Header: avatar + name + actions -->
+    <div class="flex items-start gap-3 px-4 pt-4 pb-3">
+      <Avatar
+        v-if="showAvatar"
+        :src="contact.thumbnail"
+        :name="contact.name"
+        :status="contact.availability_status"
+        :size="44"
+        hide-offline-status
+        class="shrink-0"
       />
+      <div class="flex-1 min-w-0">
+        <!-- Name row -->
+        <div class="group/name flex items-center gap-1.5 min-w-0 mb-0.5">
+          <InlineInput
+            v-if="isEditingName"
+            ref="nameInput"
+            v-model="editName"
+            custom-input-class="!text-sm !font-semibold !w-auto max-w-full [field-sizing:content]"
+            class="!w-fit min-w-0"
+            @enter-press="saveNameEdit"
+            @escape-press="cancelNameEdit"
+            @blur="saveNameEdit"
+          />
+          <h3
+            v-else
+            class="text-sm font-semibold text-n-slate-12 truncate cursor-pointer hover:text-n-slate-11 transition-colors my-0"
+            :title="$t('CONTACT_PANEL.CLICK_TO_EDIT')"
+            @click="startEditingName"
+          >
+            {{ contact.name }}
+          </h3>
+          <NextButton
+            ghost
+            xs
+            slate
+            icon="i-lucide-pencil"
+            :title="$t('CONTACT_PANEL.CLICK_TO_EDIT')"
+            class="shrink-0 opacity-0 transition-opacity"
+            :class="isEditingName ? 'invisible' : 'group-hover/name:opacity-100 focus-visible:opacity-100'"
+            @click="startEditingName"
+          />
+        </div>
+        <!-- Meta: created_at + profile link -->
+        <div class="flex items-center gap-2">
+          <span
+            v-if="contact.created_at"
+            v-tooltip.right="
+              `${$t('CONTACT_PANEL.CREATED_AT_LABEL')} ${exactTimestamp(contact.created_at)}`
+            "
+            class="i-lucide-info w-3.5 h-3.5 text-n-slate-10"
+          />
+          <a
+            :href="contactProfileLink"
+            target="_blank"
+            rel="noopener nofollow noreferrer"
+          >
+            <span class="i-lucide-external-link w-3.5 h-3.5 text-n-slate-10 hover:text-n-brand transition-colors" />
+          </a>
+        </div>
+      </div>
     </div>
+
+    <!-- Description -->
+    <p
+      v-if="additionalAttributes.description"
+      class="px-4 text-xs text-n-slate-11 break-words mb-2"
+    >
+      {{ additionalAttributes.description }}
+    </p>
+
+    <!-- Divider -->
+    <div class="h-px bg-n-weak mx-4 mb-3" />
+
+    <!-- Info rows -->
+    <div class="flex flex-col gap-1 px-4 pb-3">
+      <ContactInfoRow
+        :href="contact.email ? `mailto:${contact.email}` : ''"
+        :value="contact.email"
+        icon="mail"
+        emoji="✉️"
+        :title="$t('CONTACT_PANEL.EMAIL_ADDRESS')"
+        show-copy
+        editable
+        @update="value => onFieldUpdate('email', value)"
+      />
+      <ContactInfoRow
+        :href="contact.phone_number ? `tel:${contact.phone_number}` : ''"
+        :value="contact.phone_number"
+        icon="call"
+        emoji="📞"
+        :title="$t('CONTACT_PANEL.PHONE_NUMBER')"
+        show-copy
+        editable
+        @update="value => onFieldUpdate('phone_number', value)"
+      />
+      <ContactInfoRow
+        v-if="contact.identifier"
+        :value="contact.identifier"
+        icon="contact-identify"
+        emoji="🪪"
+        :title="$t('CONTACT_PANEL.IDENTIFIER')"
+      />
+      <ContactInfoRow
+        :value="additionalAttributes.company_name"
+        icon="building-bank"
+        emoji="🏢"
+        :title="$t('CONTACT_PANEL.COMPANY')"
+        editable
+        @update="
+          value =>
+            updateContactField({
+              additional_attributes: {
+                ...additionalAttributes,
+                company_name: value,
+              },
+            })
+        "
+      />
+      <ContactInfoRow
+        v-if="location || additionalAttributes.location"
+        :value="location || additionalAttributes.location"
+        icon="map"
+        emoji="🌍"
+        :title="$t('CONTACT_PANEL.LOCATION')"
+      />
+      <SocialIcons :social-profiles="socialProfiles" />
+    </div>
+
+    <!-- Action buttons -->
+    <div class="flex items-center gap-1 px-4 pb-4">
+      <ComposeConversation :contact-id="String(contact.id)">
+        <template #trigger>
+          <NextButton
+            v-tooltip.top="$t('CONTACT_PANEL.NEW_MESSAGE')"
+            icon="i-ph-chat-circle-dots"
+            slate
+            faded
+            sm
+          />
+        </template>
+      </ComposeConversation>
+      <VoiceCallButton
+        :phone="contact.phone_number"
+        :contact-id="contact.id"
+        :conversation-id="currentChat?.id"
+        icon="i-lucide-phone"
+        sm
+        faded
+        slate
+        :tooltip-label="$t('CONTACT_PANEL.CALL')"
+      />
+      <NextButton
+        v-tooltip.top="$t('EDIT_CONTACT.BUTTON_LABEL')"
+        icon="i-ph-pencil-simple"
+        slate
+        faded
+        sm
+        @click="toggleEditModal"
+      />
+      <ContactMergeModal :primary-contact="contact">
+        <template #trigger>
+          <NextButton
+            v-tooltip.top="$t('CONTACT_PANEL.MERGE_CONTACT')"
+            icon="i-ph-arrows-merge"
+            slate
+            faded
+            sm
+            :disabled="uiFlags.isMerging"
+          />
+        </template>
+      </ContactMergeModal>
+      <ContactDeleteModal
+        v-if="isAdmin"
+        :contact="contact"
+        @deleted="$emit('panelClose')"
+      >
+        <template #trigger>
+          <NextButton
+            v-tooltip.top="$t('DELETE_CONTACT.BUTTON_LABEL')"
+            icon="i-ph-trash"
+            slate
+            faded
+            sm
+            ruby
+            :disabled="uiFlags.isDeleting"
+          />
+        </template>
+      </ContactDeleteModal>
+    </div>
+
+    <EditContact
+      :show="showEditModal"
+      :contact="contact"
+      @cancel="toggleEditModal"
+    />
   </div>
 </template>
