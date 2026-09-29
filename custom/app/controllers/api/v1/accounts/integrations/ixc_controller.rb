@@ -5,7 +5,7 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
     return render json: { error: 'IXC integration not configured.' }, status: :not_found unless hook
 
     client   = Erp::Ixc::Client.new(hook: hook)
-    invoices = client.all_overdue_invoices
+    invoices = client.current_month_overdue_invoices
 
     customer_ids    = invoices.map { |i| i['id_cliente'] }.uniq
     customers_by_id = fetch_customers_map(client, customer_ids)
