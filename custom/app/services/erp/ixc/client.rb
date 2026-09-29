@@ -1,6 +1,7 @@
 require 'net/http'
 require 'json'
 require 'base64'
+require 'digest'
 
 module Erp::Ixc
   class Client
@@ -103,24 +104,48 @@ module Erp::Ixc
       { records: Array(response['registros']), total: response['total'].to_i }
     end
 
-    # Busca multiplos clientes em paralelo com pool de threads.
-    # Funciona corretamente para qualquer distribuicao de IDs (esparsos ou contiguos).
     CUSTOMER_FETCH_CONCURRENCY = 15
+    CUSTOMER_CACHE_TTL         = 3600 # 1 hora em segundos
 
+    # Busca clientes com cache Redis ($velma) TTL 1h + pool de threads para misses.
     def get_customers_by_ids(ids)
       return {} if ids.empty?
 
-      mutex  = Mutex.new
-      result = {}
-      ids.each_slice(CUSTOMER_FETCH_CONCURRENCY) do |slice|
-        slice.map do |id|
-          Thread.new do
-            customer = get_customer(id) rescue nil
-            mutex.synchronize { result[id.to_s] = customer if customer }
-          end
-        end.each(&:join)
+      result   = {}
+      uncached = []
+      ns       = cache_namespace
+
+      ids.each do |id|
+        raw = $velma.with { |r| r.get("ixc:#{ns}:customer:#{id}") } rescue nil
+        if raw
+          result[id.to_s] = JSON.parse(raw)
+        else
+          uncached << id
+        end
       end
+
+      unless uncached.empty?
+        mutex = Mutex.new
+        uncached.each_slice(CUSTOMER_FETCH_CONCURRENCY) do |slice|
+          slice.map do |id|
+            Thread.new do
+              customer = get_customer(id) rescue nil
+              next unless customer
+
+              json = customer.to_json
+              $velma.with { |r| r.setex("ixc:#{ns}:customer:#{id}", CUSTOMER_CACHE_TTL, json) } rescue nil
+              mutex.synchronize { result[id.to_s] = customer }
+            end
+          end.each(&:join)
+        end
+      end
+
       result
+    end
+
+    def invalidate_customer_cache(id)
+      ns = cache_namespace
+      $velma.with { |r| r.del("ixc:#{ns}:customer:#{id}") } rescue nil
     end
 
     private
@@ -167,6 +192,10 @@ module Erp::Ixc
             raise RequestError, "HTTP #{resp.code}: #{resp.body}" unless resp.is_a?(Net::HTTPSuccess)
 
       JSON.parse(resp.body)
+    end
+
+    def cache_namespace
+      Digest::MD5.hexdigest("#{@user_id}:#{@base_url}")[0, 8]
     end
 
     def auth_header
