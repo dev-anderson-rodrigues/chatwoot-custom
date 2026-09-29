@@ -16,6 +16,9 @@ export default {
     MENTION: 'mention',
     PARTICIPATING: 'participating',
     UNATTENDED: 'unattended',
+    // [FORK] Filas do fluxo IA MAESTRO
+    MINE: 'mine',
+    AI: 'ai',
   },
   SORT_BY_TYPE: {
     LAST_ACTIVITY_AT_ASC: 'last_activity_at_asc',

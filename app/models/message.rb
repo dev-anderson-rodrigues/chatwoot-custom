@@ -25,6 +25,7 @@
 # Indexes
 #
 #  idx_messages_account_content_created                 (account_id,content_type,created_at)
+#  index_messages_on_account_conversation_created       (account_id,conversation_id,created_at)
 #  index_messages_on_account_created_type               (account_id,created_at,message_type)
 #  index_messages_on_account_id                         (account_id)
 #  index_messages_on_account_id_and_inbox_id            (account_id,inbox_id)
@@ -35,6 +36,7 @@
 #  index_messages_on_created_at                         (created_at)
 #  index_messages_on_inbox_id                           (inbox_id)
 #  index_messages_on_sender_and_created                 (sender_type,sender_id,created_at)
+#  index_messages_on_sender_type_and_sender_id          (sender_type,sender_id)
 #  index_messages_on_source_id                          (source_id)
 #
 

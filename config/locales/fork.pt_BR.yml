@@ -1,0 +1,18 @@
+# [FORK] Textos do disparo em massa por qualquer caixa (Onda 7 / fatia 2): motivos de "pulado"/"falhou"
+# e validacoes. Os motivos sao gravados no destinatario da campanha no idioma da conta e mostrados como
+# estao na tela de resultados. Ver custom/app/services/custom/campaigns/.
+pt_BR:
+  campaign_dispatch:
+    skip:
+      blocked: Contato bloqueado
+      no_email: Contato sem endereço de e-mail
+      blank_variable: "Variável vazia: %{variables}"
+      unsafe_variable: "Formatação suspeita na variável: %{variables}"
+      liquid_syntax: Sintaxe Liquid inválida na mensagem
+      no_conversation: "Sem conversa em %{channel}: o canal só permite mensagens a quem escreveu primeiro"
+      outside_window: "Fora da janela de resposta: o contato não escreveu recentemente"
+    failure:
+      unexpected: "Erro inesperado: %{message}"
+    validation:
+      email_subject: precisa de um assunto nas campanhas de e-mail
+      email_sender: precisa de SMTP próprio (ou de uma conexão Google/Microsoft) para enviar campanhas

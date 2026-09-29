@@ -37,7 +37,7 @@
     "NOT_ASSIGNED_TO_YOU": "Esta conversa não está atribuída a você. Gostaria de atribuir esta conversa a você mesmo?",
     "ASSIGN_TO_ME": "Atribuir a mim",
     "BOT_HANDOFF_MESSAGE": "Esta conversa está sendo atendida por {assigneeName}.",
-    "BOT_HANDOFF_FALLBACK_ASSIGNEE": "um bot",
+    "BOT_HANDOFF_FALLBACK_ASSIGNEE": "Agente Virtual",
     "BOT_HANDOFF_ACTION": "Assumir atendimento",
     "BOT_HANDOFF_REOPEN_ACTION": "Marcar conversa como aberta",
     "BOT_HANDOFF_SUCCESS": "Uma conversa foi atribuída a você",
@@ -74,6 +74,10 @@
     "RATING_TITLE": "Classificação",
     "FEEDBACK_TITLE": "Feedback",
     "REPLY_MESSAGE_NOT_FOUND": "Mensagem não disponível",
+    "DATE_SEPARATOR": {
+      "TODAY": "Hoje",
+      "YESTERDAY": "Ontem"
+    },
     "CAPTAIN_GENERATION": {
       "TITLE": "Como esta resposta foi gerada?",
       "GENERATED_BY": "Gerado pelo Captain",
@@ -205,6 +209,8 @@
       "OPEN_IN_NEW_TAB": "Abrir em nova aba",
       "COPY_LINK": "Copiar link da conversa",
       "COPY_LINK_SUCCESS": "Link da conversa copiado",
+      "PIN": "Fixar conversa",
+      "UNPIN": "Desafixar conversa",
       "API": {
         "AGENT_ASSIGNMENT": {
           "SUCCESFUL": "ID da conversa {conversationId} atribuído para \"{agentName}\"",
@@ -256,6 +262,7 @@
       "IMAGE_UPLOAD_SUCCESS": "Imagem enviada com sucesso",
       "START_AUDIO_RECORDING": "Iniciar gravação de áudio",
       "STOP_AUDIO_RECORDING": "Parar gravação de áudio",
+      "CANCEL_AUDIO_RECORDING": "Cancelar gravação",
       "COPILOT_THINKING": "O Copiloto está pensando",
       "EMAIL_HEAD": {
         "TO": "Para",
@@ -285,7 +292,9 @@
         "REMOVE_PREVIEW": "Remover o encadeamento de e-mails citado",
         "COLLAPSE": "Recolher a prévia",
         "EXPAND": "Expandir a prévia"
-      }
+      },
+      "AI_LOCK_TITLE": "Sendo atendida pelo Agente Virtual",
+      "AI_LOCK_HOLD": "Segurar para assumir"
     },
     "VISIBLE_TO_AGENTS": "Mensagem Privada: Apenas visível para você e seu time",
     "CHANGE_STATUS": "Estado da conversa mudou",
@@ -429,7 +438,8 @@
       "MACROS": "Macros",
       "LINEAR_ISSUES": "Problemas do Linear vinculados",
       "SHOPIFY_ORDERS": "Pedidos do Shopify",
-      "SHARED_FILES": "Anexos"
+      "SHARED_FILES": "Anexos",
+      "IXC_CUSTOMER": "Cliente IXC"
     },
     "SHARED_FILES": {
       "EMPTY": "Nenhum anexo ainda",
@@ -460,6 +470,30 @@
         "FULFILLED": "Concluído",
         "PARTIALLY_FULFILLED": "Parcialmente Concluído",
         "UNFULFILLED": "Não concluído"
+      }
+    },
+    "IXC": {
+      "ERROR": "Erro ao carregar dados do IXC",
+      "NOT_FOUND": "Cliente não encontrado no IXC",
+      "AMBIGUOUS": "Mais de um cliente encontrado. Vincule o contato manualmente.",
+      "RETRY": "Tentar novamente",
+      "LOAD": "Carregar dados do IXC",
+      "REFRESH": "Atualizar",
+      "INVOICES": "Faturas em Aberto",
+      "NO_INVOICES": "Nenhuma fatura em aberto",
+      "CONTRACTS": "Contratos",
+      "NO_CONTRACTS": "Nenhum contrato encontrado",
+      "DUE": "Venc.",
+      "LATE": "de atraso",
+      "INVOICE_STATUS": {
+        "OPEN": "Aberto",
+        "PAID": "Pago",
+        "CANCELLED": "Cancelado"
+      },
+      "CONTRACT_STATUS": {
+        "ACTIVE": "Ativo",
+        "INACTIVE": "Inativo",
+        "CANCELLED": "Cancelado"
       }
     }
   },

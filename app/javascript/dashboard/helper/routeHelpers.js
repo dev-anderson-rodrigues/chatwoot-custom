@@ -96,6 +96,9 @@ export const isAConversationRoute = (
     'team_conversations',
     'folder_conversations',
     'conversation_participating',
+    // [FORK] Filas IA MAESTRO
+    'conversation_mine',
+    'conversation_ai',
   ];
   const extendedRoutes = [
     'inbox_conversation',
@@ -106,6 +109,9 @@ export const isAConversationRoute = (
     'conversations_through_team',
     'conversations_through_folders',
     'conversation_through_participating',
+    // [FORK] Filas IA MAESTRO
+    'conversation_through_mine',
+    'conversation_through_ai',
   ];
 
   const routes = [
@@ -134,6 +140,11 @@ export const getConversationDashboardRoute = routeName => {
       return 'conversation_participating';
     case 'conversation_through_inbox':
       return 'inbox_dashboard';
+    // [FORK] Filas IA MAESTRO
+    case 'conversation_through_mine':
+      return 'conversation_mine';
+    case 'conversation_through_ai':
+      return 'conversation_ai';
     default:
       return null;
   }

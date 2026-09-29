@@ -24,16 +24,21 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // [FORK] Escopo dos textos (ver DeliveryStatusBadge).
+  i18nScope: {
+    type: String,
+    default: 'CAMPAIGN.WHATSAPP.ANALYTICS',
+  },
 });
 
 const { t } = useI18n();
 const route = useRoute();
 
 const headers = computed(() => [
-  t('CAMPAIGN.WHATSAPP.ANALYTICS.TABLE.CONTACT'),
-  t('CAMPAIGN.WHATSAPP.ANALYTICS.TABLE.STATUS'),
-  t('CAMPAIGN.WHATSAPP.ANALYTICS.TABLE.MESSAGE'),
-  t('CAMPAIGN.WHATSAPP.ANALYTICS.TABLE.REASON'),
+  t(`${props.i18nScope}.TABLE.CONTACT`),
+  t(`${props.i18nScope}.TABLE.STATUS`),
+  t(`${props.i18nScope}.TABLE.MESSAGE`),
+  t(`${props.i18nScope}.TABLE.REASON`),
 ]);
 
 const errorReason = delivery =>
@@ -47,7 +52,7 @@ const errorCode = delivery =>
 
 const messageContent = delivery =>
   delivery.message_content ||
-  t('CAMPAIGN.WHATSAPP.ANALYTICS.TABLE.MESSAGE_NOT_GENERATED');
+  t(`${props.i18nScope}.TABLE.MESSAGE_NOT_GENERATED`);
 
 const contactDetailsRoute = contactId => ({
   name: 'contacts_edit',
@@ -66,7 +71,7 @@ const isEmpty = computed(() => props.deliveries.length === 0);
       class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
     >
       <span class="text-heading-2 text-n-slate-12">
-        {{ t('CAMPAIGN.WHATSAPP.ANALYTICS.TABLE.TITLE') }}
+        {{ t(`${i18nScope}.TABLE.TITLE`) }}
       </span>
       <div class="min-w-0 p-1 -m-1 overflow-x-auto no-scrollbar">
         <slot name="filters" />
@@ -115,16 +120,24 @@ const isEmpty = computed(() => props.deliveries.length === 0);
                   <span
                     class="tabular-nums truncate text-label-small text-n-slate-11"
                   >
-                    {{ delivery.contact.phone_number || '-' }}
+                    {{
+                      delivery.contact.phone_number ||
+                      delivery.contact.email ||
+                      '-'
+                    }}
                   </span>
                 </div>
               </BaseTableCell>
               <BaseTableCell>
-                <DeliveryStatusBadge :status="delivery.status" />
+                <DeliveryStatusBadge
+                  :status="delivery.status"
+                  :i18n-scope="i18nScope"
+                />
               </BaseTableCell>
               <BaseTableCell>
                 <span
                   class="block max-w-48 lg:max-w-md whitespace-pre-line line-clamp-2 text-body-main"
+                  :title="messageContent(delivery)"
                   :class="
                     delivery.message_content
                       ? 'text-n-slate-11'
@@ -139,7 +152,10 @@ const isEmpty = computed(() => props.deliveries.length === 0);
                   v-if="errorReason(delivery)"
                   class="flex flex-col gap-0.5 max-w-40 lg:max-w-56"
                 >
-                  <span class="line-clamp-2 text-body-main text-n-slate-11">
+                  <span
+                    class="line-clamp-2 text-body-main text-n-slate-11"
+                    :title="errorReason(delivery)"
+                  >
                     {{ errorReason(delivery) }}
                   </span>
                   <span
@@ -147,7 +163,7 @@ const isEmpty = computed(() => props.deliveries.length === 0);
                     class="tabular-nums text-label-small text-n-slate-10"
                   >
                     {{
-                      t('CAMPAIGN.WHATSAPP.ANALYTICS.TABLE.ERROR_CODE', {
+                      t(`${i18nScope}.TABLE.ERROR_CODE`, {
                         code: errorCode(delivery),
                       })
                     }}

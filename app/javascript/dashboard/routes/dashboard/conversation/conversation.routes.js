@@ -233,5 +233,53 @@ export default {
         conversationType: 'participating',
       }),
     },
+    // [FORK] Fila "Minhas" — conversas abertas atribuídas ao usuário atual
+    {
+      path: frontendURL('accounts/:accountId/mine/conversations'),
+      name: 'conversation_mine',
+      meta: {
+        permissions: CONVERSATION_PERMISSIONS,
+      },
+      component: ConversationView,
+      props: () => ({ conversationType: 'mine' }),
+    },
+    {
+      path: frontendURL(
+        'accounts/:accountId/mine/conversations/:conversationId'
+      ),
+      name: 'conversation_through_mine',
+      meta: {
+        permissions: CONVERSATION_PERMISSIONS,
+      },
+      component: ConversationView,
+      props: route => ({
+        conversationId: route.params.conversationId,
+        conversationType: 'mine',
+      }),
+    },
+    // [FORK] Fila "Aguardando humano" — conversas pendentes com Agente Virtual
+    {
+      path: frontendURL('accounts/:accountId/ai/conversations'),
+      name: 'conversation_ai',
+      meta: {
+        permissions: CONVERSATION_PERMISSIONS,
+      },
+      component: ConversationView,
+      props: () => ({ conversationType: 'ai' }),
+    },
+    {
+      path: frontendURL(
+        'accounts/:accountId/ai/conversations/:conversationId'
+      ),
+      name: 'conversation_through_ai',
+      meta: {
+        permissions: CONVERSATION_PERMISSIONS,
+      },
+      component: ConversationView,
+      props: route => ({
+        conversationId: route.params.conversationId,
+        conversationType: 'ai',
+      }),
+    },
   ],
 };

@@ -2,6 +2,7 @@
 import { ref, unref, provide, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
+import { useDebounceFn } from '@vueuse/core';
 import {
   useMapGetter,
   useFunctionGetter,
@@ -19,6 +20,7 @@ import TeleportWithDirection from 'dashboard/components-next/TeleportWithDirecti
 import ConversationResolveAttributesModal from 'dashboard/components-next/ConversationWorkflow/ConversationResolveAttributesModal.vue';
 
 import { useUISettings } from 'dashboard/composables/useUISettings';
+import { useResizableColumn } from 'dashboard/composables/useResizableColumn';
 import { useAlert } from 'dashboard/composables';
 import { useBulkActions } from 'dashboard/composables/chatlist/useBulkActions';
 import { useFilter } from 'shared/composables/useFilter';
@@ -30,6 +32,7 @@ import {
 } from 'dashboard/composables/useTransformKeys';
 import { useEmitter } from 'dashboard/composables/emitter';
 import { useConversationRequiredAttributes } from 'dashboard/composables/useConversationRequiredAttributes';
+import { usePinnedConversations } from 'dashboard/composables/usePinnedConversations';
 
 import { emitter } from 'shared/helpers/mitt';
 
@@ -44,6 +47,8 @@ import {
   isOnMentionsView,
   isOnParticipatingView,
   isOnUnattendedView,
+  isOnMineView,
+  isOnAiView,
 } from '../store/modules/conversations/helpers/actionHelpers';
 import {
   getUserPermissions,
@@ -65,6 +70,8 @@ const props = defineProps({
 
 const emit = defineEmits(['conversationLoad']);
 const { uiSettings } = useUISettings();
+// [FORK] Coluna redimensionável
+const { columnWidth, onHandleMouseDown, onHandleDblClick } = useResizableColumn();
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
@@ -134,6 +141,9 @@ const {
 
 const { checkMissingAttributes } = useConversationRequiredAttributes();
 
+// [FORK] Fixar conversas no topo
+const { isPinned, togglePin } = usePinnedConversations();
+
 // computed
 
 const hasAppliedFilters = computed(() => {
@@ -186,6 +196,11 @@ const assigneeTabItems = computed(() => {
     count: conversationStats.value[countKey] || 0,
   }));
 });
+
+// [FORK] Densidade comfortable/compact — lê de ui_settings
+const isCompactDensity = computed(
+  () => uiSettings.value.conversation_density === 'compact'
+);
 
 const showAssigneeInConversationCard = computed(() => {
   return (
@@ -247,6 +262,13 @@ const conversationListPagination = computed(() => {
 });
 
 const conversationFilters = computed(() => {
+  // [FORK] As filas mine/ai controlam status e assignee localmente;
+  // não enviam conversationType ao backend (que não conhece esses valores).
+  const isMineQueue =
+    props.conversationType === wootConstants.CONVERSATION_TYPE.MINE;
+  const isAiQueue =
+    props.conversationType === wootConstants.CONVERSATION_TYPE.AI;
+
   return {
     inboxId: props.conversationInbox ? props.conversationInbox : undefined,
     assigneeType: activeAssigneeTab.value,
@@ -255,7 +277,8 @@ const conversationFilters = computed(() => {
     page: conversationListPagination.value,
     labels: props.label ? [props.label] : undefined,
     teamId: props.teamId || undefined,
-    conversationType: props.conversationType || undefined,
+    conversationType:
+      isMineQueue || isAiQueue ? undefined : props.conversationType || undefined,
   };
 });
 
@@ -289,6 +312,13 @@ const pageTitle = computed(() => {
   }
   if (props.conversationType === wootConstants.CONVERSATION_TYPE.UNATTENDED) {
     return t('CHAT_LIST.UNATTENDED_HEADING');
+  }
+  // [FORK] Filas IA MAESTRO
+  if (props.conversationType === wootConstants.CONVERSATION_TYPE.MINE) {
+    return t('CHAT_LIST.MINE_HEADING');
+  }
+  if (props.conversationType === wootConstants.CONVERSATION_TYPE.AI) {
+    return t('CHAT_LIST.AI_HEADING');
   }
   if (hasActiveFolders.value) {
     return activeFolder.value.name;
@@ -354,6 +384,38 @@ const conversationList = computed(() => {
   }
 
   return localConversationList;
+});
+
+// [FORK] Busca inline com debounce 300ms
+const inlineSearchQuery = ref('');
+const debouncedQuery = ref('');
+const applyDebounce = useDebounceFn(val => {
+  debouncedQuery.value = val;
+}, 300);
+
+const onInlineSearch = e => applyDebounce(e.target.value);
+const clearInlineSearch = () => {
+  inlineSearchQuery.value = '';
+  debouncedQuery.value = '';
+};
+
+const filteredConversationList = computed(() => {
+  const q = debouncedQuery.value.trim().toLowerCase();
+  let list = q
+    ? conversationList.value.filter(c => {
+        const name = (c.meta?.sender?.name ?? '').toLowerCase();
+        const phone = (c.meta?.sender?.phone_number ?? '').toLowerCase();
+        const lastMsg = (c.last_non_activity_message?.content ?? '').toLowerCase();
+        return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
+      })
+    : conversationList.value;
+
+  // [FORK] Fixar conversas no topo — pinned first, preserve relative order
+  return [...list].sort((a, b) => {
+    const pa = isPinned(a.id) ? 0 : 1;
+    const pb = isPinned(b.id) ? 0 : 1;
+    return pa - pb;
+  });
 });
 
 const showEndOfListMessage = computed(() => {
@@ -611,6 +673,7 @@ function updateAssigneeTab(selectedTab) {
   if (activeAssigneeTab.value !== selectedTab) {
     resetBulkActions();
     emitter.emit('clearSearchInput');
+    clearInlineSearch();
     activeAssigneeTab.value = selectedTab;
     if (!currentPage.value) {
       fetchConversations();
@@ -658,6 +721,10 @@ function redirectToConversationList() {
     conversationType = wootConstants.CONVERSATION_TYPE.PARTICIPATING;
   } else if (isOnUnattendedView({ route: { name } })) {
     conversationType = wootConstants.CONVERSATION_TYPE.UNATTENDED;
+  } else if (isOnMineView({ route: { name } })) {
+    conversationType = wootConstants.CONVERSATION_TYPE.MINE;
+  } else if (isOnAiView({ route: { name } })) {
+    conversationType = wootConstants.CONVERSATION_TYPE.AI;
   }
   router.push(
     conversationListPageURL({
@@ -811,7 +878,16 @@ useEmitter('fetch_conversation_stats', () => {
 
 onMounted(() => {
   store.dispatch('setChatListFilters', conversationFilters.value);
-  setFiltersFromUISettings();
+  // [FORK] Filas IA MAESTRO: sobrepõem o status e assignee padrão
+  if (props.conversationType === wootConstants.CONVERSATION_TYPE.MINE) {
+    activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ME;
+    activeStatus.value = wootConstants.STATUS_TYPE.OPEN;
+  } else if (props.conversationType === wootConstants.CONVERSATION_TYPE.AI) {
+    activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ALL;
+    activeStatus.value = wootConstants.STATUS_TYPE.PENDING;
+  } else {
+    setFiltersFromUISettings();
+  }
   store.dispatch('setChatStatusFilter', activeStatus.value);
   store.dispatch('setChatSortFilter', activeSortBy.value);
   resetAndFetchData();
@@ -852,6 +928,8 @@ provide('markAsRead', markAsRead);
 provide('assignPriority', assignPriority);
 provide('isConversationSelected', isConversationSelected);
 provide('deleteConversation', handleDelete);
+provide('isPinned', isPinned);
+provide('togglePin', togglePin);
 
 watch(activeTeam, () => resetAndFetchData());
 
@@ -865,7 +943,17 @@ watch(
 );
 watch(
   computed(() => props.conversationType),
-  () => resetAndFetchData()
+  newType => {
+    // [FORK] Filas IA MAESTRO: forçar filtros corretos ao entrar na fila
+    if (newType === wootConstants.CONVERSATION_TYPE.MINE) {
+      activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ME;
+      activeStatus.value = wootConstants.STATUS_TYPE.OPEN;
+    } else if (newType === wootConstants.CONVERSATION_TYPE.AI) {
+      activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ALL;
+      activeStatus.value = wootConstants.STATUS_TYPE.PENDING;
+    }
+    resetAndFetchData();
+  }
 );
 
 watch(activeFolder, (newVal, oldVal) => {
@@ -887,12 +975,11 @@ watch(conversationFilters, (newVal, oldVal) => {
 </script>
 
 <template>
+  <!-- [FORK] Largura redimensionável via drag; em expanded usa basis-full -->
   <div
     class="flex flex-col flex-shrink-0 conversations-list-wrap bg-n-surface-1 relative"
-    :class="[
-      { hidden: !showConversationList },
-      isOnExpandedLayout ? 'basis-full' : 'w-[340px] 2xl:w-[412px]',
-    ]"
+    :class="{ hidden: !showConversationList, 'basis-full': isOnExpandedLayout }"
+    :style="isOnExpandedLayout ? {} : { width: `${columnWidth}px` }"
   >
     <slot />
     <ChatListHeader
@@ -939,6 +1026,27 @@ watch(conversationFilters, (newVal, oldVal) => {
       @chat-tab-change="updateAssigneeTab"
     />
 
+    <!-- [FORK] Busca inline na lista de conversas -->
+    <div class="px-2 py-1 relative">
+      <span class="absolute ltr:left-4 rtl:right-4 top-1/2 -translate-y-1/2 text-n-slate-10 pointer-events-none">
+        <i class="i-lucide-search size-3.5" />
+      </span>
+      <input
+        v-model="inlineSearchQuery"
+        type="search"
+        :placeholder="$t('CHAT_LIST.INLINE_SEARCH_PLACEHOLDER')"
+        class="reset-base w-full h-7 text-xs bg-n-alpha-black1 border border-n-weak rounded-lg ltr:pl-7 rtl:pr-7 ltr:pr-6 rtl:pl-6 text-n-slate-12 placeholder:text-n-slate-9 focus:outline-none focus:border-n-brand"
+        @input="onInlineSearch"
+      />
+      <button
+        v-if="inlineSearchQuery"
+        class="absolute ltr:right-4 rtl:left-4 top-1/2 -translate-y-1/2 border-0 p-0 bg-transparent text-n-slate-9 hover:text-n-slate-12"
+        @click="clearInlineSearch"
+      >
+        <i class="i-lucide-x size-3" />
+      </button>
+    </div>
+
     <p
       v-if="!chatListLoading && !conversationList.length"
       class="flex overflow-auto justify-center items-center p-4"
@@ -956,7 +1064,7 @@ watch(conversationFilters, (newVal, oldVal) => {
       @select-all-conversations="toggleSelectAll"
     />
     <ConversationList
-      :conversation-list="conversationList"
+      :conversation-list="filteredConversationList"
       :is-loading="chatListLoading"
       :show-end-of-list-message="showEndOfListMessage"
       :label="label"
@@ -965,6 +1073,7 @@ watch(conversationFilters, (newVal, oldVal) => {
       :conversation-type="conversationType"
       :show-assignee="showAssigneeInConversationCard"
       :is-on-expanded-layout="isOnExpandedLayout"
+      :is-compact="isCompactDensity"
       @load-more="loadMoreConversations"
     />
     <Dialog
@@ -996,6 +1105,13 @@ watch(conversationFilters, (newVal, oldVal) => {
     <ConversationResolveAttributesModal
       ref="resolveAttributesModalRef"
       @submit="handleResolveWithAttributes"
+    />
+    <!-- [FORK] Alça de redimensionamento da coluna -->
+    <div
+      v-if="!isOnExpandedLayout"
+      class="absolute top-0 bottom-0 ltr:right-0 rtl:left-0 w-1 cursor-col-resize z-20 hover:bg-n-brand/30 transition-colors"
+      @mousedown="onHandleMouseDown"
+      @dblclick="onHandleDblClick"
     />
   </div>
 </template>

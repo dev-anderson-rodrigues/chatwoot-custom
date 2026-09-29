@@ -5,6 +5,7 @@ import FormattedContent from './Text/FormattedContent.vue';
 import { useI18n } from 'vue-i18n';
 import { CSAT_RATINGS, CSAT_DISPLAY_TYPES } from 'shared/constants/messages';
 import { useMessageContext } from '../provider.js';
+import MessageFormatter from 'shared/helpers/MessageFormatter.js';
 
 const { contentAttributes, content } = useMessageContext();
 const { t } = useI18n();
@@ -38,6 +39,12 @@ const rating = computed(() => {
 const starRatingValue = computed(() => {
   return response.value.rating || 0;
 });
+
+// [FORK] Renderiza formatação WhatsApp no feedback textual do CSAT
+const formattedFeedback = computed(() => {
+  const msg = response.value.feedbackMessage;
+  return msg ? new MessageFormatter(msg).formattedMessage : '';
+});
 </script>
 
 <template>
@@ -66,7 +73,7 @@ const starRatingValue = computed(() => {
       <dt v-if="response.feedbackMessage" class="text-n-slate-11 italic mt-2">
         {{ t('CONVERSATION.FEEDBACK_TITLE') }}
       </dt>
-      <dd>{{ response.feedbackMessage }}</dd>
+      <dd v-dompurify-html="formattedFeedback" class="prose prose-bubble" />
     </dl>
   </BaseBubble>
 </template>

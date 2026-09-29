@@ -16,6 +16,7 @@ import UserLanguageSelect from './UserLanguageSelect.vue';
 import ChangePassword from './ChangePassword.vue';
 import NotificationPreferences from './NotificationPreferences.vue';
 import AudioNotifications from './AudioNotifications.vue';
+import MessageColors from './MessageColors.vue';
 import SectionLayout from '../account/components/SectionLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import AccessToken from './AccessToken.vue';
@@ -41,6 +42,7 @@ export default {
     ChangePassword,
     NotificationPreferences,
     AudioNotifications,
+    MessageColors,
     AccessToken,
     MfaSettingsCard,
     ActiveSessions,
@@ -271,6 +273,8 @@ export default {
             $t('PROFILE_SETTINGS.FORM.INTERFACE_SECTION.LANGUAGE.NOTE')
           "
         />
+        <!-- [FORK] Cores dos balões por atendente -->
+        <MessageColors />
       </div>
     </SectionLayout>
     <SectionLayout

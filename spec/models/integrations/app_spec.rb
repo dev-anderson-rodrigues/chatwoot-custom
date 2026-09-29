@@ -108,6 +108,19 @@ RSpec.describe Integrations::App do
       end
     end
 
+    # [FORK] Dialogflow fora do catalogo.
+    context 'when the app is dialogflow' do
+      let(:app_name) { 'dialogflow' }
+
+      it 'returns false, so it is not offered in the integrations catalog' do
+        expect(app.active?(account)).to be false
+      end
+
+      it 'is still findable, so an existing hook keeps resolving its app' do
+        expect(apps.find(id: 'dialogflow')).to be_present
+      end
+    end
+
     context 'when other apps are queried' do
       let(:app_name) { 'webhook' }
 

@@ -128,6 +128,9 @@ export default {
       isFocused: false,
       showEmojiPicker: false,
       attachedFiles: [],
+      // [FORK] Cadeado IA: progresso do hold (0–100)
+      aiLockHoldProgress: 0,
+      aiLockTimer: null,
       isRecordingAudio: false,
       recordingAudioState: '',
       recordingAudioDurationText: '',
@@ -150,6 +153,7 @@ export default {
       newConversationModalActive: false,
       showArticleSearchPopover: false,
       hasRecordedAudio: false,
+      pendingSendAfterRecord: false,
       copilotAcceptedMessages: {},
     };
   },
@@ -282,6 +286,7 @@ export default {
       if (this.isEditorDisabled) return true;
       if (this.isATwitterInbox) return true;
       if (this.hasAttachments || this.hasRecordedAudio) return false;
+      if (this.isRecordingAudio && !this.recordingAudioState) return false;
 
       return (
         this.isMessageEmpty ||
@@ -887,6 +892,12 @@ export default {
       if (this.isReplyButtonDisabled) {
         return;
       }
+      // Envio durante gravação: para a gravação e aguarda o record-end para disparar.
+      if (this.isRecordingAudio && !this.recordingAudioState) {
+        this.pendingSendAfterRecord = true;
+        this.$refs.audioRecorderInput?.stopRecording();
+        return;
+      }
       if (!this.showMentions) {
         const copilotAcceptedMessage = this.getCopilotAcceptedMessage();
         const isOnWhatsApp =
@@ -1132,7 +1143,11 @@ export default {
         ...file,
         isVoiceMessage: true,
       };
-      return file && this.onFileUpload(autoRecordedFile);
+      if (file) this.onFileUpload(autoRecordedFile);
+      if (this.pendingSendAfterRecord) {
+        this.pendingSendAfterRecord = false;
+        this.$nextTick(() => this.confirmOnSendReply());
+      }
     },
     onRecordError() {
       this.toggleAudioRecorder();
@@ -1328,6 +1343,49 @@ export default {
       // When new conversation modal is open
       this.newConversationModalActive = isActive;
     },
+    // [FORK] Cadeado IA — hold-to-unlock de 1,5s
+    startAiLockHold() {
+      if (this.aiLockTimer) return;
+      const HOLD_MS = 1500;
+      const INTERVAL_MS = 30;
+      const step = (100 * INTERVAL_MS) / HOLD_MS;
+      this.aiLockTimer = setInterval(() => {
+        this.aiLockHoldProgress = Math.min(
+          100,
+          this.aiLockHoldProgress + step
+        );
+        if (this.aiLockHoldProgress >= 100) {
+          this.cancelAiLockHold();
+          this.onAiLockComplete();
+        }
+      }, INTERVAL_MS);
+    },
+    cancelAiLockHold() {
+      clearInterval(this.aiLockTimer);
+      this.aiLockTimer = null;
+      this.aiLockHoldProgress = 0;
+    },
+    async onAiLockComplete() {
+      try {
+        await this.$store.dispatch('toggleStatus', {
+          conversationId: this.currentChat.id,
+          status: 'open',
+          snoozedUntil: null,
+        });
+        if (this.currentUser?.id) {
+          await this.$store.dispatch('assignAgent', {
+            conversationId: this.currentChat.id,
+            agentId: this.currentUser.id,
+          });
+        }
+        this.$router.push({
+          name: 'conversation_mine',
+          params: { accountId: this.accountId },
+        });
+      } catch (_) {
+        // silencia: a ação principal (abrir) já alertou
+      }
+    },
     onSearchPopoverClose() {
       this.showArticleSearchPopover = false;
     },
@@ -1339,6 +1397,7 @@ export default {
       this.isRecordingAudio = false;
       this.recordingAudioState = '';
       this.hasRecordedAudio = false;
+      this.pendingSendAfterRecord = false;
       // Only clear the recorded audio when we click toggle button.
       this.attachedFiles = this.attachedFiles.filter(
         file => !file?.isVoiceMessage
@@ -1587,6 +1646,34 @@ export default {
       :title="$t('CONVERSATION.REPLYBOX.UNDEFINED_VARIABLES.TITLE')"
       :description="undefinedVariableMessage"
     />
+
+    <!-- [FORK] Cadeado IA: overlay de hold-to-unlock quando o Agente Virtual está atendendo -->
+    <div
+      v-if="isBotOwnedPendingConversation"
+      class="ai-lock-overlay"
+      @mouseup="cancelAiLockHold"
+      @touchend="cancelAiLockHold"
+      @mouseleave="cancelAiLockHold"
+    >
+      <p class="ai-lock-overlay__title">
+        {{ $t('CONVERSATION.REPLYBOX.AI_LOCK_TITLE') }}
+      </p>
+      <button
+        class="ai-lock-overlay__btn"
+        @mousedown="startAiLockHold"
+        @touchstart="startAiLockHold"
+      >
+        <span class="ai-lock-overlay__btn-progress">
+          <span
+            class="ai-lock-overlay__btn-fill"
+            :style="{ width: `${aiLockHoldProgress}%` }"
+          />
+          <span class="ai-lock-overlay__btn-label">
+            {{ $t('CONVERSATION.REPLYBOX.AI_LOCK_HOLD') }}
+          </span>
+        </span>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -1627,5 +1714,33 @@ export default {
     transform: rotate(0deg);
     @apply ltr:left-1 rtl:right-1 -bottom-2;
   }
+}
+
+/* [FORK] Cadeado IA */
+.ai-lock-overlay {
+  @apply absolute inset-0 z-20 flex flex-col items-center justify-center gap-3
+         rounded-xl backdrop-blur-sm bg-n-solid-1/80;
+}
+
+.ai-lock-overlay__title {
+  @apply text-sm font-medium text-n-slate-11 select-none;
+}
+
+.ai-lock-overlay__btn {
+  @apply rounded-lg overflow-hidden border border-n-weak select-none
+         focus:outline-none cursor-pointer;
+  min-width: 11rem;
+}
+
+.ai-lock-overlay__btn-progress {
+  @apply relative flex items-center justify-center h-9 w-full;
+}
+
+.ai-lock-overlay__btn-fill {
+  @apply absolute inset-y-0 start-0 bg-n-amber-8/30 transition-[width] duration-75;
+}
+
+.ai-lock-overlay__btn-label {
+  @apply relative z-10 text-sm font-medium text-n-slate-12 px-4;
 }
 </style>

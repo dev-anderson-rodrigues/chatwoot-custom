@@ -64,7 +64,7 @@ const initWaveSurfer = () => {
     container: waveformContainer.value,
     waveColor: '#1F93FF',
     progressColor: '#6E6F73',
-    height: 100,
+    height: 30,
     barWidth: 2,
     barGap: 1,
     barRadius: 2,

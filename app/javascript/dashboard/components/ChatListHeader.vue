@@ -39,6 +39,16 @@ const hasAppliedFiltersOrActiveFolders = computed(() => {
 const allCount = computed(() => props.conversationStats?.allCount || 0);
 const formattedAllCount = computed(() => formatNumber(allCount.value));
 
+// [FORK] Densidade comfortable/compact
+const isCompactDensity = computed(
+  () => uiSettings.value.conversation_density === 'compact'
+);
+const toggleDensity = () => {
+  updateUISettings({
+    conversation_density: isCompactDensity.value ? 'comfortable' : 'compact',
+  });
+};
+
 const toggleConversationLayout = () => {
   const { LAYOUT_TYPES } = wootConstants;
   const {
@@ -158,6 +168,19 @@ const toggleConversationLayout = () => {
         v-if="!hasAppliedFiltersOrActiveFolders"
         :is-on-expanded-layout="isOnExpandedLayout"
         @change-filter="onBasicFilterChange"
+      />
+      <!-- [FORK] Toggle de densidade -->
+      <NextButton
+        v-tooltip.top="
+          isCompactDensity
+            ? $t('CHAT_LIST.DENSITY.COMFORTABLE')
+            : $t('CHAT_LIST.DENSITY.COMPACT')
+        "
+        :icon="isCompactDensity ? 'i-lucide-align-justify' : 'i-lucide-menu'"
+        slate
+        faded
+        xs
+        @click="toggleDensity"
       />
       <SwitchLayout
         :is-on-expanded-layout="isOnExpandedLayout"

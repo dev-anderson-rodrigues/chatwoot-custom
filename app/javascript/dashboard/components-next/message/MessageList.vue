@@ -1,6 +1,8 @@
 <script setup>
 import { computed, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Message from './Message.vue';
+import DateSeparator from './DateSeparator.vue';
 import { MESSAGE_TYPES } from './constants.js';
 import { useCamelCase } from 'dashboard/composables/useTransformKeys';
 import { useMapGetter } from 'dashboard/composables/store.js';
@@ -40,6 +42,40 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['retry']);
+
+const { t, locale } = useI18n();
+
+// [FORK] Separadores de data
+const isSameDay = (a, b) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+const showDateSeparator = (index) => {
+  if (index === 0) return true;
+  const cur = allMessages.value[index];
+  const prev = allMessages.value[index - 1];
+  return !isSameDay(
+    new Date((cur.createdAt ?? cur.created_at) * 1000),
+    new Date((prev.createdAt ?? prev.created_at) * 1000)
+  );
+};
+
+const formatDateLabel = (createdAt) => {
+  const date = new Date((createdAt) * 1000);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (isSameDay(date, today)) return t('CONVERSATION.DATE_SEPARATOR.TODAY');
+  if (isSameDay(date, yesterday)) return t('CONVERSATION.DATE_SEPARATOR.YESTERDAY');
+
+  return new Intl.DateTimeFormat(locale.value, {
+    day: 'numeric',
+    month: 'long',
+    year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  }).format(date);
+};
 
 const allMessages = computed(() => {
   return useCamelCase(props.messages, {
@@ -169,6 +205,10 @@ const getInReplyToMessage = parentMessage => {
   <ul class="px-4 bg-n-surface-1">
     <slot name="beforeAll" />
     <template v-for="(message, index) in allMessages" :key="message.id">
+      <DateSeparator
+        v-if="showDateSeparator(index)"
+        :label="formatDateLabel(message.createdAt ?? message.created_at)"
+      />
       <slot
         v-if="firstUnreadId && message.id === firstUnreadId"
         name="unreadBadge"

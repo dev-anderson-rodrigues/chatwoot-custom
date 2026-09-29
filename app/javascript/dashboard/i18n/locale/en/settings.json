@@ -52,6 +52,11 @@
             "EXTRA_LARGE": "Extra Large"
           }
         },
+        "MESSAGE_COLORS": {
+          "TITLE": "Message bubble colors",
+          "DESCRIPTION": "Assign a color to each agent's messages for easier identification.",
+          "RESET": "Reset to default"
+        },
         "LANGUAGE": {
           "TITLE": "Preferred Language",
           "NOTE": "Choose the language you want to use.",
@@ -318,6 +323,9 @@
     "MENTIONED_CONVERSATIONS": "Mentions",
     "PARTICIPATING_CONVERSATIONS": "Participating",
     "UNATTENDED_CONVERSATIONS": "Unattended",
+    "MINE_CONVERSATIONS": "Mine",
+    "AI_QUEUE": "Waiting for agent",
+    "GESTAO_COBRANCA": "Billing Management",
     "REPORTS": "Reports",
     "SETTINGS": "Settings",
     "CONTACTS": "Contacts",
@@ -373,6 +381,8 @@
     "LIVE_CHAT": "Live Chat",
     "SMS": "SMS",
     "WHATSAPP": "WhatsApp",
+    "EMAIL_CAMPAIGNS": "E-mail",
+    "OTHER_CHANNELS_CAMPAIGNS": "Other channels",
     "CAMPAIGNS": "Campaigns",
     "ONGOING": "Ongoing",
     "ONE_OFF": "One off",

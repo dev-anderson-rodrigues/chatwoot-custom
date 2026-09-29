@@ -447,6 +447,22 @@ const menuItems = computed(() => {
           activeOn: ['inbox_conversation'],
           to: accountScopedRoute('home'),
         },
+        // [FORK] Fila "Minhas" — conversas abertas atribuídas ao usuário atual
+        {
+          name: 'Mine',
+          label: t('SIDEBAR.MINE_CONVERSATIONS'),
+          icon: 'i-lucide-user-round',
+          activeOn: ['conversation_through_mine'],
+          to: accountScopedRoute('conversation_mine'),
+        },
+        // [FORK] Fila "Aguardando humano" — conversas pendentes com Agente Virtual
+        {
+          name: 'AI Queue',
+          label: t('SIDEBAR.AI_QUEUE'),
+          icon: 'i-lucide-bot',
+          activeOn: ['conversation_through_ai'],
+          to: accountScopedRoute('conversation_ai'),
+        },
         {
           name: 'Mentions',
           label: t('SIDEBAR.MENTIONED_CONVERSATIONS'),
@@ -733,6 +749,13 @@ const menuItems = computed(() => {
       ],
     },
     {
+      name: 'GestaoCobranca',
+      label: t('SIDEBAR.GESTAO_COBRANCA'),
+      icon: 'i-lucide-receipt',
+      to: accountScopedRoute('gestao_cobranca_index'),
+      activeOn: ['gestao_cobranca_index'],
+    },
+    {
       name: 'Reports',
       label: t('SIDEBAR.REPORTS'),
       icon: 'i-lucide-chart-spline',
@@ -784,6 +807,17 @@ const menuItems = computed(() => {
           name: 'WhatsApp',
           label: t('SIDEBAR.WHATSAPP'),
           to: accountScopedRoute('campaigns_whatsapp_index'),
+        },
+        // [FORK] Disparo em massa por e-mail e por outras caixas (Onda 7 / fatia 2).
+        {
+          name: 'Email campaigns',
+          label: t('SIDEBAR.EMAIL_CAMPAIGNS'),
+          to: accountScopedRoute('campaigns_email_index'),
+        },
+        {
+          name: 'Other channels campaigns',
+          label: t('SIDEBAR.OTHER_CHANNELS_CAMPAIGNS'),
+          to: accountScopedRoute('campaigns_channels_index'),
         },
       ],
     },

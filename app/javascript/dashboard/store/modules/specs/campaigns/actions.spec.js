@@ -45,6 +45,15 @@ describe('#actions', () => {
         [types.default.SET_CAMPAIGN_UI_FLAG, { isCreating: false }],
       ]);
     });
+    it('keeps the API response on the error so the caller can show the reason', async () => {
+      const response = { data: { message: 'Inbox needs its own SMTP' } };
+      axios.post.mockRejectedValue({ message: 'Request failed', response });
+
+      const error = await actions.create({ commit }).catch(e => e);
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error.response).toEqual(response);
+    });
   });
 
   describe('#update', () => {

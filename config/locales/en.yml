@@ -427,6 +427,10 @@ en:
       name: 'Notion'
       short_description: 'Integrate databases, documents and pages directly with Captain.'
       description: 'Connect your Notion workspace to enable Captain to access and generate intelligent responses using content from your databases, documents, and pages to provide more contextual customer support.'
+    ixc:
+      name: 'IXC Provedor'
+      short_description: 'Acesse dados do cliente, faturas e contratos direto na conversa.'
+      description: 'Conecte ao IXC Provedor para ver nome, faturas em aberto, dias de atraso e contratos ativos do cliente diretamente no painel da conversa, sem sair do atendimento.'
     shopify:
       name: 'Shopify'
       short_description: 'Access order details and customer data from your Shopify store.'

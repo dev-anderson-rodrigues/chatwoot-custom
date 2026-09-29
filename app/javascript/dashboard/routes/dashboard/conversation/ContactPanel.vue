@@ -21,6 +21,7 @@ import SharedFiles from './SharedFiles.vue';
 import Draggable from 'vuedraggable';
 import MacrosList from './Macros/List.vue';
 import ShopifyOrdersList from 'dashboard/components/widgets/conversation/ShopifyOrdersList.vue';
+import IxcCustomerPanel from 'dashboard/components/widgets/conversation/IxcCustomerPanel.vue';
 import SidebarActionsHeader from 'dashboard/components-next/SidebarActionsHeader.vue';
 import LinearIssuesList from 'dashboard/components/widgets/conversation/linear/IssuesList.vue';
 import LinearSetupCTA from 'dashboard/components/widgets/conversation/linear/LinearSetupCTA.vue';
@@ -50,6 +51,12 @@ const shopifyIntegration = useFunctionGetter(
   'integrations/getIntegration',
   'shopify'
 );
+
+const ixcIntegration = useFunctionGetter(
+  'integrations/getIntegration',
+  'ixc'
+);
+const isIxcEnabled = computed(() => !!ixcIntegration.value?.id);
 
 const isShopifyFeatureEnabled = computed(
   () => shopifyIntegration.value.enabled
@@ -128,6 +135,7 @@ onMounted(() => {
   store.dispatch('attributes/get', 0);
   // Load integrations to ensure linear integration state is available
   store.dispatch('integrations/get', 'linear');
+  store.dispatch('integrations/get', 'ixc');
 });
 </script>
 
@@ -137,7 +145,18 @@ onMounted(() => {
       :title="$t('CONVERSATION.SIDEBAR.CONTACT')"
       @close="closeContactPanel"
     />
-    <ContactInfo :contact="contact" :channel-type="channelType" />
+    <ContactInfo
+      :contact="contact"
+      :channel-type="channelType"
+      :hide-info-rows="isIxcEnabled"
+    />
+    <IxcCustomerPanel
+      v-if="isIxcEnabled"
+      :contact-id="contactId"
+      :inbox-id="inboxId"
+      :contact-email="contact.email || ''"
+      :contact-phone="contact.phone_number || ''"
+    />
     <div class="px-2 pb-8 list-group">
       <Draggable
         :list="conversationSidebarItems"

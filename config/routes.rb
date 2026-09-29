@@ -413,6 +413,19 @@ Rails.application.routes.draw do
                 post :add_participant_to_meeting
               end
             end
+            resource :ixc, controller: 'ixc', only: [] do
+              collection do
+                get :customer
+                get :overdue_customers
+                get :customer_details
+                get :promises
+                post :create_promise
+                delete 'promises/:id', action: :destroy_promise
+                get :attendances
+                post :create_attendance
+                delete 'attendances/:id', action: :destroy_attendance
+              end
+            end
             resource :shopify, controller: 'shopify', only: [:destroy] do
               collection do
                 post :auth

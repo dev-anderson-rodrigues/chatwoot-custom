@@ -52,6 +52,11 @@
             "EXTRA_LARGE": "Muito Grande"
           }
         },
+        "MESSAGE_COLORS": {
+          "TITLE": "Cores dos balões de mensagem",
+          "DESCRIPTION": "Atribua uma cor às mensagens de cada atendente para identificação visual.",
+          "RESET": "Redefinir cor"
+        },
         "LANGUAGE": {
           "TITLE": "Idioma preferido",
           "NOTE": "Escolha o idioma que deseja usar.",
@@ -318,6 +323,9 @@
     "MENTIONED_CONVERSATIONS": "Menções",
     "PARTICIPATING_CONVERSATIONS": "Participantes",
     "UNATTENDED_CONVERSATIONS": "Não atendidas",
+    "MINE_CONVERSATIONS": "Minhas",
+    "AI_QUEUE": "Aguardando humano",
+    "GESTAO_COBRANCA": "Gestão de Cobrança",
     "REPORTS": "Relatórios",
     "SETTINGS": "Configurações",
     "CONTACTS": "Contatos",
@@ -373,6 +381,8 @@
     "LIVE_CHAT": "Chat ao vivo",
     "SMS": "SMS",
     "WHATSAPP": "WhatsApp",
+    "EMAIL_CAMPAIGNS": "E-mail",
+    "OTHER_CHANNELS_CAMPAIGNS": "Outros canais",
     "CAMPAIGNS": "Campanhas",
     "ONGOING": "Em andamento",
     "ONE_OFF": "Única",

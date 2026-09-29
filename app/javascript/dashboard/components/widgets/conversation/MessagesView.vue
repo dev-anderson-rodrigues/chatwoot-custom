@@ -11,6 +11,7 @@ import MessageList from 'next/message/MessageList.vue';
 import ConversationLabelSuggestion from './conversation/LabelSuggestion.vue';
 import Banner from 'dashboard/components/ui/Banner.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+import MessagesLoader from './MessagesLoader.vue';
 import ResizableEditorWrapper from './ResizableEditorWrapper.vue';
 import ReferralBubble from 'dashboard/components-next/Conversation/ReferralBubble.vue';
 
@@ -47,6 +48,7 @@ export default {
     Banner,
     ConversationLabelSuggestion,
     Spinner,
+    MessagesLoader,
     ResizableEditorWrapper,
     ReferralBubble,
   },
@@ -506,7 +508,8 @@ export default {
           <li
             class="min-h-[4rem] flex flex-shrink-0 flex-grow-0 items-center flex-auto justify-center max-w-full mt-0 mr-0 mb-1 ml-0 relative first:mt-auto last:mb-0"
           >
-            <Spinner v-if="shouldShowSpinner" class="text-n-brand" />
+            <!-- [FORK] 3 pontinhos no lugar do spinner simples -->
+            <MessagesLoader v-if="shouldShowSpinner" />
           </li>
         </transition>
         <ReferralBubble v-if="referralData" :referral="referralData" />

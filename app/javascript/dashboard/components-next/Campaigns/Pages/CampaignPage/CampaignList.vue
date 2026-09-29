@@ -1,6 +1,7 @@
 <script setup>
 import CampaignCard from 'dashboard/components-next/Campaigns/CampaignCard/CampaignCard.vue';
 import { INBOX_TYPES } from 'dashboard/helper/inbox';
+import { isChannelCampaignInbox } from 'dashboard/helper/channelCampaigns';
 import { useConfig } from 'dashboard/composables/useConfig';
 
 defineProps({
@@ -17,6 +18,17 @@ defineProps({
 const emit = defineEmits(['edit', 'delete', 'analytics']);
 const ANALYTICS_CAMPAIGN_STATUSES = ['processing', 'completed'];
 const { isEnterprise } = useConfig();
+
+// [FORK] Analytics tambem para as campanhas por e-mail e outras caixas (Onda 7 / fatia 2).
+const hasAnalytics = campaign => {
+  const channelType = campaign.inbox?.channel_type;
+  return (
+    isEnterprise &&
+    (channelType === INBOX_TYPES.WHATSAPP ||
+      isChannelCampaignInbox(channelType)) &&
+    ANALYTICS_CAMPAIGN_STATUSES.includes(campaign.campaign_status)
+  );
+};
 
 const handleEdit = campaign => emit('edit', campaign);
 const handleDelete = campaign => emit('delete', campaign);
@@ -36,11 +48,7 @@ const handleAnalytics = campaign => emit('analytics', campaign);
       :inbox="campaign.inbox"
       :scheduled-at="campaign.scheduled_at"
       :is-live-chat-type="isLiveChatType"
-      :show-analytics="
-        isEnterprise &&
-        campaign.inbox?.channel_type === INBOX_TYPES.WHATSAPP &&
-        ANALYTICS_CAMPAIGN_STATUSES.includes(campaign.campaign_status)
-      "
+      :show-analytics="hasAnalytics(campaign)"
       @edit="handleEdit(campaign)"
       @delete="handleDelete(campaign)"
       @analytics="handleAnalytics(campaign)"

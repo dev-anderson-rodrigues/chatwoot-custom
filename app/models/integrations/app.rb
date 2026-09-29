@@ -1,5 +1,12 @@
 class Integrations::App
   include Linear::IntegrationHelper
+
+  # [FORK] Apps fora do catalogo por decisao do dono (Dialogflow, 2026-09-20).
+  # Ficam so ocultos: a entrada do apps.yml continua, para `Hook#app` de um hook
+  # ja existente nao virar nil. Um hook existente segue processando evento -- so
+  # deixa de aparecer na tela, e nao da mais para criar outro.
+  HIDDEN_APP_IDS = %w[dialogflow].freeze
+
   attr_accessor :params
 
   def initialize(params)
@@ -52,7 +59,10 @@ class Integrations::App
     end
   end
 
+  # rubocop:disable Metrics/CyclomaticComplexity -- o case ja estava no limite; o guard de HIDDEN_APP_IDS e o unico acrescimo do fork
   def active?(account)
+    return false if HIDDEN_APP_IDS.include?(params[:id])
+
     case params[:id]
     when 'slack'
       GlobalConfigService.load('SLACK_CLIENT_SECRET', nil).present?
@@ -68,6 +78,7 @@ class Integrations::App
       true
     end
   end
+  # rubocop:enable Metrics/CyclomaticComplexity
 
   def build_linear_action
     app_id = GlobalConfigService.load('LINEAR_CLIENT_ID', nil)

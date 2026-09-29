@@ -298,6 +298,155 @@
         }
       }
     },
+    "EMAIL": {
+      "HEADER_TITLE": "E-mail campaigns",
+      "NEW_CAMPAIGN": "Create campaign",
+      "EMPTY_STATE": {
+        "TITLE": "No e-mail campaigns yet",
+        "SUBTITLE": "Send an e-mail to every contact with a label, such as a billing reminder, with each customer's own data in the text. Click 'Create campaign' to get started."
+      }
+    },
+    "CHANNELS": {
+      "HEADER_TITLE": "Other channels",
+      "NEW_CAMPAIGN": "Create campaign",
+      "EMPTY_STATE": {
+        "TITLE": "No campaigns on other channels yet",
+        "SUBTITLE": "Message contacts on Telegram, Instagram, Facebook, LINE, TikTok or an API inbox. These channels only reach people who already wrote to the inbox. Click 'Create campaign' to get started."
+      }
+    },
+    "CHANNEL_CAMPAIGN": {
+      "CREATE": {
+        "TITLE_EMAIL": "Create e-mail campaign",
+        "TITLE_CHANNELS": "Create campaign",
+        "FORM": {
+          "TITLE": {
+            "LABEL": "Title",
+            "PLACEHOLDER": "Internal name of the campaign",
+            "ERROR": "Title is required"
+          },
+          "SUBJECT": {
+            "LABEL": "Subject",
+            "PLACEHOLDER": "Subject of the e-mail",
+            "ERROR": "Subject is required"
+          },
+          "MESSAGE": {
+            "LABEL": "Message",
+            "PLACEHOLDER": "Write the message",
+            "ERROR": "Message is required",
+            "HINT": "Use the contact's data, such as {name} or {attribute} (replace {key} with the key of the contact attribute). If the data may be missing, use a default text: {fallback}. Contacts with an empty variable are skipped. The subject accepts the same variables.",
+            "ATTRIBUTE_KEY": "attribute_key",
+            "DEFAULT_TEXT": "customer"
+          },
+          "INBOX": {
+            "LABEL": "Select Inbox",
+            "PLACEHOLDER": "Select Inbox",
+            "ERROR": "Inbox is required",
+            "EMPTY": "No inbox of this kind is configured for this account."
+          },
+          "AUDIENCE": {
+            "LABEL": "Audience",
+            "PLACEHOLDER": "Select the customer labels",
+            "ERROR": "Audience is required"
+          },
+          "SCHEDULED_AT": {
+            "LABEL": "Scheduled time",
+            "PLACEHOLDER": "Please select the time",
+            "ERROR": "Scheduled time is required",
+            "PAST_ERROR": "The scheduled time can't be in the past",
+            "HINT": "Your computer's time ({timezone})"
+          },
+          "CHANNELS_NOTICE": "These channels only allow messages to people who already wrote to the inbox. Other contacts are skipped, and the campaign results list them with the reason. Instagram, Facebook and TikTok also need a recent message from the contact.",
+          "BUTTONS": {
+            "CREATE": "Create",
+            "CANCEL": "Cancel"
+          },
+          "API": {
+            "SUCCESS_MESSAGE": "Campaign created successfully",
+            "ERROR_MESSAGE": "There was an error. Please try again."
+          }
+        }
+      },
+      "ANALYTICS": {
+        "LOADING": "Loading results...",
+        "EMPTY": "No records found.",
+        "EMPTY_FILTER": "No recipients with the status \"{status}\".",
+        "DELIVERIES_ERROR": "Records couldn't be loaded. Refresh the page to try again.",
+        "EMPTY_STATE": {
+          "ERROR": {
+            "TITLE": "Results couldn't be loaded",
+            "DESCRIPTION": "Refresh the page to try again."
+          },
+          "PENDING": {
+            "TITLE": "Results will appear once sending begins",
+            "DESCRIPTION": "There are no records for this campaign yet."
+          },
+          "UNAVAILABLE": {
+            "TITLE": "No results for this campaign",
+            "DESCRIPTION": "No recipients were recorded. The labels chosen as audience may have no contacts."
+          }
+        },
+        "PROCESSING_BANNER": {
+          "DEFAULT": "This campaign is still processing. Results will update automatically.",
+          "QUEUED": "This campaign is still processing. {count} contact is still queued. | This campaign is still processing. {count} contacts are still queued.",
+          "COMPLETING": "This campaign is completing. Results will update automatically."
+        },
+        "RATE": "{value}% of audience",
+        "SENT_ON": "Sent on {date}",
+        "PAGE_INFO": "Showing {startItem} - {endItem} of {totalItems} contact | Showing {startItem} - {endItem} of {totalItems} contacts",
+        "BREADCRUMB": {
+          "CAMPAIGNS": "Campaigns",
+          "EMAIL": "E-mail",
+          "CHANNELS": "Other channels"
+        },
+        "FILTERS": {
+          "ALL": "All"
+        },
+        "METRICS": {
+          "AUDIENCE": {
+            "LABEL": "Audience",
+            "HINT": "Contacts included in this campaign."
+          },
+          "SENT": {
+            "LABEL": "Sent",
+            "HINT": "Messages accepted by the channel for sending. Some channels don't report delivery, so this is their final state."
+          },
+          "DELIVERED": {
+            "LABEL": "Delivered",
+            "HINT": "Messages the channel confirmed as delivered. Read messages are included."
+          },
+          "READ": {
+            "LABEL": "Read",
+            "HINT": "Messages the channel confirmed as read."
+          },
+          "FAILED": {
+            "LABEL": "Failed",
+            "HINT": "Messages the channel could not send. The reason is listed below."
+          },
+          "SKIPPED": {
+            "LABEL": "Skipped",
+            "HINT": "Contacts not messaged, for example with no e-mail address, blocked, with an empty variable or who never wrote to this inbox. The reason is listed below."
+          }
+        },
+        "STATUS": {
+          "QUEUED": "Queued",
+          "SENT": "Sent",
+          "DELIVERED": "Delivered",
+          "READ": "Read",
+          "FAILED": "Failed",
+          "SKIPPED": "Skipped"
+        },
+        "TABLE": {
+          "TITLE": "Recipients",
+          "CONTACT": "Contact",
+          "STATUS": "Status",
+          "MESSAGE": "Message",
+          "MESSAGE_NOT_GENERATED": "Not generated",
+          "REASON": "Reason",
+          "ERROR_CODE": "Code {code}"
+        },
+        "SCHEDULED_FOR": "Scheduled for {date}"
+      }
+    },
     "CONFIRM_DELETE": {
       "TITLE": "Are you sure to delete?",
       "DESCRIPTION": "The delete action is permanent and cannot be reversed.",

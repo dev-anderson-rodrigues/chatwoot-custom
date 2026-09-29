@@ -27,6 +27,7 @@ const MENU = {
   DELETE: 'delete',
   OPEN_NEW_TAB: 'open-new-tab',
   COPY_LINK: 'copy-link',
+  PIN: 'pin',
 };
 
 export default {
@@ -70,6 +71,10 @@ export default {
       type: Array,
       default: () => [],
     },
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
   },
   emits: [
     'updateConversation',
@@ -81,6 +86,7 @@ export default {
     'assignLabel',
     'removeLabel',
     'deleteConversation',
+    'togglePin',
     'close',
   ],
   setup() {
@@ -180,6 +186,16 @@ export default {
         key: MENU.COPY_LINK,
         icon: 'copy',
         label: this.$t('CONVERSATION.CARD_CONTEXT_MENU.COPY_LINK'),
+      },
+      pinOption: {
+        key: MENU.PIN,
+        icon: 'star-emphasis',
+        label: this.$t('CONVERSATION.CARD_CONTEXT_MENU.PIN'),
+      },
+      unpinOption: {
+        key: MENU.PIN,
+        icon: 'star-emphasis',
+        label: this.$t('CONVERSATION.CARD_CONTEXT_MENU.UNPIN'),
       },
     };
   },
@@ -437,6 +453,12 @@ export default {
         @click.stop="copyConversationLink"
       />
     </template>
+    <!-- [FORK] Fixar/desfixar conversa no topo da lista -->
+    <MenuItem
+      :option="isPinned ? unpinOption : pinOption"
+      variant="icon"
+      @click.stop="$emit('togglePin')"
+    />
     <template v-if="isAdmin && isAllowed([MENU.DELETE])">
       <hr class="m-1 rounded border-b border-n-weak dark:border-n-weak" />
       <MenuItem

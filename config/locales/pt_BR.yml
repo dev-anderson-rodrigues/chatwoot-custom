@@ -409,6 +409,10 @@ pt_BR:
       name: 'Notion'
       short_description: 'Integre banco de dados, documentos e páginas diretamente com o Capitão.'
       description: 'Conecte o seu espaço de trabalho Notion para permitir que o Capitão acesse e gere respostas inteligentes usando o conteúdo de seus bancos de dados, documentos e páginas para fornecer suporte ao cliente mais contextual.'
+    ixc:
+      name: 'IXC Provedor'
+      short_description: 'Acesse dados do cliente, faturas e contratos direto na conversa.'
+      description: 'Conecte ao IXC Provedor para ver nome, faturas em aberto, dias de atraso e contratos ativos do cliente diretamente no painel da conversa, sem sair do atendimento.'
     shopify:
       name: 'Shopify'
       short_description: 'Acessar detalhes do pedido e dados de clientes da sua loja Shopify.'

@@ -2,6 +2,7 @@
 import {
   computed,
   onMounted,
+  onUnmounted,
   useTemplateRef,
   ref,
   getCurrentInstance,
@@ -94,6 +95,17 @@ onMounted(() => {
   audioPlayer.value.playbackRate = playbackSpeed.value;
 });
 
+let rafId = null;
+
+const updateProgress = () => {
+  currentTime.value = audioPlayer.value?.currentTime ?? 0;
+  if (isPlaying.value) {
+    rafId = requestAnimationFrame(updateProgress);
+  }
+};
+
+onUnmounted(() => cancelAnimationFrame(rafId));
+
 // Listen for global audio play events and pause if it's not this audio
 useEmitter('pause_playing_audio', currentPlayingId => {
   if (currentPlayingId !== uid && isPlaying.value) {
@@ -103,6 +115,7 @@ useEmitter('pause_playing_audio', currentPlayingId => {
       /* ignore pause errors */
     }
     isPlaying.value = false;
+    cancelAnimationFrame(rafId);
   }
 });
 
@@ -118,10 +131,6 @@ const toggleMute = () => {
   isMuted.value = audioPlayer.value.muted;
 };
 
-const onTimeUpdate = () => {
-  currentTime.value = audioPlayer.value?.currentTime;
-};
-
 const seek = event => {
   const time = Number(event.target.value);
   audioPlayer.value.currentTime = time;
@@ -132,17 +141,20 @@ const playOrPause = () => {
   if (isPlaying.value) {
     audioPlayer.value.pause();
     isPlaying.value = false;
+    cancelAnimationFrame(rafId);
   } else {
     // Emit event to pause all other audio
     emitter.emit('pause_playing_audio', uid);
     audioPlayer.value.play();
     isPlaying.value = true;
+    rafId = requestAnimationFrame(updateProgress);
   }
 };
 
 const onEnd = () => {
   isPlaying.value = false;
   currentTime.value = 0;
+  cancelAnimationFrame(rafId);
   playbackSpeed.value = 1;
   audioPlayer.value.playbackRate = 1;
 };
@@ -168,7 +180,6 @@ const downloadAudio = async () => {
     class="hidden"
     playsinline
     @loadedmetadata="onLoadedMetadata"
-    @timeupdate="onTimeUpdate"
     @ended="onEnd"
   >
     <source :src="timeStampURL" />

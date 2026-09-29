@@ -1,4 +1,4 @@
-# Handoff — estado em 2026-09-17
+# Handoff — estado em 2026-09-25
 
 Documento de retomada. Leia antes de tocar em qualquer coisa: **o repositório mudou de
 lugar** e o ambiente foi reconstruído.
@@ -7,13 +7,133 @@ lugar** e o ambiente foi reconstruído.
 revisada pelos três especialistas e verificada na tela. Suíte de relatórios completa: 5
 telas de 5. Commitado e com push feito para `origin/feature/port-coraxy`.
 
-**2026-09-17 — Onda 6a fechada.** Fatia 1 (favicon/manifest dinâmicos) commitada
-(`b12ed32631`, `712d4e4db3`). Fatia 2 (cor de destaque da marca) pronta, revisada e
-verificada — **ainda não commitada**, está na working tree. Ver seção 4a para as duas.
+**2026-09-17 — Onda 6a fechada e enviada ao remote.** Favicon/manifest dinâmicos e cor de
+destaque da marca (seção 4a).
 
-Próximo passo natural: commitar a fatia 2 e seguir a ordem do plano — Onda 4 (UI/UX do chat)
-é a próxima depois de 6a, e a Onda 6b (infra/i18n) e a Onda 3 (fluxo IA, deliberadamente por
-último) seguem pendentes.
+**2026-09-19 — Onda 7 aberta: Campanhas de cobrança (feature nova, fora do port).** O dono
+decidiu **manter e evoluir** Campanhas (a Coraxy ocultava a aba) para disparar templates de
+cobrança por WhatsApp, e-mail ou outra caixa. Fatia 1 (WhatsApp também pelo 360dialog)
+commitada (`7408218812`, `d2bdb01bd0`), **sem push ainda**. Ver seção 4b.
+
+**2026-09-20 — o dono respondeu as perguntas abertas** (detalhe no plano, Ondas 7, 8 e 9):
+- **E-mail = texto com variáveis Liquid.** Canais: **qualquer caixa** (e-mail, WhatsApp, SMS,
+  Instagram, Telegram…). Instagram só dentro da janela de 24h e Telegram só para quem já
+  iniciou conversa — restrição da plataforma, não do código; esses canais só alcançam quem já
+  tem conversa.
+- **Dado da cobrança vem de integração nativa com ERP/CRM** (IXC primeiro) + **painel do
+  cliente ligado ao contato** → **Onda 8**, nova. Precedente no código: integração com Shopify
+  (`ContactPanel.vue` + `ShopifyOrdersList.vue`); também existe o "Painel de Aplicativos".
+- **Dialogflow removido do catálogo** (feito — `Integrations::App::HIDDEN_APP_IDS`) e
+  **NotificaMe Hub entra como provedor de canais** → **Onda 9**, nova, **não dimensionada**:
+  a documentação da API é uma SPA que não consegui ler. **Conferir em produção se há hook
+  Dialogflow:** `Integrations::Hook.where(app_id: 'dialogflow').count` — hook existente segue
+  processando, só some da tela.
+
+**2026-09-21 — plano da Onda 8 escrito: `docs-fork/plano-erp-cobranca.md`.** O dono mandou
+prints de um painel de cobrança dele como referência de produto ("a linha que quero deixar
+nativa"): o registro do ERP aparece direto na conversa e o que se registra na conversa volta
+para o ERP. Pontos que valem lembrar:
+- **Os prints têm dado real de cliente (nome, CPF, telefone). Nada foi copiado para o plano;
+  não versionar esses prints.**
+- **Corrigi uma recomendação minha:** "leitura ao vivo, não cópia do ERP" não serve, porque os
+  relatórios do print agregam milhares de faturas. Desenho final: **ao vivo para o painel,
+  espelho para relatórios e segmentação.**
+- **Assinatura de contrato** entrou como capacidade do adaptador (F7). O IXC tem o "IXC
+  Assina" com API; outros provedores não foram pesquisados.
+- A API do IXC **não foi verificada** contra ambiente algum — tudo é hipótese até termos o
+  acesso de teste (F0).
+- Verificado no código: segredo do hook só é cifrado **se as chaves de criptografia estiverem
+  configuradas** (e `settings` nunca é cifrado); **não há `sidekiq-throttled` no repo** (limite
+  de vazão para chamadas ao ERP precisa ser construído).
+
+Próximo passo natural: o dono decide a ordem. Sugestão: (1) ~~fatia 3 da Onda 7 (endurecimento
+de volume)~~ **feita em 2026-09-21, ver abaixo**; (2) Onda 8 (ERP/IXC + painel), que alimenta as
+variáveis — **bloqueada no acesso ao IXC**; (3) fatia 2 da Onda 7 (disparo genérico por
+qualquer caixa); (4) Onda 9 quando houver documentação/conta de teste do NotificaMe. Onda 4, 6b
+(sem o item Empresas/Dialogflow, já feitos) e 3 seguem pendentes.
+
+**2026-09-21 — Onda 7, fatia 3 (endurecimento de volume) pronta, ainda não commitada.** Tudo em
+`custom/`: `Custom::Campaigns::ResetStaleProcessingJob` (destrava campanha presa em
+`processing`, a cada 5 min pelo `TriggerScheduledItemsJob`), `Custom::TriggerScheduledItemsJob`,
+e o `Custom::Whatsapp::OneoffCampaignService` estendido (só processa destinatário `queued` com
+`reload`, confere o template antes de enviar, timeout, retry, ritmo, rescue por destinatário).
+`Custom::Whatsapp::Providers::BaseService` passou a guardar `http_status`/`retry_after`.
+**Variáveis de ambiente novas** (opcionais): `CAMPAIGN_SEND_INTERVAL_MS` (padrão 300) e
+`CAMPAIGN_SEND_TIMEOUT_SECONDS` (padrão 30). **Não medi o limite de vazão real da conta
+360dialog de vocês** — ajustar o intervalo quando souber.
+- **Regra que mais importa:** só repete **429** e **503 com `Retry-After`**. 500/502/504, timeout
+  e erro de rede **não** repetem, porque o provider pode ter processado e reenviar cobraria duas
+  vezes.
+- **A revisão achou dois bloqueantes reais e um erro meu de comentário** (o pior caso de dois
+  jobs concorrentes era a campanha inteira duplicada, não "uma mensagem"): corrigidos com
+  `reload` por destinatário e um rescue por destinatário (sem ele, uma mensagem com Liquid
+  inválido derrubava a campanha **em loop** com o reaper). Detalhe no plano.
+- **Limites que ficam:** timeout pode deixar destinatário `failed` sem `source_id` com a mensagem
+  já entregue; erro de conexão não repete; job de 10 mil ocupa um worker ~50 min (o melhor
+  desenho é em lotes); nada foi testado contra provider real.
+
+**2026-09-21 — "Empresas" escondido, e uma lacuna minha corrigida.** Feito pelo flag de conta
+`companies` (desligado), sem editar o menu do upstream: menu sem a opção, API responde 403,
+URL direta abre página vazia. **Ao fazer isso achei que a migration de 09-19 (WhatsApp) tinha um
+buraco:** o padrão de conta **nova** vem do registro `ACCOUNT_LEVEL_FEATURE_DEFAULTS` no
+banco, e o deploy **não sobrescreve** entrada existente — mudar o `features.yml` não chegava a
+contas criadas depois (e cada nova empresa é uma conta). Corrigido em
+`20260921000000_set_fork_feature_defaults.rb` (registro + contas existentes), com spec.
+**Lição para qualquer flag futuro:** mexer só no `features.yml` não basta em instalação
+existente; precisa de migration que atualize o registro. **Roda no deploy** (`db:migrate`).
+Armadilha de ambiente repetida: o `db:migrate` no container **reescreve comentários de 14
+models** (`ANNOTATE_SKIP_ON_DB_MIGRATE` não impediu) — reverter com `git checkout` depois de
+conferir que são só comentários.
+
+**2026-09-25 — Onda 8 F0+F1 iniciada (fundação IXC + conector read-only).** Commitado em `d591c9d8c9`. O que foi criado em `custom/`:
+- **Migration** `20260925000001_create_erp_customer_links.rb` — tabela `erp_customer_links` (account, contact, erp_provider, erp_customer_id, document normalizado, match_method, status). Três índices: unique por conta+contato+provider, por conta+provider+customer_id, por conta+provider+document. Migration rodada no dev.
+- **Model** `ErpCustomerLink` com validações e scopes (`linked`, `ambiguous`, `by_provider`).
+- **Serviço** `Erp::Ixc::Client` — HTTP GET para a API IXC com Basic Auth (`Base64(api_user:access_token)`). Métodos: `search_by_document`, `search_by_phone`, `get_customer`, `get_invoices` (fn_areceber, status A), `get_contracts` (cliente_contrato). Timeout 10s; erros tipados: `AuthenticationError`, `TimeoutError`, `RequestError`.
+- **Serviço** `Erp::Ixc::ContactResolver` — resolve contato → cliente IXC: busca por CPF/CNPJ (campo `cpf_cnpj`/`cnpj_cpf`/`cpf`/`cnpj` de `custom_attributes`) e fallback por `phone_number`; persiste link; retorna `{status: 'linked'|'ambiguous'|'not_found', ...}`.
+- **Controller** `Api::V1::Accounts::Integrations::IxcController` — `GET /api/v1/accounts/:id/integrations/ixc/customer?contact_id=X`. Retorna customer + invoices + contracts quando vinculado; trata os três erros tipados do client.
+- **`config/integration/apps.yml`**: entrada `ixc` com `settings_form_schema` (api_url, api_user). Token da API vai em `access_token` (campo criptografado do hook).
+- **`config/routes.rb`**: `resource :ixc … collection { get :customer }`.
+- **Rota verificada:** `GET /api/v1/accounts/:id/integrations/ixc/customer`. **Controller carrega** na chain correta (IxcController → BaseController → AccountsBaseController).
+- **Próximo:** F2 (painel Vue no ContactPanel) — depende de credenciais IXC para testar. Me passe a URL + token para eu configurar um hook e testar ao vivo.
+
+**2026-09-25 — Onda 4 concluída (4.4 — gravador de áudio).** Commitado em `340f0cd87a`. Três mudanças: waveform de 100px → 30px; cancelar gravação vira lixeira vermelha pulsante (`ruby faded + animate-pulse`); enviar durante gravação ativo (botão Enviar habilitado enquanto grava, `pendingSendAfterRecord` dispara o envio ao parar). Verificado na tela — o microfone do browser em sandboxed não tem permissão, mas os estados `isRecordingAudio`, o botão de cancelar e o `disabled: false` do botão Enviar foram confirmados via JavaScript. **Onda 4 agora 100% concluída.** Próximas: Onda 8 (ERP/IXC — bloqueada no acesso), Onda 9 (NotificaMe — bloqueada na documentação), Onda 3 (IA — por último).
+
+---
+
+**2026-09-24 — Onda 7, fatia 2 (disparo por qualquer caixa) commitada.**
+Campanhas por **e-mail, Telegram, Instagram, Facebook, LINE, TikTok e API**, pelo pipeline normal de
+mensagem (conversa + mensagem de saída + `SendReplyJob`), com telas novas em Campanhas: abas **E-mail** e
+**Outros canais**, e resultados por campanha (enviado/pulado/falhou **com o motivo**). Tudo em `custom/`
+(nenhum arquivo Ruby do upstream editado); o desenho, o que a revisão mudou e os limites estão na seção
+"Fatia 2 — resolvida" da Onda 7 do plano. O que precisa estar na cabeça de quem continuar:
+- **Deploy:** reiniciar Rails e Sidekiq (raízes de autoload novas, initializer novo, locales novos). **Sem
+  migration.** Variáveis novas: `CAMPAIGN_MAX_HIGH_QUEUE` (padrão 100 — a campanha espera a fila `high`, a
+  dos agentes, baixar) e `CAMPAIGN_EMAIL_ALLOW_PLATFORM_SMTP` (padrão desligada). **Campanha de e-mail
+  exige SMTP próprio na caixa (ou Google/Microsoft)** — sem isso ela seria enviada pelo SMTP da plataforma;
+  avisar os clientes antes de liberar a aba.
+- **`sent` = "entregue ao canal".** O envio real é assíncrono; um gancho em `Message` corrige o destinatário
+  para `failed`/`delivered`/`read`. O vínculo destinatário↔mensagem é o `source_id` `"message:<id>"`.
+- **Conversa da campanha nasce `snoozed` sem prazo e volta sozinha a `open` quando o cliente responde** — na
+  mesma conversa. Exceção: caixa com bot ativo cria `pending` (regra do model). `waiting_since` nasce nulo
+  (defeito meu, achado na verificação: sem isso a espera contaria desde o envio).
+- **Sem retry automático do Sidekiq para mensagem de campanha** (duplicar cobrança é pior que falhar): uma
+  falha transitória do canal aparece como falhou. Só o `SendReplyJob` de mensagem de campanha muda; o resto
+  segue como no upstream.
+- **A revisão dos 5 especialistas achou coisa séria e eu conferi cada uma no código:** `chat_id` do Telegram
+  (conversa nova nascia sem ele e o envio falhava), corrida entre dois jobs, exceção de `after_commit`
+  rebaixando `sent`, retry reenviando, fila `high` sem contrapressão, e-mail pelo SMTP global da plataforma,
+  marcação (link/imagem) em nome de contato virando phishing no e-mail. **Um achado eu refutei:** "e-mail sem
+  SMTP fica `sent` para sempre" — nesta versão o upstream levanta e a mensagem já vira `failed`.
+- **Não há teto de destinatários por campanha nem auditoria** de quem disparou o quê (recomendado pela revisão
+  de segurança; não feito). Os destinatários viram um array em memória: aceitável até ~20 mil por campanha.
+- **Nada disso foi testado contra Telegram/Instagram/Facebook/LINE/TikTok reais**; o e-mail só foi a um MailHog.
+- **Verificação no dev:** `qa_setup_campanhas_canais.rb` (não versionado, como os outros `qa_setup_*.rb`)
+  cria caixa de e-mail e de API, 5 contatos "QA" e a etiqueta `inadimplente-qa`. **A caixa de e-mail do QA
+  precisa de SMTP próprio agora** (o seed não configura; apontar `smtp_address: mailhog`, porta 1025, sem
+  TLS). Reinício obrigatório do Rails/Sidekiq depois de puxar esta fatia.
+- **Armadilhas novas de ambiente:** o `sleep` longo é bloqueado na ferramenta de shell; comando em segundo
+  plano dentro de `wsl -e bash -lc` **morre** quando a sessão termina (use `setsid nohup ... &` e um
+  `sleep` curto depois); `pkill -f` com um padrão que aparece na própria linha de comando mata o próprio shell.
 
 ---
 
@@ -80,7 +200,10 @@ porta foi o contorno; as novas estão em `docker-compose.dev.local.yaml` (não v
 | 1 — Backend | ✅ |
 | 1 — Frontend (8 fatias) | ✅ feitas, revisadas e verificadas na tela |
 | 5 — Relatórios | ✅ completa · 5 telas de 5 (a 6ª foi descartada com motivo) · push feito |
-| 6a — Marca no super admin | ✅ completa · fatia 1 commitada, fatia 2 (cor de destaque) pronta e não commitada |
+| 6a — Marca no super admin | ✅ completa · 2 fatias, commitadas e com push |
+| 7 — Campanhas de cobrança | ✅ feature nova · fatias 1 (WhatsApp/360dialog), 2 (disparo por qualquer caixa) e 3 (endurecimento de volume) prontas e revisadas; limites e pendências no plano |
+| 8 — ERP/CRM nativo + painel do cliente + cobrança | 📋 plano escrito em `plano-erp-cobranca.md` (2026-09-21), aguardando aprovação e acesso ao IXC |
+| 9 — NotificaMe Hub | ⏳ nova, precisa da documentação da API |
 | 4 · 6b · 3 | pendentes |
 
 Branch: `feature/port-coraxy`.
@@ -213,6 +336,44 @@ Verificado: busca no repo inteiro por `update_column`/`insert`/`upsert` sobre
 `InstallationConfig` fora de specs não achou nada — os dois únicos caminhos de escrita (form
 do super admin, seed via `ConfigLoader`) rodam validação. 29 exemplos, 0 falhas. Rubocop
 limpo. Testado contra o servidor real e no navegador.
+
+**2026-09-19 — Onda 7, fatia 1 pronta (campanha de WhatsApp também pelo 360dialog), ainda
+não commitada.** O upstream só deixava disparar em massa por `whatsapp_cloud`, e o flag
+`whatsapp_campaign` vinha desligado — por isso "dispara para WhatsApp" era falso na prática.
+
+Arquivos novos, todos na camada `custom/` (sem editar upstream):
+`custom/app/services/custom/whatsapp/oneoff_campaign_service.rb` (libera `default`+`whatsapp_cloud`),
+`custom/app/services/custom/whatsapp/providers/base_service.rb` (motivo de falha do 360dialog),
+`db/migrate/20260919000000_enable_whatsapp_campaign_for_existing_accounts.rb` (liga o flag nas
+contas existentes — **roda no deploy**, e como cada empresa é uma conta isso importa),
+`spec/custom/services/custom/whatsapp/providers/base_service_spec.rb`.
+Alterados: `config/features.yml` (flag `enabled: true`; a edição era do dono, ainda não
+commitada), `db/schema.rb` (só a linha de versão), e um teste **upstream** em
+`spec/services/whatsapp/oneoff_campaign_service_spec.rb` que afirmava o comportamento antigo
+(pode dar conflito em sync).
+
+Achados que valem lembrar:
+
+- **O `ContactDrop` expõe `custom_attribute`**, então `{{ contact.custom_attribute.valor }}`
+  já funciona no template: cobrança por atributo customizado é viável hoje — mas **alguém
+  precisa gravar valor/vencimento no contato** (importação, API, integração financeira). É a
+  pergunta 3 do plano.
+- O Enterprise (ativo) já tem **rastreio de entrega por destinatário** e tela de analytics de
+  campanha WhatsApp — o que falta é bem menos do que "escrever do zero".
+- O 360dialog devolve erro em formato diferente da Meta (`meta.developer_message` e lista
+  `errors`); sem o override, o motivo real da falha se perdia. O segundo formato **não foi
+  validado contra conta real**.
+- Um revisor apontou `namespace` como bloqueante; **conferi no código e não é** (o formulário
+  usa o namespace do template sincronizado). Vale lembrar de não aceitar achado sem checar.
+- **Armadilha de ambiente:** `rails db:migrate` no container roda o hook do `annotate` e
+  reescreve comentários de 14 models não relacionados. Reverter com `git checkout` nesses
+  arquivos (conferi que eram só linhas de comentário) e manter só `db/schema.rb` (versão).
+- Banco de teste: depois de uma migration nova, subir a versão em `db/schema.rb` e rodar
+  `bash /home/anderson/bin/cw-testdb` (só `chatwoot_test`), senão o RSpec para com
+  "Migrations are pending".
+
+Dívida de volume (lease de campanha em `processing`, retry/backoff para 429, timeout, reenvio
+na retomada) e as perguntas abertas: seção "Onda 7" de `plano-port-coraxy.md`.
 
 **Como rodar teste aqui:** `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /home/anderson/bin/cw-rspec <arquivos>`
 e `.../cw-vitest <arquivos>`. **Não rode RSpec por outro caminho:** o ambiente de teste lê

@@ -27,6 +27,11 @@ export const conversationUrl = ({
     url = `accounts/${accountId}/participating/conversations/${id}`;
   } else if (conversationType === 'unattended') {
     url = `accounts/${accountId}/unattended/conversations/${id}`;
+  // [FORK] Filas IA MAESTRO
+  } else if (conversationType === 'mine') {
+    url = `accounts/${accountId}/mine/conversations/${id}`;
+  } else if (conversationType === 'ai') {
+    url = `accounts/${accountId}/ai/conversations/${id}`;
   }
   return url;
 };
@@ -53,6 +58,9 @@ export const conversationListPageURL = ({
       mention: 'mentions/conversations',
       participating: 'participating/conversations',
       unattended: 'unattended/conversations',
+      // [FORK] Filas IA MAESTRO
+      mine: 'mine/conversations',
+      ai: 'ai/conversations',
     };
     url = `accounts/${accountId}/${urlMap[conversationType]}`;
   }

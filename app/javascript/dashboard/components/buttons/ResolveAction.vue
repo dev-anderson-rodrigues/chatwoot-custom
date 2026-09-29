@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useAlert } from 'dashboard/composables';
 import { useToggle } from '@vueuse/core';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import { useStore, useStoreGetters } from 'dashboard/composables/store';
 import { useEmitter } from 'dashboard/composables/emitter';
 import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
@@ -22,8 +23,13 @@ import ConversationResolveAttributesModal from 'dashboard/components-next/Conver
 
 const store = useStore();
 const getters = useStoreGetters();
+const router = useRouter();
 const { t } = useI18n();
 const { checkMissingAttributes } = useConversationRequiredAttributes();
+
+// [FORK] Necessários para atribuição e navegação após "Abrir"
+const currentUser = computed(() => getters.getCurrentUser.value);
+const accountId = computed(() => getters.getCurrentAccountId.value);
 
 const arrowDownButtonRef = ref(null);
 const isLoading = ref(false);
@@ -98,6 +104,13 @@ const toggleStatus = (status, snoozedUntil, customAttributes = null) => {
   store.dispatch('toggleStatus', payload).then(() => {
     useAlert(t('CONVERSATION.CHANGE_STATUS'));
     isLoading.value = false;
+    // [FORK] "Deixar pendente" redireciona para a fila Aguardando humano
+    if (status === wootConstants.STATUS_TYPE.PENDING) {
+      router.push({
+        name: 'conversation_ai',
+        params: { accountId: accountId.value },
+      });
+    }
   });
 };
 
@@ -113,8 +126,32 @@ const handleResolveWithAttributes = ({ attributes, context }) => {
   }
 };
 
-const onCmdOpenConversation = () => {
-  toggleStatus(wootConstants.STATUS_TYPE.OPEN);
+// [FORK] Abrir: abre + atribui ao usuário atual + navega para "Minhas"
+const onCmdOpenConversation = async () => {
+  closeDropdown();
+  isLoading.value = true;
+  try {
+    await store.dispatch('toggleStatus', {
+      conversationId: currentChat.value.id,
+      status: wootConstants.STATUS_TYPE.OPEN,
+      snoozedUntil: null,
+    });
+    useAlert(t('CONVERSATION.CHANGE_STATUS'));
+    // Atribuir ao usuário atual
+    if (currentUser.value?.id) {
+      await store.dispatch('assignAgent', {
+        conversationId: currentChat.value.id,
+        agentId: currentUser.value.id,
+      });
+    }
+    // Navegar para a fila "Minhas"
+    router.push({
+      name: 'conversation_mine',
+      params: { accountId: accountId.value },
+    });
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const onCmdResolveConversation = () => {
@@ -201,12 +238,14 @@ useEmitter(CMD_RESOLVE_CONVERSATION, onCmdResolveConversation);
         :is-loading="isLoading"
         @click="onCmdOpenConversation"
       />
+      <!-- [FORK] Pulso âmbar sinaliza que a conversa aguarda handoff da IA -->
       <Button
         v-else-if="showOpenButton"
         :label="t('CONVERSATION.HEADER.OPEN_ACTION')"
         size="sm"
         color="slate"
         no-animation
+        class="ltr:rounded-r-none rtl:rounded-l-none !outline-0 animate-pulse-amber"
         :is-loading="isLoading"
         @click="onCmdOpenConversation"
       />
@@ -261,3 +300,14 @@ useEmitter(CMD_RESOLVE_CONVERSATION, onCmdResolveConversation);
     />
   </div>
 </template>
+
+<style scoped>
+/* [FORK] Pulso âmbar no botão "Abrir" — sinaliza conversa aguardando handoff */
+.animate-pulse-amber {
+  animation: pulse-amber 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse-amber {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  50%       { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.35); }
+}
+</style>

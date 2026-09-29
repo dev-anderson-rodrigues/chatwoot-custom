@@ -7,6 +7,12 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // [FORK] Escopo dos textos: a analitica das campanhas por e-mail e outras caixas usa
+  // outros rotulos (ex.: `sent` e "Enviado", nao "Aguardando confirmacao de entrega").
+  i18nScope: {
+    type: String,
+    default: 'CAMPAIGN.WHATSAPP.ANALYTICS',
+  },
 });
 
 const { t } = useI18n();
@@ -25,7 +31,7 @@ const badgeClass = computed(
 );
 
 const label = computed(() => {
-  const key = `CAMPAIGN.WHATSAPP.ANALYTICS.STATUS.${props.status.toUpperCase()}`;
+  const key = `${props.i18nScope}.STATUS.${props.status.toUpperCase()}`;
   return STATUS_CLASSES[props.status] ? t(key) : props.status;
 });
 </script>

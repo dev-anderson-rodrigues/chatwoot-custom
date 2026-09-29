@@ -6,6 +6,7 @@ import { useChatListKeyboardEvents } from 'dashboard/composables/chatlist/useCha
 import ConversationItem from './ConversationItem.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import IntersectionObserver from 'dashboard/components/IntersectionObserver.vue';
+import ConversationCardSkeleton from './ConversationCardSkeleton.vue';
 
 import wootConstants from 'dashboard/constants/globals';
 
@@ -19,6 +20,7 @@ const props = defineProps({
   conversationType: { type: String, default: '' },
   showAssignee: { type: Boolean, default: false },
   isOnExpandedLayout: { type: Boolean, default: false },
+  isCompact: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['loadMore']);
@@ -77,9 +79,12 @@ defineExpose({ conversationListRef });
         :conversation-type="conversationType"
         :show-assignee="showAssignee"
         :show-expanded="showExpandedCards"
+        :is-compact="isCompact"
       />
     </Virtualizer>
-    <div v-if="isLoading" class="flex justify-center my-4">
+    <!-- [FORK] Skeleton cards durante o carregamento inicial -->
+    <ConversationCardSkeleton v-if="isLoading && !conversationList.length" />
+    <div v-else-if="isLoading" class="flex justify-center my-4">
       <Spinner class="text-n-brand" />
     </div>
     <p v-else-if="showEndOfListMessage" class="p-4 text-center text-n-slate-11">

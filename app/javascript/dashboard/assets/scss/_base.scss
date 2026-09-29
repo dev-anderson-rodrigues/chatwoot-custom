@@ -201,3 +201,32 @@ code {
 table {
   @apply border-spacing-0 text-sm w-full;
 }
+
+// [FORK] Wallpaper suave no painel de mensagens (tom creme, 0.03 opacidade)
+.conversation-panel {
+  background-color: #fdfaf6;
+
+  @media (prefers-color-scheme: dark) {
+    background-color: transparent;
+  }
+}
+
+// Support dark mode via .dark class (Chatwoot dark-mode mechanism)
+.dark .conversation-panel {
+  background-color: transparent;
+}
+
+// [FORK] Scrollbar global fino e arredondado
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-n-slate-5 dark:bg-n-solid-3 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-n-slate-7 dark:bg-n-solid-2;
+}
