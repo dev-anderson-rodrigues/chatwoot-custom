@@ -417,6 +417,7 @@ Rails.application.routes.draw do
               collection do
                 get :customer
                 get :overdue_customers
+                get :customer_details
                 get :promises
                 post :create_promise
                 delete 'promises/:id', action: :destroy_promise

@@ -7,7 +7,7 @@ const props = defineProps({
   show: { type: Boolean, default: false },
   customer: { type: Object, default: null },
   invoices: { type: Array, default: () => [] },
-  contactId: { type: [Number, String], required: true },
+  contactId: { type: [Number, String], default: null },
   erpCustomerId: { type: [Number, String], required: true },
 });
 
@@ -58,7 +58,7 @@ const formatCurrency = val => {
 };
 
 const loadPromises = async () => {
-  if (!props.erpCustomerId) return;
+  if (!props.erpCustomerId || !props.contactId) return;
   loadingPromises.value = true;
   try {
     const res = await IxcAPI.getPromises(props.contactId, props.erpCustomerId);
@@ -69,7 +69,7 @@ const loadPromises = async () => {
 };
 
 const loadAttendances = async () => {
-  if (!props.erpCustomerId) return;
+  if (!props.erpCustomerId || !props.contactId) return;
   loadingAttendances.value = true;
   try {
     const res = await IxcAPI.getAttendances(props.contactId, props.erpCustomerId);
@@ -318,6 +318,12 @@ watch(() => props.show, show => {
 
           <!-- Promessas -->
           <div v-else-if="activeTab === 'promessas'" class="px-5 pt-4 pb-5">
+            <div v-if="!contactId" class="text-center text-gray-500 text-sm py-8">
+              <span class="i-lucide-link-2-off" style="width:20px;height:20px;display:inline-block;margin-bottom:8px;opacity:0.5" />
+              <p>Este cliente não está vinculado a um contato no Chatwoot.</p>
+              <p class="text-xs mt-1">Vincule pelo painel do contato para registrar promessas.</p>
+            </div>
+            <template v-else>
             <div class="flex items-center justify-between mb-4">
               <span class="text-sm font-semibold text-gray-200">Promessas de pagamento</span>
               <button
@@ -418,10 +424,17 @@ watch(() => props.show, show => {
                 </p>
               </div>
             </div>
+            </template>
           </div>
 
           <!-- Atendimentos -->
           <div v-else-if="activeTab === 'atendimentos'" class="px-5 pt-4 pb-5">
+            <div v-if="!contactId" class="text-center text-gray-500 text-sm py-8">
+              <span class="i-lucide-link-2-off" style="width:20px;height:20px;display:inline-block;margin-bottom:8px;opacity:0.5" />
+              <p>Este cliente não está vinculado a um contato no Chatwoot.</p>
+              <p class="text-xs mt-1">Vincule pelo painel do contato para registrar atendimentos.</p>
+            </div>
+            <template v-else>
             <div class="flex items-center justify-between mb-4">
               <span class="text-sm font-semibold text-gray-200">Histórico de atendimentos</span>
               <button
@@ -522,6 +535,7 @@ watch(() => props.show, show => {
                 </p>
               </div>
             </div>
+            </template>
           </div>
 
         </div>

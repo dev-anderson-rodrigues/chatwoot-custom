@@ -25,6 +25,27 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
     render json: { error: e.message }, status: :bad_gateway
   end
 
+  # GET /api/v1/accounts/:account_id/integrations/ixc/customer_details?erp_customer_id=X
+  def customer_details
+    hook = Integrations::Hook.find_by(account: Current.account, app_id: 'ixc')
+    return render json: { error: 'IXC integration not configured.' }, status: :not_found unless hook
+
+    erp_id = params[:erp_customer_id].to_s
+    return render json: { error: 'erp_customer_id required.' }, status: :unprocessable_entity if erp_id.blank?
+
+    client   = Erp::Ixc::Client.new(hook: hook)
+    customer = client.get_customer(erp_id)
+    invoices = client.get_invoices(erp_id, status: 'A')
+
+    render json: { customer: customer, invoices: invoices }
+  rescue Erp::Ixc::AuthenticationError
+    render json: { error: 'IXC authentication failed.' }, status: :unauthorized
+  rescue Erp::Ixc::TimeoutError
+    render json: { error: 'IXC API timed out.' }, status: :service_unavailable
+  rescue Erp::Ixc::RequestError => e
+    render json: { error: e.message }, status: :bad_gateway
+  end
+
   # GET /api/v1/accounts/:account_id/integrations/ixc/promises?contact_id=X&erp_customer_id=Y
   def promises
     contact = Current.account.contacts.find(params[:contact_id])

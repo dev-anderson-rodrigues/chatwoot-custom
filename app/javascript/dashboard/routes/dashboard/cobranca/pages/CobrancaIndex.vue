@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import IxcAPI from '../../../../api/integrations/ixc';
+import IxcCustomerModal from 'dashboard/components/widgets/conversation/IxcCustomerModal.vue';
 
 const loading = ref(false);
 const error = ref('');
@@ -117,6 +118,60 @@ const fetchData = async () => {
 };
 
 onMounted(fetchData);
+
+// --- Modal de detalhes ---
+const showModal = ref(false);
+const modalCustomer = ref(null);
+const modalInvoices = ref([]);
+const loadingModal = ref(false);
+
+const openDetails = async r => {
+  loadingModal.value = true;
+  modalCustomer.value = null;
+  modalInvoices.value = [];
+  showModal.value = true;
+  try {
+    const res = await IxcAPI.getCustomerDetails(r.customer_id);
+    modalCustomer.value = res.data.customer;
+    modalInvoices.value = res.data.invoices || [];
+  } catch {
+    showModal.value = false;
+  } finally {
+    loadingModal.value = false;
+  }
+};
+
+// --- Disparar (WhatsApp / copiar telefone) ---
+const dispatchRecord = ref(null);
+
+const onDispatch = r => {
+  dispatchRecord.value = r;
+};
+
+const closeDispatch = () => {
+  dispatchRecord.value = null;
+};
+
+const copyPhone = async phone => {
+  const digits = phone.replace(/\D/g, '');
+  try {
+    await navigator.clipboard.writeText(digits);
+  } catch {
+    // Fallback: select text
+    const el = document.createElement('input');
+    el.value = digits;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+  }
+};
+
+const openWhatsApp = phone => {
+  const digits = phone.replace(/\D/g, '');
+  const withCountry = digits.startsWith('55') ? digits : `55${digits}`;
+  window.open(`https://wa.me/${withCountry}`, '_blank', 'noopener');
+};
 </script>
 
 <template>
@@ -366,13 +421,16 @@ onMounted(fetchData);
               <!-- Actions -->
               <div class="flex gap-2 px-4 pb-4">
                 <button
-                  class="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-n-weak text-xs font-medium text-n-slate-11 hover:bg-n-slate-3 transition-colors"
+                  class="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-n-weak text-xs font-medium text-n-slate-11 hover:bg-n-slate-3 transition-colors disabled:opacity-40"
+                  :disabled="loadingModal"
+                  @click="openDetails(r)"
                 >
                   <span class="i-lucide-eye w-3.5 h-3.5" />
                   Detalhes
                 </button>
                 <button
                   class="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-n-brand text-white text-xs font-semibold hover:bg-n-brand/90 transition-colors"
+                  @click="onDispatch(r)"
                 >
                   <span class="i-lucide-send w-3.5 h-3.5" />
                   Disparar
@@ -384,4 +442,77 @@ onMounted(fetchData);
       </div>
     </main>
   </section>
+
+  <!-- Modal de detalhes do cliente -->
+  <IxcCustomerModal
+    v-if="modalCustomer"
+    :show="showModal && !!modalCustomer"
+    :customer="modalCustomer"
+    :invoices="modalInvoices"
+    :contact-id="null"
+    :erp-customer-id="modalCustomer?.id || ''"
+    @close="showModal = false; modalCustomer = null"
+  />
+
+  <!-- Loading overlay para detalhes -->
+  <Teleport to="body">
+    <div
+      v-if="loadingModal"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      style="background: rgba(0,0,0,0.5)"
+    >
+      <Spinner :size="36" class="text-white" />
+    </div>
+  </Teleport>
+
+  <!-- Overlay de Disparar -->
+  <Teleport to="body">
+    <div
+      v-if="dispatchRecord"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      style="background: rgba(0,0,0,0.65)"
+      @click.self="closeDispatch"
+    >
+      <div class="rounded-xl p-5 w-80 shadow-2xl" style="background:#1c1c1e;border:1px solid #3a3a3c">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <p class="text-sm font-semibold text-white truncate max-w-52">{{ dispatchRecord.name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ dispatchRecord.cpf_cnpj }}</p>
+          </div>
+          <button
+            class="text-gray-500 hover:text-gray-200 transition-colors shrink-0 ml-2"
+            style="background:none;border:none;cursor:pointer;font-size:16px;line-height:1"
+            @click="closeDispatch"
+          >✕</button>
+        </div>
+
+        <div class="rounded-lg px-3 py-2.5 mb-4" style="background:#2c2c2e">
+          <p class="text-xs text-gray-400 mb-1">Telefone</p>
+          <p class="text-sm text-white font-medium">{{ dispatchRecord.phone || '—' }}</p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <button
+            v-if="dispatchRecord.phone"
+            class="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-semibold transition-colors"
+            style="background:#25d366;color:#fff;border:none;cursor:pointer"
+            @click="openWhatsApp(dispatchRecord.phone); closeDispatch()"
+          >
+            <span class="i-lucide-message-circle w-4 h-4" />
+            Abrir no WhatsApp
+          </button>
+          <button
+            v-if="dispatchRecord.phone"
+            class="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium transition-colors"
+            style="background:none;border:1px solid #3a3a3c;color:#e0e0e0;cursor:pointer"
+            @click="copyPhone(dispatchRecord.phone); closeDispatch()"
+          >
+            <span class="i-lucide-copy w-4 h-4" />
+            Copiar número
+          </button>
+          <p v-else class="text-center text-xs text-gray-500 py-1">Nenhum telefone cadastrado neste cliente.</p>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
