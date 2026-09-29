@@ -1,6 +1,6 @@
 class IxcPromise < ApplicationRecord
   belongs_to :account
-  belongs_to :contact
+  belongs_to :contact, optional: true
 
   validates :erp_customer_id, presence: true
   validates :promised_date, presence: true

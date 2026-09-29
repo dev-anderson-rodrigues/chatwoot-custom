@@ -46,24 +46,19 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
     render json: { error: e.message }, status: :bad_gateway
   end
 
-  # GET /api/v1/accounts/:account_id/integrations/ixc/promises?contact_id=X&erp_customer_id=Y
+  # GET /api/v1/accounts/:account_id/integrations/ixc/promises?erp_customer_id=Y[&contact_id=X]
   def promises
-    contact = Current.account.contacts.find(params[:contact_id])
-    records = IxcPromise.active
-                        .where(account: Current.account, contact: contact,
-                               erp_customer_id: params[:erp_customer_id])
-                        .order(created_at: :desc)
-    render json: records.map { |p| serialize_promise(p) }
-  rescue ActiveRecord::RecordNotFound
-    render json: { error: 'Contact not found.' }, status: :not_found
+    scope = IxcPromise.active.where(account: Current.account, erp_customer_id: params[:erp_customer_id])
+    scope = scope.where(contact_id: params[:contact_id]) if params[:contact_id].present?
+    render json: scope.order(created_at: :desc).map { |p| serialize_promise(p) }
   end
 
   # POST /api/v1/accounts/:account_id/integrations/ixc/promises
   def create_promise
-    contact = Current.account.contacts.find(params[:contact_id])
+    contact_id = resolve_contact_id
     promise = IxcPromise.create!(
       account: Current.account,
-      contact: contact,
+      contact_id: contact_id,
       erp_customer_id: params[:erp_customer_id],
       promised_date: params[:promised_date],
       amount: params[:amount].presence,
@@ -71,17 +66,13 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
       created_by: current_user.id
     )
     render json: serialize_promise(promise), status: :created
-  rescue ActiveRecord::RecordNotFound
-    render json: { error: 'Contact not found.' }, status: :not_found
   rescue ActiveRecord::RecordInvalid => e
     render json: { error: e.message }, status: :unprocessable_entity
   end
 
   # DELETE /api/v1/accounts/:account_id/integrations/ixc/promises/:id
   def destroy_promise
-    contact = Current.account.contacts.find(params[:contact_id])
-    promise = IxcPromise.active
-                        .find_by!(account: Current.account, contact: contact, id: params[:id])
+    promise = IxcPromise.active.find_by!(account: Current.account, id: params[:id])
     unless promise.created_by == current_user.id
       return render json: { error: 'Você só pode excluir registros criados por você.' }, status: :forbidden
     end
@@ -92,24 +83,19 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
     render json: { error: 'Record not found.' }, status: :not_found
   end
 
-  # GET /api/v1/accounts/:account_id/integrations/ixc/attendances?contact_id=X&erp_customer_id=Y
+  # GET /api/v1/accounts/:account_id/integrations/ixc/attendances?erp_customer_id=Y[&contact_id=X]
   def attendances
-    contact = Current.account.contacts.find(params[:contact_id])
-    records = IxcAttendance.active
-                           .where(account: Current.account, contact: contact,
-                                  erp_customer_id: params[:erp_customer_id])
-                           .order(created_at: :desc)
-    render json: records.map { |a| serialize_attendance(a) }
-  rescue ActiveRecord::RecordNotFound
-    render json: { error: 'Contact not found.' }, status: :not_found
+    scope = IxcAttendance.active.where(account: Current.account, erp_customer_id: params[:erp_customer_id])
+    scope = scope.where(contact_id: params[:contact_id]) if params[:contact_id].present?
+    render json: scope.order(created_at: :desc).map { |a| serialize_attendance(a) }
   end
 
   # POST /api/v1/accounts/:account_id/integrations/ixc/attendances
   def create_attendance
-    contact = Current.account.contacts.find(params[:contact_id])
+    contact_id = resolve_contact_id
     attendance = IxcAttendance.create!(
       account: Current.account,
-      contact: contact,
+      contact_id: contact_id,
       erp_customer_id: params[:erp_customer_id],
       canal: params[:canal],
       resultado: params[:resultado],
@@ -117,17 +103,13 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
       created_by: current_user.id
     )
     render json: serialize_attendance(attendance), status: :created
-  rescue ActiveRecord::RecordNotFound
-    render json: { error: 'Contact not found.' }, status: :not_found
   rescue ActiveRecord::RecordInvalid => e
     render json: { error: e.message }, status: :unprocessable_entity
   end
 
   # DELETE /api/v1/accounts/:account_id/integrations/ixc/attendances/:id
   def destroy_attendance
-    contact = Current.account.contacts.find(params[:contact_id])
-    attendance = IxcAttendance.active
-                              .find_by!(account: Current.account, contact: contact, id: params[:id])
+    attendance = IxcAttendance.active.find_by!(account: Current.account, id: params[:id])
     unless attendance.created_by == current_user.id
       return render json: { error: 'Você só pode excluir registros criados por você.' }, status: :forbidden
     end
@@ -157,6 +139,15 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
   end
 
   private
+
+  def resolve_contact_id
+    id = params[:contact_id].presence
+    return nil unless id
+
+    Current.account.contacts.find(id).id
+  rescue ActiveRecord::RecordNotFound
+    nil
+  end
 
   def serialize_promise(p)
     {

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_28_000002) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_29_000001) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -1202,7 +1202,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_28_000002) do
 
   create_table "ixc_attendances", force: :cascade do |t|
     t.bigint "account_id", null: false
-    t.bigint "contact_id", null: false
+    t.bigint "contact_id"
     t.string "erp_customer_id", null: false
     t.string "canal"
     t.string "resultado"
@@ -1219,7 +1219,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_28_000002) do
 
   create_table "ixc_promises", force: :cascade do |t|
     t.bigint "account_id", null: false
-    t.bigint "contact_id", null: false
+    t.bigint "contact_id"
     t.string "erp_customer_id", null: false
     t.date "promised_date", null: false
     t.decimal "amount", precision: 10, scale: 2
