@@ -79,7 +79,8 @@ module Erp::Ixc
 
     # atraso eh campo calculado no IXC, nao aceita filtro via grid_param.
     # Filtra apenas status=A na API e descarta sem atraso no Ruby.
-    def overdue_invoices_page(page:, per_page: 100, min_atraso: 1)
+    # Retorna page_size com total bruto da pagina para detectar ultima pagina.
+    def overdue_invoices_page(page:, per_page: 200, min_atraso: 1)
       body = {
         page: page.to_s, rp: per_page.to_s,
         sortname: 'fn_areceber.data_vencimento', sortorder: 'asc',
@@ -88,14 +89,26 @@ module Erp::Ixc
                                   ])
       }
       response = request('fn_areceber', body)
+      raw = Array(response['registros'])
       today = Date.today
-      records = Array(response['registros']).select do |r|
+      records = raw.select do |r|
         due = Date.parse(r['data_vencimento']) rescue nil
         next false unless due
-        atraso = (today - due).to_i
-        atraso >= min_atraso
+
+        (today - due).to_i >= min_atraso
       end
-      { records: records, total: records.size }
+      { records: records, raw_size: raw.size, ixc_total: response['total'].to_i }
+    end
+
+    # Busca TODAS as faturas vencidas paginando ate o fim.
+    def all_overdue_invoices(per_page: 200, min_atraso: 1, max_pages: 20)
+      all = []
+      (1..max_pages).each do |page|
+        result = overdue_invoices_page(page: page, per_page: per_page, min_atraso: min_atraso)
+        all.concat(result[:records])
+        break if result[:raw_size] < per_page
+      end
+      all
     end
 
     def customers_page(page:, per_page: 100)

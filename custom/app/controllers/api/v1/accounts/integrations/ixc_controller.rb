@@ -1,22 +1,17 @@
 class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integrations::BaseController
-  # GET /api/v1/accounts/:account_id/integrations/ixc/overdue_customers?page=1&per_page=50
+  # GET /api/v1/accounts/:account_id/integrations/ixc/overdue_customers
   def overdue_customers
     hook = Integrations::Hook.find_by(account: Current.account, app_id: 'ixc')
     return render json: { error: 'IXC integration not configured.' }, status: :not_found unless hook
 
-    client  = Erp::Ixc::Client.new(hook: hook)
-    page    = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 50).to_i, 200].min
+    client   = Erp::Ixc::Client.new(hook: hook)
+    invoices = client.all_overdue_invoices
 
-    result  = client.overdue_invoices_page(page: page, per_page: per_page)
-    invoices = result[:records]
-
-    customer_ids = invoices.map { |i| i['id_cliente'] }.uniq
+    customer_ids    = invoices.map { |i| i['id_cliente'] }.uniq
     customers_by_id = fetch_customers_map(client, customer_ids)
+    records         = build_overdue_records(invoices, customers_by_id)
 
-    records = build_overdue_records(invoices, customers_by_id)
-
-    render json: { records: records, total: result[:total], page: page, per_page: per_page }
+    render json: { records: records, total: records.size }
   rescue Erp::Ixc::AuthenticationError
     render json: { error: 'IXC authentication failed.' }, status: :unauthorized
   rescue Erp::Ixc::TimeoutError

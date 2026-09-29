@@ -107,7 +107,7 @@ const fetchData = async () => {
   loading.value = true;
   error.value = '';
   try {
-    const res = await IxcAPI.getOverdueCustomers(1, 200);
+    const res = await IxcAPI.getOverdueCustomers();
     records.value = res.data.records || [];
     lastUpdate.value = new Date();
   } catch (e) {
