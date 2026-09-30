@@ -4,7 +4,7 @@ import { provideSidebarContext, useSidebarResize } from './provider';
 import { useAccount } from 'dashboard/composables/useAccount';
 import { useConfig } from 'dashboard/composables/useConfig';
 import { useKbd } from 'dashboard/composables/utils/useKbd';
-import { useMapGetter } from 'dashboard/composables/store';
+import { useMapGetter, useFunctionGetter } from 'dashboard/composables/store';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
 import { useSidebarKeyboardShortcuts } from './useSidebarKeyboardShortcuts';
@@ -246,6 +246,9 @@ const getSidebarSectionSort = useMapGetter(
   'sidebarSortPreferences/getSectionSort'
 );
 
+const ixcIntegration = useFunctionGetter('integrations/getIntegration', 'ixc');
+const isIxcEnabled = computed(() => !!ixcIntegration.value?.id);
+
 onMounted(() => {
   store.dispatch('labels/get');
   store.dispatch('inboxes/get');
@@ -255,6 +258,7 @@ onMounted(() => {
   store.dispatch('customViews/get', 'conversation');
   store.dispatch('customViews/get', 'contact');
   store.dispatch('dashboardApps/get');
+  store.dispatch('integrations/get', 'ixc');
 });
 
 watch([accountId, hasConversationUnreadCounts], fetchConversationUnreadCounts, {
@@ -748,13 +752,17 @@ const menuItems = computed(() => {
         },
       ],
     },
-    {
-      name: 'GestaoCobranca',
-      label: t('SIDEBAR.GESTAO_COBRANCA'),
-      icon: 'i-lucide-receipt',
-      to: accountScopedRoute('gestao_cobranca_index'),
-      activeOn: ['gestao_cobranca_index'],
-    },
+    ...(isIxcEnabled.value
+      ? [
+          {
+            name: 'GestaoCobranca',
+            label: t('SIDEBAR.GESTAO_COBRANCA'),
+            icon: 'i-lucide-receipt',
+            to: accountScopedRoute('gestao_cobranca_index'),
+            activeOn: ['gestao_cobranca_index'],
+          },
+        ]
+      : []),
     {
       name: 'Reports',
       label: t('SIDEBAR.REPORTS'),
