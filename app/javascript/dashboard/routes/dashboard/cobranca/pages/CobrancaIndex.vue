@@ -13,6 +13,89 @@ const search = ref('');
 const filterAtraso = ref('');
 const filterDivida = ref('');
 
+// --- Seleção múltipla ---
+const selectedIds = ref(new Set());
+
+const isSelected = id => selectedIds.value.has(id);
+
+const toggleSelect = id => {
+  const next = new Set(selectedIds.value);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  selectedIds.value = next;
+};
+
+const allVisibleSelected = computed(
+  () =>
+    filteredRecords.value.length > 0 &&
+    filteredRecords.value.every(r => selectedIds.value.has(r.customer_id))
+);
+
+const toggleSelectAll = () => {
+  if (allVisibleSelected.value) {
+    selectedIds.value = new Set();
+  } else {
+    selectedIds.value = new Set(filteredRecords.value.map(r => r.customer_id));
+  }
+};
+
+const clearSelection = () => {
+  selectedIds.value = new Set();
+};
+
+const selectionCount = computed(() => selectedIds.value.size);
+
+const selectedRecords = computed(() =>
+  records.value.filter(r => selectedIds.value.has(r.customer_id))
+);
+
+// --- Bulk dispatch ---
+const showBulkDispatch = ref(false);
+const bulkDispatching = ref(false);
+
+const openBulkDispatch = () => {
+  showBulkDispatch.value = true;
+};
+
+const closeBulkDispatch = () => {
+  showBulkDispatch.value = false;
+};
+
+const openWhatsAppBulk = () => {
+  bulkDispatching.value = true;
+  selectedRecords.value.forEach((r, i) => {
+    if (r.phone) {
+      const digits = r.phone.replace(/\D/g, '');
+      const withCountry = digits.startsWith('55') ? digits : `55${digits}`;
+      setTimeout(() => {
+        window.open(`https://wa.me/${withCountry}`, '_blank', 'noopener');
+      }, i * 300);
+    }
+  });
+  setTimeout(() => {
+    bulkDispatching.value = false;
+    showBulkDispatch.value = false;
+    clearSelection();
+  }, selectedRecords.value.length * 300 + 200);
+};
+
+const copyAllPhones = async () => {
+  const phones = selectedRecords.value
+    .filter(r => r.phone)
+    .map(r => `${r.name}: ${r.phone}`)
+    .join('\n');
+  try {
+    await navigator.clipboard.writeText(phones);
+  } catch {
+    const el = document.createElement('textarea');
+    el.value = phones;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+  }
+};
+
 const ATRASO_RANGES = [
   { label: '1–30d', min: 1, max: 30 },
   { label: '31–60d', min: 31, max: 60 },
@@ -279,6 +362,25 @@ const openWhatsApp = phone => {
             </button>
           </div>
 
+          <!-- Select all row (shown when records exist) -->
+          <div v-if="filteredRecords.length > 0 && !loading" class="flex items-center gap-3">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                class="w-4 h-4 rounded accent-n-brand cursor-pointer"
+                :checked="allVisibleSelected"
+                :indeterminate="selectionCount > 0 && !allVisibleSelected"
+                @change="toggleSelectAll"
+              />
+              <span class="text-xs text-n-slate-10 font-medium">
+                {{ allVisibleSelected ? 'Desmarcar todos' : 'Selecionar todos' }}
+              </span>
+            </label>
+            <span v-if="selectionCount > 0" class="text-xs text-n-brand font-medium">
+              {{ selectionCount }} selecionado{{ selectionCount !== 1 ? 's' : '' }}
+            </span>
+          </div>
+
           <!-- Filter chips row -->
           <div class="flex flex-col gap-2">
             <div class="flex items-center gap-2 flex-wrap">
@@ -367,15 +469,24 @@ const openWhatsApp = phone => {
             <div
               v-for="r in filteredRecords"
               :key="r.customer_id"
-              class="flex flex-col gap-0 outline outline-1 outline-n-container -outline-offset-1 rounded-xl bg-n-solid-2 overflow-hidden"
+              class="flex flex-col gap-0 outline outline-1 -outline-offset-1 rounded-xl bg-n-solid-2 overflow-hidden transition-colors"
+              :class="isSelected(r.customer_id) ? 'outline-n-brand bg-n-brand/5' : 'outline-n-container'"
             >
               <!-- Card header -->
               <div class="flex items-start justify-between gap-2 px-4 pt-4 pb-3">
-                <div class="min-w-0">
-                  <p class="font-semibold text-n-slate-12 text-sm leading-snug truncate">
-                    {{ r.name }}
-                  </p>
-                  <p class="text-xs text-n-slate-10 mt-0.5 truncate">{{ r.cpf_cnpj || '—' }}</p>
+                <div class="flex items-start gap-2.5 min-w-0">
+                  <input
+                    type="checkbox"
+                    class="w-4 h-4 mt-0.5 rounded accent-n-brand cursor-pointer shrink-0"
+                    :checked="isSelected(r.customer_id)"
+                    @change="toggleSelect(r.customer_id)"
+                  />
+                  <div class="min-w-0">
+                    <p class="font-semibold text-n-slate-12 text-sm leading-snug truncate">
+                      {{ r.name }}
+                    </p>
+                    <p class="text-xs text-n-slate-10 mt-0.5 truncate">{{ r.cpf_cnpj || '—' }}</p>
+                  </div>
                 </div>
                 <span
                   class="shrink-0 rounded-full text-xs font-semibold px-2.5 py-0.5 tabular-nums whitespace-nowrap"
@@ -462,6 +573,116 @@ const openWhatsApp = phone => {
       style="background: rgba(0,0,0,0.5)"
     >
       <Spinner :size="36" class="text-white" />
+    </div>
+  </Teleport>
+
+  <!-- Barra de ação em lote (flutuante) -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      enter-from-class="translate-y-4 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition-all duration-150 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-4 opacity-0"
+    >
+      <div
+        v-if="selectionCount > 0"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border border-n-weak bg-n-solid-2"
+        style="min-width: 320px"
+      >
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <span class="i-lucide-check-square w-4 h-4 text-n-brand shrink-0" />
+          <span class="text-sm font-medium text-n-slate-12">
+            {{ selectionCount }} cliente{{ selectionCount !== 1 ? 's' : '' }} selecionado{{ selectionCount !== 1 ? 's' : '' }}
+          </span>
+        </div>
+        <button
+          class="px-3 py-1.5 rounded-lg border border-n-weak text-xs font-medium text-n-slate-11 hover:bg-n-slate-3 transition-colors whitespace-nowrap"
+          @click="clearSelection"
+        >
+          Cancelar
+        </button>
+        <button
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-n-brand text-white text-xs font-semibold hover:bg-n-brand/90 transition-colors whitespace-nowrap"
+          @click="openBulkDispatch"
+        >
+          <span class="i-lucide-send w-3.5 h-3.5" />
+          Disparar em massa
+        </button>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Modal de bulk dispatch -->
+  <Teleport to="body">
+    <div
+      v-if="showBulkDispatch"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-6 sm:pb-0"
+      style="background: rgba(0,0,0,0.65)"
+      @click.self="closeBulkDispatch"
+    >
+      <div class="w-full max-w-md rounded-2xl shadow-2xl border border-n-weak bg-n-solid-2 overflow-hidden">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b border-n-weak">
+          <div>
+            <p class="text-sm font-semibold text-n-slate-12">Disparar em massa</p>
+            <p class="text-xs text-n-slate-10 mt-0.5">{{ selectedRecords.length }} clientes selecionados</p>
+          </div>
+          <button
+            class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-n-slate-3 text-n-slate-10 transition-colors"
+            @click="closeBulkDispatch"
+          >
+            <span class="i-lucide-x w-4 h-4" />
+          </button>
+        </div>
+
+        <!-- Lista de clientes -->
+        <div class="max-h-60 overflow-y-auto divide-y divide-n-weak">
+          <div
+            v-for="r in selectedRecords"
+            :key="r.customer_id"
+            class="flex items-center gap-3 px-5 py-3"
+          >
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium text-n-slate-12 truncate">{{ r.name }}</p>
+              <p class="text-xs text-n-slate-10 mt-0.5">{{ r.phone || 'Sem telefone' }}</p>
+            </div>
+            <span
+              class="shrink-0 rounded-full text-xs font-semibold px-2 py-0.5 tabular-nums"
+              :class="
+                r.max_overdue_days >= 90
+                  ? 'bg-n-ruby-9 text-white'
+                  : r.max_overdue_days >= 30
+                    ? 'bg-n-amber-9 text-white'
+                    : 'bg-n-yellow-9 text-n-slate-12'
+              "
+            >
+              {{ r.max_overdue_days }}d
+            </span>
+          </div>
+        </div>
+
+        <!-- Ações -->
+        <div class="px-5 py-4 border-t border-n-weak flex flex-col gap-2">
+          <button
+            class="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
+            :disabled="bulkDispatching"
+            style="background:#25d366;color:#fff;border:none;cursor:pointer"
+            @click="openWhatsAppBulk"
+          >
+            <span class="i-lucide-message-circle w-4 h-4" />
+            {{ bulkDispatching ? 'Abrindo conversas…' : `Abrir ${selectedRecords.filter(r => r.phone).length} no WhatsApp` }}
+          </button>
+          <button
+            class="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium border border-n-weak text-n-slate-11 hover:bg-n-slate-3 transition-colors"
+            @click="copyAllPhones(); closeBulkDispatch()"
+          >
+            <span class="i-lucide-copy w-4 h-4" />
+            Copiar todos os telefones
+          </button>
+        </div>
+      </div>
     </div>
   </Teleport>
 
