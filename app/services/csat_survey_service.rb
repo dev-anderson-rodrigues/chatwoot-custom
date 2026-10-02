@@ -20,7 +20,10 @@ class CsatSurveyService
   delegate :inbox, :contact, to: :conversation
 
   def should_send_csat_survey?(manual: false)
-    conversation_allows_csat? && (manual || csat_enabled?) && !csat_already_sent? && csat_allowed_by_survey_rules?
+    conversation_allows_csat? &&
+      (manual || csat_enabled?) &&
+      !csat_already_sent? &&
+      (manual || csat_allowed_by_survey_rules?)
   end
 
   def conversation_allows_csat?
