@@ -12,5 +12,8 @@ class Api::V1::Accounts::Conversations::CsatSurveysController < Api::V1::Account
 
     CsatSurveyService.new(conversation: @conversation).perform(manual: true)
     head :ok
+  rescue StandardError => e
+    Rails.logger.error "CsatSurveysController#create failed for conversation #{@conversation&.id}: #{e.message}"
+    render json: { error: 'Failed to send CSAT survey' }, status: :internal_server_error
   end
 end
