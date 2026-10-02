@@ -1,8 +1,8 @@
 class CsatSurveyService
   pattr_initialize [:conversation!]
 
-  def perform
-    return unless should_send_csat_survey?
+  def perform(manual: false)
+    return unless should_send_csat_survey?(manual: manual)
 
     if whatsapp_channel? && template_available_and_approved?
       send_whatsapp_template_survey
@@ -19,8 +19,8 @@ class CsatSurveyService
 
   delegate :inbox, :contact, to: :conversation
 
-  def should_send_csat_survey?
-    conversation_allows_csat? && csat_enabled? && !csat_already_sent? && csat_allowed_by_survey_rules?
+  def should_send_csat_survey?(manual: false)
+    conversation_allows_csat? && (manual || csat_enabled?) && !csat_already_sent? && csat_allowed_by_survey_rules?
   end
 
   def conversation_allows_csat?
