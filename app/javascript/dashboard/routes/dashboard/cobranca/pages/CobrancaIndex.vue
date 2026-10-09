@@ -1,8 +1,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import IxcAPI from '../../../../api/integrations/ixc';
 import IxcCustomerModal from 'dashboard/components/widgets/conversation/IxcCustomerModal.vue';
+
+const router = useRouter();
 
 const loading = ref(false);
 const error = ref('');
@@ -276,6 +279,13 @@ const openWhatsApp = phone => {
             <span v-if="lastUpdate" class="text-xs text-n-slate-10 hidden md:block text-right">
               Atualizado {{ formatTime(lastUpdate) }}
             </span>
+            <button
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-n-weak text-sm font-medium text-n-slate-11 hover:bg-n-slate-3 transition-colors whitespace-nowrap"
+              @click="router.push({ name: 'gestao_cobranca_relatorios' })"
+            >
+              <span class="i-lucide-bar-chart-2 w-3.5 h-3.5" />
+              Relatórios
+            </button>
             <button
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-n-weak text-sm font-medium text-n-slate-11 hover:bg-n-slate-3 transition-colors disabled:opacity-40 whitespace-nowrap"
               :disabled="loading"
