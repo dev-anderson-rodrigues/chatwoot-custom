@@ -425,6 +425,8 @@ Rails.application.routes.draw do
                 get :attendances
                 post :create_attendance
                 delete 'attendances/:id', action: :destroy_attendance
+                get :attendance_stats
+                get :promise_stats
               end
             end
             resource :shopify, controller: 'shopify', only: [:destroy] do
