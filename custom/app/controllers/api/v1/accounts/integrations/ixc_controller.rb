@@ -150,6 +150,9 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
       by_day:       by_day,
       by_agent:     by_agent
     }
+  rescue StandardError => e
+    Rails.logger.error "IxcController#attendance_stats failed: #{e.message}"
+    render json: { error: 'Failed to load attendance stats.' }, status: :internal_server_error
   end
 
   # GET /api/v1/accounts/:account_id/integrations/ixc/promise_stats?from=<unix>&to=<unix>
@@ -190,6 +193,9 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
       by_day:       by_day,
       by_agent:     by_agent
     }
+  rescue StandardError => e
+    Rails.logger.error "IxcController#promise_stats failed: #{e.message}"
+    render json: { error: 'Failed to load promise stats.' }, status: :internal_server_error
   end
 
   # GET /api/v1/accounts/:account_id/integrations/ixc/customer?contact_id=X[&inbox_id=Y]
@@ -213,11 +219,25 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
   private
 
   def parse_period_params
-    from_ts = params[:from].to_i
-    to_ts   = params[:to].to_i
-    from = from_ts > 0 ? Time.at(from_ts).to_date : 30.days.ago.to_date
-    to   = to_ts   > 0 ? Time.at(to_ts).to_date   : Date.today
+    today = Date.today
+    floor = today - 730  # no query older than 2 years
+
+    from = safe_ts_to_date(params[:from].to_i, 30.days.ago.to_date)
+    to   = safe_ts_to_date(params[:to].to_i,   today)
+
+    # Clamp both within [floor, today] then ensure from <= to
+    from = from.clamp(floor, today)
+    to   = to.clamp(floor, today)
+    from = from.clamp(floor, to)
+
     [from, to]
+  end
+
+  def safe_ts_to_date(ts, fallback)
+    return fallback if ts <= 0
+    Time.at(ts).to_date
+  rescue RangeError, ArgumentError
+    fallback
   end
 
   def resolve_contact_id
