@@ -115,6 +115,89 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
     render json: { error: 'Record not found.' }, status: :not_found
   end
 
+  # GET /api/v1/accounts/:account_id/integrations/ixc/attendance_stats?from=<unix>&to=<unix>
+  def attendance_stats
+    from, to = parse_period_params
+
+    scope = IxcAttendance.active
+              .where(account: Current.account)
+              .where(created_at: from.beginning_of_day..to.end_of_day)
+
+    total      = scope.count
+    contacted  = scope.where(resultado: ['Contatado', 'Acordo realizado']).count
+    agreements = scope.where(resultado: 'Acordo realizado').count
+
+    by_day = scope
+      .group('DATE(created_at)')
+      .order('DATE(created_at)')
+      .count
+      .map { |date, count| { date: date.to_s, count: count } }
+
+    by_agent = scope
+      .group(:created_by)
+      .count
+      .map { |uid, count| { name: user_name(uid) || "Usuário ##{uid}", count: count } }
+      .sort_by { |a| -a[:count] }
+
+    render json: {
+      total: total,
+      contacted: contacted,
+      agreements: agreements,
+      contact_rate:   total > 0 ? ((contacted.to_f  / total) * 100).round(1) : 0.0,
+      agreement_rate: total > 0 ? ((agreements.to_f / total) * 100).round(1) : 0.0,
+      by_canal:     scope.group(:canal).count,
+      by_resultado: scope.group(:resultado).count,
+      by_day:       by_day,
+      by_agent:     by_agent
+    }
+  rescue StandardError => e
+    Rails.logger.error "IxcController#attendance_stats failed: #{e.message}"
+    render json: { error: 'Failed to load attendance stats.' }, status: :internal_server_error
+  end
+
+  # GET /api/v1/accounts/:account_id/integrations/ixc/promise_stats?from=<unix>&to=<unix>
+  def promise_stats
+    from, to = parse_period_params
+
+    scope = IxcPromise.active
+              .where(account: Current.account)
+              .where(created_at: from.beginning_of_day..to.end_of_day)
+
+    total        = scope.count
+    total_amount = scope.sum(:amount).to_f.round(2)
+    avg_amount   = total > 0 ? (total_amount / total).round(2) : 0.0
+
+    today        = Date.today
+    pending      = IxcPromise.active.where(account: Current.account).where('promised_date >= ?', today).count
+    upcoming     = IxcPromise.active.where(account: Current.account)
+                     .where(promised_date: today..7.days.from_now.to_date).count
+
+    by_day = scope
+      .group('DATE(created_at)')
+      .order('DATE(created_at)')
+      .count
+      .map { |date, count| { date: date.to_s, count: count } }
+
+    by_agent = scope
+      .group(:created_by)
+      .select('created_by, COUNT(*) AS prom_count, SUM(COALESCE(amount, 0)) AS sum_amount')
+      .map { |r| { name: user_name(r.created_by) || "Usuário ##{r.created_by}", count: r.prom_count, amount: r.sum_amount.to_f.round(2) } }
+      .sort_by { |a| -a[:count] }
+
+    render json: {
+      total:        total,
+      total_amount: total_amount,
+      avg_amount:   avg_amount,
+      pending:      pending,
+      upcoming_week: upcoming,
+      by_day:       by_day,
+      by_agent:     by_agent
+    }
+  rescue StandardError => e
+    Rails.logger.error "IxcController#promise_stats failed: #{e.message}"
+    render json: { error: 'Failed to load promise stats.' }, status: :internal_server_error
+  end
+
   # GET /api/v1/accounts/:account_id/integrations/ixc/customer?contact_id=X[&inbox_id=Y]
   def customer
     contact = Current.account.contacts.find(params[:contact_id])
@@ -134,6 +217,28 @@ class Api::V1::Accounts::Integrations::IxcController < Api::V1::Accounts::Integr
   end
 
   private
+
+  def parse_period_params
+    today = Date.today
+    floor = today - 730  # no query older than 2 years
+
+    from = safe_ts_to_date(params[:from].to_i, 30.days.ago.to_date)
+    to   = safe_ts_to_date(params[:to].to_i,   today)
+
+    # Clamp both within [floor, today] then ensure from <= to
+    from = from.clamp(floor, today)
+    to   = to.clamp(floor, today)
+    from = from.clamp(floor, to)
+
+    [from, to]
+  end
+
+  def safe_ts_to_date(ts, fallback)
+    return fallback if ts <= 0
+    Time.at(ts).to_date
+  rescue RangeError, ArgumentError
+    fallback
+  end
 
   def resolve_contact_id
     id = params[:contact_id].presence

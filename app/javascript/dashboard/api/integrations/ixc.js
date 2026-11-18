@@ -68,6 +68,14 @@ class IxcAPI extends ApiClient {
       params: { contact_id: contactId, erp_customer_id: erpCustomerId },
     });
   }
+
+  getAttendanceStats(from, to) {
+    return axios.get(`${this.url}/attendance_stats`, { params: { from, to } });
+  }
+
+  getPromiseStats(from, to) {
+    return axios.get(`${this.url}/promise_stats`, { params: { from, to } });
+  }
 }
 
 export default new IxcAPI();
